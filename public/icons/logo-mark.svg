@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="vcrown2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E53935"/>
+      <stop offset="100%" stop-color="#9A1F1F"/>
+    </linearGradient>
+  </defs>
+  <path d="M60 6 L100 26 L100 70 C100 94 82 112 60 118 C38 112 20 94 20 70 L20 26 Z" fill="url(#vcrown2)" stroke="#D4AF37" stroke-width="2"/>
+  <path d="M40 36 L60 82 L80 36 L70 36 L60 60 L50 36 Z" fill="#fff"/>
+</svg>

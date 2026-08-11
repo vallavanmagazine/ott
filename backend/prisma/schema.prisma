@@ -1,0 +1,300 @@
+// Vallavan OTT — Prisma schema (DRAFT, Phase 1)
+// Mirror of supabase/schema.sql. Runs against the same Supabase Postgres.
+// Money in integer paise (BigInt). Display strings derived in the service layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")       // Supabase pooled connection
+  directUrl = env("DIRECT_URL")         // Supabase direct connection (migrations)
+}
+
+// ---------- Enums ----------
+enum GenreType {
+  Environment
+  Wildlife
+  History
+  Science
+  Society
+  Investigation
+  Education
+  Culture
+  Motivation
+  SuccessStories @map("Success Stories")
+  LifeLessons    @map("Life Lessons")
+  Changemakers
+  YouthVoices    @map("Youth Voices")
+}
+
+enum ContentStatus { Published Draft }
+
+enum FeedStatus { Published Draft Scheduled }
+
+enum FeedContentType {
+  News
+  Teaser
+  ShortStory @map("Short Story")
+  Other
+}
+
+enum CampaignStatus {
+  Draft
+  PendingApproval @map("Pending Approval")
+  Active
+  Paused
+  Ended
+}
+
+enum UserRole { Viewer Sponsor Creator Admin }
+enum UserStatus { Active Suspended Pending }
+enum SponsorStatus { Active Pending Suspended }
+enum NotificationType { episode live sponsor system }
+
+// ---------- Content ----------
+model Documentary {
+  id          String        @id @default(uuid()) @db.Uuid
+  title       String
+  titleTa     String        @map("title_ta")
+  genre       GenreType
+  durationSec Int           @map("duration_sec")
+  poster      String
+  backdrop    String
+  year        Int
+  language    String
+  synopsis    String
+  synopsisTa  String        @map("synopsis_ta")
+  badge       String?
+  progress    Decimal?      @db.Decimal(4, 3)
+  exclusive   Boolean       @default(false)
+  director    String?
+  cast        String[]
+  status      ContentStatus @default(Published)
+  views       Int           @default(0)
+  sortOrder   Int           @default(0) @map("sort_order")
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("documentaries")
+}
+
+model InspireItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  titleTa     String   @map("title_ta")
+  category    String
+  durationSec Int      @map("duration_sec")
+  poster      String
+  quote       String?
+  attribution String?
+  badge       String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("inspire_items")
+}
+
+model LiveSlot {
+  id          String   @id @default(uuid()) @db.Uuid
+  title       String
+  titleTa     String   @map("title_ta")
+  description String
+  thumb       String
+  startTime24 String   @map("start_time24")
+  durationMin Int      @map("duration_min")
+  isLive      Boolean  @default(false) @map("is_live")
+  airDate     DateTime @default(now()) @map("air_date") @db.Date
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("live_slots")
+}
+
+model FeedReel {
+  id               String          @id @default(uuid()) @db.Uuid
+  title            String
+  titleTa          String          @map("title_ta")
+  caption          String
+  captionTa        String          @map("caption_ta")
+  creator          String
+  creatorHandle    String          @map("creator_handle")
+  contentType      FeedContentType @map("content_type")
+  genre            GenreType
+  durationSec      Int             @map("duration_sec")
+  thumb            String
+  likes            Int             @default(0)
+  comments         Int             @default(0)
+  shares           Int             @default(0)
+  views            Int             @default(0)
+  status           FeedStatus      @default(Published)
+  stripAdHost      Boolean         @default(false) @map("strip_ad_host")
+  bannerAfter      Boolean         @default(false) @map("banner_after")
+  attachedCampaign String?         @map("attached_campaign") @db.Uuid
+  sortOrder        Int             @default(0) @map("sort_order")
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  campaign         Campaign?       @relation(fields: [attachedCampaign], references: [id])
+
+  @@map("feed_reels")
+}
+
+// ---------- Sponsors / Users / Campaigns / Ads ----------
+model AppUser {
+  id        String     @id @default(uuid()) @db.Uuid
+  authId    String?    @unique @map("auth_id") @db.Uuid
+  name      String
+  email     String     @unique
+  role      UserRole   @default(Viewer)
+  status    UserStatus @default(Active)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  sponsors  Sponsor[]
+
+  @@map("app_users")
+}
+
+model Sponsor {
+  id        String        @id @default(uuid()) @db.Uuid
+  ownerId   String?       @map("owner_id") @db.Uuid
+  name      String
+  email     String?
+  status    SponsorStatus @default(Pending)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  owner     AppUser?      @relation(fields: [ownerId], references: [id])
+  campaigns Campaign[]
+  ads       Ad[]
+  wallet    Wallet?
+
+  @@map("sponsors")
+}
+
+model Campaign {
+  id          String         @id @default(uuid()) @db.Uuid
+  sponsorId   String         @map("sponsor_id") @db.Uuid
+  name        String
+  status      CampaignStatus @default(Draft)
+  impressions Int            @default(0)
+  clicks      Int            @default(0)
+  spendPaise  BigInt         @default(0) @map("spend_paise")
+  budgetPaise BigInt         @default(0) @map("budget_paise")
+  startDate   DateTime?      @map("start_date") @db.Date
+  submittedAt DateTime?      @map("submitted_at") @db.Timestamptz(6)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  sponsor     Sponsor        @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+  districts   CampaignDistrict[]
+  ads         Ad[]
+  feedReels   FeedReel[]
+
+  @@map("campaigns")
+}
+
+model District {
+  id        String             @id @default(uuid()) @db.Uuid
+  name      String             @unique
+  campaigns CampaignDistrict[]
+
+  @@map("districts")
+}
+
+model CampaignDistrict {
+  campaignId String   @map("campaign_id") @db.Uuid
+  districtId String   @map("district_id") @db.Uuid
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, districtId])
+  @@map("campaign_districts")
+}
+
+model Ad {
+  id          String    @id @default(uuid()) @db.Uuid
+  sponsor     String
+  sponsorId   String?   @map("sponsor_id") @db.Uuid
+  sponsorLogo String    @default("") @map("sponsor_logo")
+  headline    String
+  body        String
+  cta         String
+  bgImage     String    @map("bg_image")
+  accent      String
+  campaignId  String?   @map("campaign_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  sponsorRef  Sponsor?  @relation(fields: [sponsorId], references: [id])
+  campaign    Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@map("ads")
+}
+
+model AdPlacement {
+  id          String   @id @default(uuid()) @db.Uuid
+  sponsor     String
+  adId        String?  @map("ad_id") @db.Uuid
+  placement   String
+  impressions Int      @default(0)
+  status      String   @default("Live")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("ad_placements")
+}
+
+// ---------- System ----------
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  type      NotificationType
+  title     String
+  titleTa   String?          @map("title_ta")
+  body      String
+  unread    Boolean          @default(true)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actor     String
+  actorId   String?  @map("actor_id") @db.Uuid
+  action    String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("audit_logs")
+}
+
+model TrendingSearch {
+  id        String @id @default(uuid()) @db.Uuid
+  term      String
+  sortOrder Int    @default(0) @map("sort_order")
+
+  @@map("trending_searches")
+}
+
+// ---------- Phase 2 placeholders ----------
+model Wallet {
+  sponsorId    String   @id @map("sponsor_id") @db.Uuid
+  balancePaise BigInt   @default(0) @map("balance_paise")
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  sponsor      Sponsor  @relation(fields: [sponsorId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  sponsorId   String   @map("sponsor_id") @db.Uuid
+  amountPaise BigInt   @map("amount_paise")
+  kind        String
+  reference   String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([kind, reference])
+  @@map("wallet_transactions")
+}
+
+model PricingConfig {
+  id                String   @id @default(uuid()) @db.Uuid
+  basePostPaise     BigInt   @default(0) @map("base_post_paise")
+  perDistrictPaise  BigInt   @default(0) @map("per_district_paise")
+  billDualAsSingle  Boolean  @default(false) @map("bill_dual_as_single")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("pricing_config")
+}

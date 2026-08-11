@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  html {
+    background: #0A0A0A;
+    color: #fff;
+    font-family: 'Noto Sans', 'Noto Sans Tamil', Inter, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    overscroll-behavior: none;
+  }
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+  input, textarea, select {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .hscroll {
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .hscroll::-webkit-scrollbar {
+    display: none;
+  }
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #E6C65A, #D4AF37 50%, #A8861F);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .card-shadow {
+    box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.7);
+  }
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
