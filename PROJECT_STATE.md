@@ -29,9 +29,14 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 8. **Viewer identity stays local (B3 default).** No `viewer_profiles` table in Phase 1; Watch History / Watch Later remain client-side. Schema leaves room to add later.
 9. **Splash doubles as the data-preload window.** `loadInitialData()` fires while the splash animates so Home paints warm and top-level synchronous data reads stay valid without touching screen JSX.
 
+### Repo (done this session)
+- `git init` on `backend-integration-dev`, based on `origin/main` (which held only `README.md`) so history is connected for a future PR.
+- First commit `b0bf33d` (planning docs + schema + Bolt frontend as-is) pushed. **Write access confirmed.**
+- `git ls-remote` verified: `refs/heads/backend-integration-dev` → `b0bf33d`; `refs/heads/main` untouched → `6ac9279`.
+
 ### Not done / next
-- Initialize git, push to `backend-integration-dev`, verify with `git ls-remote` (in progress this session).
-- Then Phase 1 implementation: `seed.sql`, `src/lib` + `src/services` + data hooks, import swaps, NestJS scaffold, splash build, PWA.
+- Phase 1 implementation: `seed.sql`, `src/lib` + `src/services` + data hooks, import swaps, NestJS scaffold, splash build, PWA.
+- **Need from human to run against live data:** a Supabase project URL + anon key + service-role key + DB connection string (B4), or approval to run local Supabase via Docker.
 
 ### Open blockers (see BLOCKERS.md)
 B1 pricing formula · B2 dual-channel billing · B3 viewer accounts (default chosen) · B4 Supabase project provisioning · B5 Meta readiness · B6 Razorpay + live-charge approval · B7 SEO timing · B8 admin write path (default chosen). None block Phase 1 code; B4 blocks *running* against live data.

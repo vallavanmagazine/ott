@@ -8,7 +8,7 @@ Statuses mirrored into `PROJECT_STATE.md` as work lands.
 - [x] Verify GitHub SSH access via `-vallavan` alias (auth + read confirmed)
 - [x] Produce planning docs: CLAUDE, PRD, ARCHITECTURE, CURRENT_SPEC, TASKS, PROJECT_STATE, BLOCKERS
 - [x] Draft Supabase/Prisma schema matching `mockData.ts`
-- [~] `git init`, add remote, create `backend-integration-dev`, first commit, push, verify with `git ls-remote`
+- [x] `git init`, add remote, create `backend-integration-dev`, first commit, push, verify with `git ls-remote` (pushed `b0bf33d`; main untouched at `6ac9279`)
 
 ## Phase 1 — Core Backend + Frontend Data Layer
 ### Schema & data
