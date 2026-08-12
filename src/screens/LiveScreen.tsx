@@ -6,6 +6,7 @@ import { LiveBadge } from '@/components/ui';
 import { liveSchedule as mockSchedule, ads as mockAds, pexelsUrl } from '@/data/mockData';
 import { fetchLiveSchedule } from '@/services/live';
 import { fetchAds } from '@/services/ads';
+import { BroadcastOverlay } from '@/components/broadcast/BroadcastOverlay';
 
 export function LiveScreen({
   onNotifications,
@@ -48,14 +49,17 @@ export function LiveScreen({
           </div>
           <div className="absolute top-3 right-3 px-2 py-1 bg-vred rounded text-[10px] font-black tracking-wider text-white">VALLAVAN TV</div>
 
-          <button onClick={onPlay} className="absolute inset-0 flex items-center justify-center active:scale-95 transition">
+          <button onClick={onPlay} className="absolute inset-0 flex items-center justify-center active:scale-95 transition z-10">
             <div className="w-16 h-16 rounded-full bg-vred/90 flex items-center justify-center shadow-glow">
               <Play size={28} fill="white" className="text-white ml-1" />
             </div>
           </button>
 
+          {/* Broadcast graphics overlay — logo, ticker, lower-third, weather, etc. */}
+          <BroadcastOverlay schedule={schedule} />
+
           {/* Bottom: now-playing + controls */}
-          <div className="absolute bottom-0 left-0 p-4 sm:p-6 lg:p-8 safe-bottom">
+          <div className="absolute bottom-0 left-0 p-4 sm:p-6 lg:p-8 safe-bottom z-30">
             <div className="max-w-[560px]">
               <h2 className="text-lg lg:text-xl font-black text-white leading-tight">{liveNow.title}</h2>
               <p className="text-sm font-tamil text-vgold leading-tight">{liveNow.titleTa}</p>

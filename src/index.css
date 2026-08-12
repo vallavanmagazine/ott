@@ -75,3 +75,24 @@
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* Broadcast news ticker marquee */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: ticker-scroll linear infinite;
+}
+.ticker-slow { animation-duration: 60s; }
+.ticker-medium { animation-duration: 38s; }
+.ticker-fast { animation-duration: 22s; }
+
+@keyframes breaking-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.breaking-pulse { animation: breaking-pulse 1s ease-in-out infinite; }

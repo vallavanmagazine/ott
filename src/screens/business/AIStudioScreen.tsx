@@ -1,11 +1,31 @@
 import { useState } from 'react';
 import { Sparkles, Image, Type, FileText, Wand2 } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
+import { generateAdCreative, type AdCreativeResult } from '@/services/ai';
 
 export function AIStudioScreen({ onBack }: { onBack: () => void }) {
   const [tab, setTab] = useState<'ad' | 'banner' | 'caption'>('ad');
   const [prompt, setPrompt] = useState('');
   const [generated, setGenerated] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [aiResult, setAiResult] = useState<AdCreativeResult | null>(null);
+
+  const handleGenerate = async () => {
+    setAiResult(null);
+    if (tab === 'ad') {
+      setGenerating(true);
+      try {
+        const res = await generateAdCreative({ product: prompt, language: 'Bilingual' });
+        setAiResult(res);
+      } catch (e) {
+        // Backend/Anthropic not configured — show the template preview + a hint.
+        console.warn(e);
+      } finally {
+        setGenerating(false);
+      }
+    }
+    setGenerated(true);
+  };
 
   const tabs = [
     { key: 'ad' as const, label: 'Ad Generation', icon: Sparkles },
@@ -56,11 +76,11 @@ export function AIStudioScreen({ onBack }: { onBack: () => void }) {
         </div>
 
         <button
-          onClick={() => setGenerated(true)}
-          disabled={prompt.length < 3}
+          onClick={handleGenerate}
+          disabled={prompt.length < 3 || generating}
           className="w-full mt-3 py-3.5 rounded-full bg-vred text-white font-bold text-sm active:scale-95 transition disabled:opacity-40 shadow-glow flex items-center justify-center gap-2"
         >
-          <Wand2 size={16} /> Generate
+          <Wand2 size={16} /> {generating ? 'Generating…' : 'Generate'}
         </button>
 
         {/* Preview area */}
@@ -76,10 +96,13 @@ export function AIStudioScreen({ onBack }: { onBack: () => void }) {
                     AI Generated
                   </span>
                   <div>
-                    <h3 className="text-base font-black text-white">{prompt.slice(0, 40) || 'Your Ad Headline Here'}</h3>
-                    <p className="text-xs text-vmuted mt-1">AI-generated copy based on your prompt.</p>
-                    <div className="mt-2 inline-flex px-3 py-1.5 rounded-full bg-white text-black text-[11px] font-bold">Learn More</div>
+                    <h3 className="text-base font-black text-white">{aiResult?.headline || prompt.slice(0, 40) || 'Your Ad Headline Here'}</h3>
+                    <p className="text-xs text-vmuted mt-1">{aiResult?.body || 'AI-generated copy based on your prompt.'}</p>
+                    <div className="mt-2 inline-flex px-3 py-1.5 rounded-full bg-white text-black text-[11px] font-bold">{aiResult?.cta || 'Learn More'}</div>
                   </div>
+                  {!aiResult && (
+                    <span className="absolute bottom-1 right-2 text-[8px] text-vmuted/70">Template preview — configure ANTHROPIC_API_KEY + backend for live AI</span>
+                  )}
                 </div>
               </div>
             )}

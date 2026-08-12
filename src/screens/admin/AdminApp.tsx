@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Users, Film, Tv, Building2, CheckSquare,
   Megaphone, BarChart3, FileText, Settings, ScrollText, LogOut,
-  ChevronLeft, Lock, Clapperboard,
+  ChevronLeft, Lock, Clapperboard, Radio, KeyRound,
 } from 'lucide-react';
 import { AdminLogin } from './AdminLogin';
 import { AdminDashboard } from './AdminDashboard';
@@ -17,6 +17,8 @@ import { AdminRevenueReports } from './AdminRevenueReports';
 import { AdminCMS } from './AdminCMS';
 import { AdminSettings } from './AdminSettings';
 import { AdminAuditLogs } from './AdminAuditLogs';
+import { AdminBroadcast } from './AdminBroadcast';
+import { AdminApiSettings } from './AdminApiSettings';
 import { useAuth } from '@/context/AuthContext';
 
 export type AdminPage =
@@ -30,6 +32,8 @@ export type AdminPage =
   | 'ads'
   | 'revenue'
   | 'cms'
+  | 'broadcast'
+  | 'apisettings'
   | 'settings'
   | 'audit';
 
@@ -42,8 +46,10 @@ const navItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard }[
   { key: 'sponsors', label: 'Sponsors', icon: Building2 },
   { key: 'approvals', label: 'Campaign Approvals', icon: CheckSquare },
   { key: 'ads', label: 'Ad Management', icon: Megaphone },
+  { key: 'broadcast', label: 'Broadcast Control', icon: Radio },
   { key: 'revenue', label: 'Revenue Reports', icon: BarChart3 },
   { key: 'cms', label: 'CMS', icon: FileText },
+  { key: 'apisettings', label: 'API Settings', icon: KeyRound },
   { key: 'settings', label: 'System Settings', icon: Settings },
   { key: 'audit', label: 'Audit Logs', icon: ScrollText },
 ];
@@ -69,6 +75,8 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
       case 'ads': return <AdminAdManagement />;
       case 'revenue': return <AdminRevenueReports />;
       case 'cms': return <AdminCMS />;
+      case 'broadcast': return <AdminBroadcast />;
+      case 'apisettings': return <AdminApiSettings />;
       case 'settings': return <AdminSettings />;
       case 'audit': return <AdminAuditLogs />;
       default: return <AdminDashboard />;
