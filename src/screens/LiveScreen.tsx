@@ -1,8 +1,11 @@
+import { useState, useEffect } from 'react';
 import { Play, Volume2, Maximize, Bell, ChevronRight } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { AdSlot } from '@/components/AdSlot';
 import { LiveBadge } from '@/components/ui';
-import { liveSchedule, ads, pexelsUrl } from '@/data/mockData';
+import { liveSchedule as mockSchedule, ads as mockAds, pexelsUrl } from '@/data/mockData';
+import { fetchLiveSchedule } from '@/services/live';
+import { fetchAds } from '@/services/ads';
 
 export function LiveScreen({
   onNotifications,
@@ -13,7 +16,15 @@ export function LiveScreen({
   onPlay: () => void;
   onBack?: () => void;
 }) {
-  const liveNow = liveSchedule.find((s) => s.isLive)!;
+  const [schedule, setSchedule] = useState(mockSchedule);
+  const [allAds, setAllAds] = useState(mockAds);
+
+  useEffect(() => {
+    fetchLiveSchedule().then(setSchedule);
+    fetchAds().then(setAllAds);
+  }, []);
+
+  const liveNow = schedule.find((s) => s.isLive)!;
 
   return (
     <div>
@@ -74,7 +85,7 @@ export function LiveScreen({
       </section>
 
       {/* Sponsored Banner */}
-      <section className="mt-6 px-4 sm:px-6 lg:px-8"><AdSlot ad={ads[1]} /></section>
+      <section className="mt-6 px-4 sm:px-6 lg:px-8"><AdSlot ad={allAds[1]} /></section>
 
       {/* Today's Schedule */}
       <section className="mt-6 px-4 sm:px-6 lg:px-8">
@@ -87,7 +98,7 @@ export function LiveScreen({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-          {liveSchedule.map((slot) => (
+          {schedule.map((slot) => (
             <div key={slot.id} className={`flex items-center gap-3 p-2.5 rounded-card transition ${slot.isLive ? 'glass-strong border-l-2 border-vred' : 'glass'}`}>
               <div className="relative w-16 h-11 rounded-lg overflow-hidden flex-shrink-0">
                 <img src={pexelsUrl(slot.thumb, 200)} alt={slot.title} className="w-full h-full object-cover" />

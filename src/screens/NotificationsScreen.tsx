@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { X, Tv, PlayCircle, Tag, Info } from 'lucide-react';
-import { notifications } from '@/data/mockData';
+import { notifications as mockNotifications } from '@/data/mockData';
+import { fetchNotifications } from '@/services/notifications';
 
 const typeIcons: Record<string, typeof Tv> = {
   episode: PlayCircle,
@@ -16,6 +18,12 @@ const typeColors: Record<string, string> = {
 };
 
 export function NotificationsScreen({ onBack }: { onBack: () => void }) {
+  const [notifications, setNotifications] = useState(mockNotifications);
+
+  useEffect(() => {
+    fetchNotifications().then(setNotifications);
+  }, []);
+
   const today = notifications.filter((n) => n.unread);
   const earlier = notifications.filter((n) => !n.unread);
 

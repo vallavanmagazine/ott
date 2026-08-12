@@ -5,13 +5,15 @@ import {
 } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
 import {
-  feedReels,
-  ads,
+  feedReels as mockFeedReels,
+  ads as mockAds,
   genreColors,
   pexelsUrl,
   type FeedReel,
   type AdContent,
 } from '@/data/mockData';
+import { fetchFeedReels } from '@/services/feed';
+import { fetchAds } from '@/services/ads';
 
 interface FeedItem {
   type: 'reel';
@@ -26,7 +28,7 @@ interface BannerItem {
 
 type Item = FeedItem | BannerItem;
 
-function buildFeedSequence(): Item[] {
+function buildFeedSequence(feedReels: FeedReel[], ads: AdContent[]): Item[] {
   const items: Item[] = [];
   const sorted = [...feedReels].sort((a, b) => a.order - b.order);
 
@@ -56,8 +58,16 @@ export function FeedScreen({
   onBack?: () => void;
 }) {
   const device = useDevice();
-  const [items] = useState<Item[]>(buildFeedSequence);
+  const [items, setItems] = useState<Item[]>(() => buildFeedSequence(mockFeedReels, mockAds));
+  const [allAds, setAllAds] = useState<AdContent[]>(mockAds);
   const [activeIdx, setActiveIdx] = useState(0);
+
+  useEffect(() => {
+    Promise.all([fetchFeedReels(), fetchAds()]).then(([reels, adList]) => {
+      setAllAds(adList);
+      setItems(buildFeedSequence(reels, adList));
+    });
+  }, []);
   const [muted, setMuted] = useState(true);
   const [liked, setLiked] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
@@ -178,7 +188,7 @@ export function FeedScreen({
           <StripAdTop ad={items[activeIdx].stripAd!} />
         )}
         {items[activeIdx]?.type === 'banner' && (
-          <StripAdTop ad={ads[activeIdx % ads.length]} />
+          <StripAdTop ad={allAds[activeIdx % allAds.length]} />
         )}
 
         <div className="flex items-center justify-between px-4 py-3">

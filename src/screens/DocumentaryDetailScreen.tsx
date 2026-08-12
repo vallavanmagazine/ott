@@ -1,8 +1,9 @@
 import { Play, Plus, Check, Share2, ChevronLeft } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ContentCard } from '@/components/ContentCard';
 import { SectionRow } from '@/components/ui';
-import { genreColors, documentaries, pexelsUrl, type Documentary } from '@/data/mockData';
+import { genreColors, documentaries as mockDocuments, pexelsUrl, type Documentary } from '@/data/mockData';
+import { fetchDocumentaries } from '@/services/documentaries';
 import { useDevice } from '@/hooks/useDevice';
 
 export function DocumentaryDetailScreen({
@@ -17,10 +18,16 @@ export function DocumentaryDetailScreen({
   onCardClick: (d: Documentary) => void;
 }) {
   const [added, setAdded] = useState(false);
+  const [allDocs, setAllDocs] = useState(mockDocuments);
   const device = useDevice();
+
+  useEffect(() => {
+    fetchDocumentaries().then(setAllDocs);
+  }, []);
+
   const genreColor = genreColors[item.genre] || '#666';
-  const related = documentaries.filter((d) => d.genre === item.genre && d.id !== item.id).slice(0, 5);
-  const moreLikeThis = related.length > 0 ? related : documentaries.filter((d) => d.id !== item.id).slice(0, 5);
+  const related = allDocs.filter((d) => d.genre === item.genre && d.id !== item.id).slice(0, 5);
+  const moreLikeThis = related.length > 0 ? related : allDocs.filter((d) => d.id !== item.id).slice(0, 5);
 
   return (
     <div className="min-h-screen bg-vblack text-white">

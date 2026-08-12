@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, Mic, SlidersHorizontal, X, TrendingUp, Clock } from 'lucide-react';
 import { ContentCard } from '@/components/ContentCard';
 import { Chip } from '@/components/ui';
 import {
-  recentSearches, trendingSearches, documentaries, genres,
+  recentSearches, trendingSearches, documentaries as mockDocuments, genres,
   type Documentary,
 } from '@/data/mockData';
+import { fetchDocumentaries } from '@/services/documentaries';
 
 export function SearchScreen({
   onBack,
@@ -18,9 +19,14 @@ export function SearchScreen({
   const [showFilters, setShowFilters] = useState(false);
   const [activeGenre, setActiveGenre] = useState('All');
   const [activeLang, setActiveLang] = useState('All');
+  const [allDocs, setAllDocs] = useState(mockDocuments);
+
+  useEffect(() => {
+    fetchDocumentaries().then(setAllDocs);
+  }, []);
 
   const results = query.length > 0
-    ? documentaries.filter((d) =>
+    ? allDocs.filter((d) =>
         d.title.toLowerCase().includes(query.toLowerCase()) ||
         d.titleTa.includes(query) ||
         d.genre.toLowerCase().includes(query.toLowerCase())

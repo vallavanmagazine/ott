@@ -1,17 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { HeroBanner } from '@/components/HeroBanner';
 import { SectionRow, Chip } from '@/components/ui';
 import { ContentCard } from '@/components/ContentCard';
 import { AdSlot } from '@/components/AdSlot';
 import {
-  documentaries,
-  ads,
+  documentaries as mockDocuments,
+  ads as mockAds,
   genres,
   genreColors,
   pexelsUrl,
   type Documentary,
 } from '@/data/mockData';
+import { fetchDocumentaries } from '@/services/documentaries';
+import { fetchAds } from '@/services/ads';
 
 export function ExploreScreen({
   onSearch,
@@ -27,10 +29,17 @@ export function ExploreScreen({
   onLive: () => void;
 }) {
   const [activeGenre, setActiveGenre] = useState<string>('All');
+  const [allDocs, setAllDocs] = useState(mockDocuments);
+  const [allAds, setAllAds] = useState(mockAds);
+
+  useEffect(() => {
+    fetchDocumentaries().then(setAllDocs);
+    fetchAds().then(setAllAds);
+  }, []);
 
   const filtered = activeGenre === 'All'
-    ? documentaries
-    : documentaries.filter((d) => d.genre === activeGenre);
+    ? allDocs
+    : allDocs.filter((d) => d.genre === activeGenre);
 
   const trending = filtered.slice(0, 5);
   const latest = filtered.filter((d) => d.badge === 'NEW');
@@ -39,7 +48,7 @@ export function ExploreScreen({
   const education = filtered.filter((d) => d.genre === 'Education');
   const allChips = ['All', ...genres];
 
-  const heroDoc = documentaries[2];
+  const heroDoc = allDocs[2];
 
   return (
     <div>
@@ -70,7 +79,7 @@ export function ExploreScreen({
       {trending.length > 0 && (
         <SectionRow title="Trending This Week" titleTa="இந்த வாரம் டிரெண்டிங்" onAction={() => onSeeAll('trending')}>
           {trending.map((d) => (<ContentCard key={d.id} item={d} onClick={() => onCardClick(d)} />))}
-          <AdSlot ad={ads[3]} variant="native" />
+          <AdSlot ad={allAds[3]} variant="native" />
         </SectionRow>
       )}
 
@@ -89,7 +98,7 @@ export function ExploreScreen({
       )}
 
       {/* Sponsored Banner */}
-      <section className="mt-6 px-4 sm:px-6 lg:px-8"><AdSlot ad={ads[1]} /></section>
+      <section className="mt-6 px-4 sm:px-6 lg:px-8"><AdSlot ad={allAds[1]} /></section>
 
       {/* Investigation */}
       {investigation.length > 0 && (

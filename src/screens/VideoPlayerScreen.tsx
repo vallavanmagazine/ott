@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, Maximize,
   Settings, Cast, ChevronLeft, ArrowRight,
 } from 'lucide-react';
-import { type Documentary, pexelsUrl, ads } from '@/data/mockData';
+import { type Documentary, pexelsUrl, ads as mockAds } from '@/data/mockData';
+import { fetchAds } from '@/services/ads';
 
 export function VideoPlayerScreen({
   item,
@@ -18,6 +19,11 @@ export function VideoPlayerScreen({
   const [progress, setProgress] = useState(18);
   const [showControls, setShowControls] = useState(true);
   const [ended, setEnded] = useState(false);
+  const [allAds, setAllAds] = useState(mockAds);
+
+  useEffect(() => {
+    fetchAds().then(setAllAds);
+  }, []);
 
   const togglePlay = () => {
     if (showAd) return;
@@ -38,16 +44,16 @@ export function VideoPlayerScreen({
         {showAd && (
           <div className="absolute inset-0 bg-black flex flex-col">
             <div className="aspect-video w-full bg-black relative">
-              <img src={pexelsUrl(ads[0].bgImage, 800)} alt="" className="w-full h-full object-cover opacity-80" />
+              <img src={pexelsUrl(allAds[0].bgImage, 800)} alt="" className="w-full h-full object-cover opacity-80" />
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent" />
               <div className="absolute top-3 left-3 px-2 py-0.5 bg-vgold rounded text-[9px] font-black uppercase text-black">
                 Ad · 0:05
               </div>
               <div className="absolute bottom-4 left-4 right-4">
-                <div className="text-[10px] text-vgold font-bold">{ads[0].sponsor}</div>
-                <div className="text-base font-black text-white">{ads[0].headline}</div>
+                <div className="text-[10px] text-vgold font-bold">{allAds[0].sponsor}</div>
+                <div className="text-base font-black text-white">{allAds[0].headline}</div>
                 <button className="mt-2 px-3 py-1.5 rounded-full bg-white text-black text-xs font-bold">
-                  {ads[0].cta}
+                  {allAds[0].cta}
                 </button>
               </div>
             </div>
@@ -69,9 +75,9 @@ export function VideoPlayerScreen({
               Mid-roll Ad
             </div>
             <div className="w-full aspect-[16/9] rounded-card overflow-hidden mb-4">
-              <img src={pexelsUrl(ads[1].bgImage, 400)} alt="" className="w-full h-full object-cover" />
+              <img src={pexelsUrl(allAds[1].bgImage, 400)} alt="" className="w-full h-full object-cover" />
             </div>
-            <p className="text-sm font-bold text-white text-center">{ads[1].headline}</p>
+            <p className="text-sm font-bold text-white text-center">{allAds[1].headline}</p>
             <button
               onClick={() => setShowMidRoll(false)}
               className="mt-4 px-5 py-2.5 rounded-full bg-vred text-white text-sm font-bold active:scale-95"

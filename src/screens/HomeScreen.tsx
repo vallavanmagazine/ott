@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Radio } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { HeroBanner } from '@/components/HeroBanner';
@@ -6,13 +6,16 @@ import { SectionRow, LiveBadge } from '@/components/ui';
 import { ContentCard, ContinueWatchingCard } from '@/components/ContentCard';
 import { AdSlot } from '@/components/AdSlot';
 import {
-  documentaries,
-  ads,
-  liveSchedule,
+  documentaries as mockDocuments,
+  ads as mockAds,
+  liveSchedule as mockSchedule,
   genreColors,
   pexelsUrl,
   type Documentary,
 } from '@/data/mockData';
+import { fetchDocumentaries } from '@/services/documentaries';
+import { fetchAds } from '@/services/ads';
+import { fetchLiveSchedule } from '@/services/live';
 
 export function HomeScreen({
   onSearch,
@@ -29,11 +32,21 @@ export function HomeScreen({
   onWatchLive: () => void;
   onLive: () => void;
 }) {
-  const featured = documentaries.slice(0, 3);
-  const popular = documentaries.slice(2, 7);
-  const newReleases = documentaries.filter((d) => d.badge === 'NEW');
-  const continueWatching = documentaries.filter((d) => d.progress != null);
-  const liveNow = liveSchedule.find((s) => s.isLive)!;
+  const [allDocs, setAllDocs] = useState(mockDocuments);
+  const [allAds, setAllAds] = useState(mockAds);
+  const [schedule, setSchedule] = useState(mockSchedule);
+
+  useEffect(() => {
+    fetchDocumentaries().then(setAllDocs);
+    fetchAds().then(setAllAds);
+    fetchLiveSchedule().then(setSchedule);
+  }, []);
+
+  const featured = allDocs.slice(0, 3);
+  const popular = allDocs.slice(2, 7);
+  const newReleases = allDocs.filter((d) => d.badge === 'NEW');
+  const continueWatching = allDocs.filter((d) => d.progress != null);
+  const liveNow = schedule.find((s) => s.isLive)!;
 
   const [heroIdx, setHeroIdx] = useState(0);
   const hero = featured[heroIdx];
@@ -63,7 +76,7 @@ export function HomeScreen({
 
       {/* Sponsored Banner 1 */}
       <section className="mt-6 px-4 sm:px-6 lg:px-8">
-        <AdSlot ad={ads[0]} />
+        <AdSlot ad={allAds[0]} />
       </section>
 
       {/* Continue Watching */}
@@ -80,7 +93,7 @@ export function HomeScreen({
         {popular.map((d) => (
           <ContentCard key={d.id} item={d} onClick={() => onCardClick(d)} />
         ))}
-        <AdSlot ad={ads[1]} variant="native" />
+        <AdSlot ad={allAds[1]} variant="native" />
       </SectionRow>
 
       {/* New Releases */}
@@ -92,7 +105,7 @@ export function HomeScreen({
 
       {/* Sponsored Banner 2 */}
       <section className="mt-6 px-4 sm:px-6 lg:px-8">
-        <AdSlot ad={ads[2]} />
+        <AdSlot ad={allAds[2]} />
       </section>
 
       {/* Live Now Strip */}
@@ -122,7 +135,7 @@ export function HomeScreen({
 
       {/* Editor's Choice */}
       <SectionRow title="Editor's Choice" titleTa="சிறப்புத் தேர்வு" onAction={() => onSeeAll('editor')}>
-        {documentaries.filter((d) => d.exclusive).map((d) => (
+        {allDocs.filter((d) => d.exclusive).map((d) => (
           <ContentCard key={d.id} item={d} onClick={() => onCardClick(d)} />
         ))}
       </SectionRow>

@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { HeroBanner } from '@/components/HeroBanner';
 import { SectionRow, Chip } from '@/components/ui';
 import { AdSlot } from '@/components/AdSlot';
 import {
-  inspireItems,
+  inspireItems as mockInspire,
   inspireCategories,
   genreColors,
   pexelsUrl,
-  ads,
+  ads as mockAds,
   type InspireItem,
 } from '@/data/mockData';
+import { fetchInspireItems } from '@/services/inspire';
+import { fetchAds } from '@/services/ads';
 import { Play } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
 
@@ -25,8 +27,15 @@ export function InspireScreen({
 }) {
   const [activeCat, setActiveCat] = useState('All');
   const [heroIdx, setHeroIdx] = useState(0);
+  const [items, setItems] = useState(mockInspire);
+  const [allAds, setAllAds] = useState(mockAds);
 
-  const filtered = activeCat === 'All' ? inspireItems : inspireItems.filter((i) => i.category === activeCat);
+  useEffect(() => {
+    fetchInspireItems().then(setItems);
+    fetchAds().then(setAllAds);
+  }, []);
+
+  const filtered = activeCat === 'All' ? items : items.filter((i) => i.category === activeCat);
   const featured = filtered.slice(0, 3);
   const hero = featured[heroIdx] || filtered[0];
 
@@ -67,7 +76,7 @@ export function InspireScreen({
       )}
 
       {/* Sponsored */}
-      <section className="mt-6 px-4 sm:px-6 lg:px-8"><AdSlot ad={ads[2]} /></section>
+      <section className="mt-6 px-4 sm:px-6 lg:px-8"><AdSlot ad={allAds[2]} /></section>
 
       {/* Inspiring Lives */}
       {inspiringLives.length > 0 && (
