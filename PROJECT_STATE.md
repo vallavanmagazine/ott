@@ -20,14 +20,16 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 - CreateCampaign / GeoTargeting (`tamilNaduDistricts` static list).
 - `pexelsUrl`, `genreColors`, `genres`, `inspireCategories`, `recentSearches`, `trendingSearches` — static helpers/config, kept in place per CURRENT_SPEC.
 
-### ⚠️ Follow-up for when a real Supabase DB is connected (not blocking now — supabase is null, all fetches fall back to mock)
-The pre-existing services reference table/column names that **do not match** `supabase/schema.sql`. Must reconcile before live data works:
-- `ads.ts` → table `ad_contents` + `sponsor_name`/`status`; schema has table `ads` + `sponsor`, no `status`.
-- `documentaries.ts` → `cast_members`; schema column is `cast`.
-- `live.ts` → `time_display`/`time_24`/`duration_display`; schema has `start_time24`/`duration_min` (12h + "30 min" must be derived).
-- `feed.ts` → `uploaded_at`; schema uses `created_at`.
-- `admin.ts` → table `users` + `joined_at`; schema has `app_users` + `created_at`. Audit `user_email`; schema `actor`. Sponsors campaign-count/spend are placeholder 0 (need join).
-- Decision needed: align services to `schema.sql`, or align schema to services. Recommend aligning services→schema. Logged so it isn't lost.
+### ✅ RESOLVED (Session 2b) — services reconciled to `supabase/schema.sql`
+Schema is source of truth. All service queries/mappers now use the real table & column names. `typecheck` + `build` green; supabase still null so fallback behavior unchanged.
+- `ads.ts` → table `ad_contents`→`ads`; `sponsor_name`→`sponsor`; removed non-existent `.eq('status','Live')` filter (ads table has no status).
+- `documentaries.ts` → `cast_members`→`cast`.
+- `live.ts` → `time_display`/`time_24`/`duration_display` dropped; now derives `time` via `format12Hour(start_time24)` and `duration` via `formatMinutes(duration_min)` (new transforms).
+- `feed.ts` → `uploaded_at`→`created_at`; `attached_campaign` (UUID FK) now resolved to campaign **name** via `select('*, campaign:campaigns(name)')` to match mock shape.
+- `admin.ts` → table `users`→`app_users`, `joined_at`→`created_at`; audit `user_email`→`actor`; `ad_placements.sponsor_name`→`sponsor`; pending-campaign `budget` paise→rupees (÷100); sponsors campaign-count & spend now computed from a `campaigns(spend_paise)` join instead of 0 placeholders.
+- `campaigns.ts` → `spend` paise→rupees (÷100) to match mock's rupee integer.
+- `transforms.ts` → added `format12Hour()` and `formatMinutes()`.
+- `inspire.ts`, `notifications.ts` → already matched schema; no change.
 
 ### Verify
 - Pushed to `backend-integration-dev`; `git ls-remote` re-confirmed. `main` still untouched.

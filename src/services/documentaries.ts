@@ -29,7 +29,7 @@ function rowToDocumentary(row: any): Documentary {
     progress: row.progress ?? undefined,
     exclusive: row.exclusive || undefined,
     director: row.director || undefined,
-    cast: row.cast_members?.length ? row.cast_members : undefined,
+    cast: row.cast?.length ? row.cast : undefined,
   };
 }
 

@@ -20,6 +20,22 @@ export function formatShortDuration(sec: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+/** Convert 24h time "18:00" to 12h display "06:00 PM" (live_slots.start_time24) */
+export function format12Hour(time24: string): string {
+  const [hStr, mStr] = time24.split(':');
+  let h = parseInt(hStr, 10);
+  const m = mStr ?? '00';
+  const period = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h.toString().padStart(2, '0')}:${m} ${period}`;
+}
+
+/** Convert duration_min (integer minutes) to display string "30 min" (live_slots) */
+export function formatMinutes(min: number): string {
+  return `${min} min`;
+}
+
 /** Convert timestamptz to display string "Aug 10, 2024" */
 export function formatDate(dateStr: string): string {
   const d = new Date(dateStr);

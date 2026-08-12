@@ -10,7 +10,7 @@ import {
 function rowToAdContent(row: any): AdContent {
   return {
     id: row.id,
-    sponsor: row.sponsor_name,
+    sponsor: row.sponsor,
     sponsorLogo: row.sponsor_logo,
     headline: row.headline,
     body: row.body,
@@ -24,9 +24,8 @@ export async function fetchAds(): Promise<AdContent[]> {
   if (!supabase) return mockAds;
 
   const { data, error } = await supabase
-    .from('ad_contents')
+    .from('ads')
     .select('*')
-    .eq('status', 'Live')
     .order('created_at', { ascending: false });
 
   if (error || !data) {

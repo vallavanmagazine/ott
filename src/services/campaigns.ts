@@ -21,7 +21,7 @@ export async function fetchCampaigns() {
     status: row.status,
     impressions: row.impressions,
     clicks: row.clicks,
-    spend: row.spend_paise, // integer matching mockData format
+    spend: Number(row.spend_paise) / 100, // paise → rupees (mock spend is rupee integer)
     startDate: row.start_date ? formatDate(row.start_date) : '—',
   }));
 }

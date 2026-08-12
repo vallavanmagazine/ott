@@ -27,10 +27,11 @@ function rowToFeedReel(row: any): FeedReel {
     shares: row.shares,
     views: row.views,
     status: row.status,
-    uploaded: formatDate(row.uploaded_at),
+    uploaded: formatDate(row.created_at),
     stripAdHost: row.strip_ad_host,
     bannerAfter: row.banner_after,
-    attachedCampaign: row.attached_campaign || undefined,
+    // attached_campaign is a UUID FK; mock shape expects the campaign NAME.
+    attachedCampaign: row.campaign?.name || undefined,
     order: row.sort_order,
   };
 }
@@ -40,7 +41,7 @@ export async function fetchFeedReels(): Promise<FeedReel[]> {
 
   const { data, error } = await supabase
     .from('feed_reels')
-    .select('*')
+    .select('*, campaign:campaigns(name)')
     .order('sort_order', { ascending: true });
 
   if (error || !data) {
