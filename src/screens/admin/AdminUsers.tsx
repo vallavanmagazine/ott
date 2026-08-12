@@ -1,16 +1,27 @@
 import { useState, useEffect } from 'react';
-import { Search, MoreVertical, Filter } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import { adminUsers as mockAdminUsers } from '@/data/mockData';
 import { fetchAdminUsers } from '@/services/admin';
+import { suspendUser, activateUser } from '@/services/admin-writes';
 
 export function AdminUsers() {
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [adminUsers, setAdminUsers] = useState(mockAdminUsers);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAdminUsers().then(setAdminUsers);
-  }, []);
+  const load = () => fetchAdminUsers().then(setAdminUsers);
+  useEffect(() => { load(); }, []);
+
+  const toggleStatus = async (id: string, name: string, status: string) => {
+    setBusy(id);
+    try {
+      if (status === 'Suspended') await activateUser(id, name);
+      else await suspendUser(id, name);
+      await load();
+    } catch (e) { alert(`Action failed: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
 
   const filtered = adminUsers.filter((u) => {
     const matchesQuery = u.name.toLowerCase().includes(query.toLowerCase()) || u.email.toLowerCase().includes(query.toLowerCase());
@@ -81,8 +92,16 @@ export function AdminUsers() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10">
-                    <MoreVertical size={14} className="text-vmuted" />
+                  <button
+                    onClick={() => toggleStatus(u.id, u.name, u.status)}
+                    disabled={busy === u.id}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition active:scale-95 disabled:opacity-50 ${
+                      u.status === 'Suspended'
+                        ? 'bg-green-500/15 text-green-400 hover:bg-green-500/25'
+                        : 'bg-red-500/15 text-red-400 hover:bg-red-500/25'
+                    }`}
+                  >
+                    {u.status === 'Suspended' ? 'Activate' : 'Suspend'}
                   </button>
                 </td>
               </tr>

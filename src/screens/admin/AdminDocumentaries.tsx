@@ -1,16 +1,64 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, MoreVertical, Upload, X } from 'lucide-react';
+import { Plus, Search, Trash2, Upload, X } from 'lucide-react';
 import { adminDocumentaries as mockAdminDocs } from '@/data/mockData';
 import { fetchAdminDocumentaries } from '@/services/admin';
+import {
+  createDocumentary, deleteDocumentary, publishDocumentary, unpublishDocumentary,
+} from '@/services/admin-writes';
 
 export function AdminDocumentaries() {
   const [query, setQuery] = useState('');
   const [showUpload, setShowUpload] = useState(false);
   const [adminDocumentaries, setAdminDocumentaries] = useState(mockAdminDocs);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAdminDocumentaries().then(setAdminDocumentaries);
-  }, []);
+  const load = () => fetchAdminDocumentaries().then(setAdminDocumentaries);
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async (id: string, title: string) => {
+    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
+    setBusy(id);
+    try { await deleteDocumentary(id, title); await load(); }
+    catch (e) { alert(`Delete failed: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
+  const handlePublishToggle = async (id: string, title: string, status: string) => {
+    setBusy(id);
+    try {
+      if (status === 'Published') await unpublishDocumentary(id, title);
+      else await publishDocumentary(id, title);
+      await load();
+    } catch (e) { alert(`Action failed: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
+
+  // Add-new form state
+  const [nt, setNt] = useState('');
+  const [ntTa, setNtTa] = useState('');
+  const [ng, setNg] = useState('Environment');
+  const handleCreate = async () => {
+    if (!nt.trim()) { alert('Title is required'); return; }
+    setBusy('new');
+    try {
+      await createDocumentary({
+        title: nt.trim(),
+        titleTa: ntTa.trim() || nt.trim(),
+        genre: ng,
+        durationSec: 0,
+        poster: '30004134',
+        backdrop: '30004134',
+        year: new Date().getFullYear(),
+        language: 'Tamil',
+        synopsis: '',
+        synopsisTa: '',
+        status: 'Draft',
+      });
+      setNt(''); setNtTa(''); setNg('Environment'); setShowUpload(false);
+      await load();
+    } catch (e) { alert(`Create failed: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
+  const genreOptions = ['Environment', 'Wildlife', 'History', 'Science', 'Society', 'Investigation', 'Education', 'Culture'];
 
   const filtered = adminDocumentaries.filter((d) =>
     d.title.toLowerCase().includes(query.toLowerCase())
@@ -66,9 +114,26 @@ export function AdminDocumentaries() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10">
-                    <MoreVertical size={14} className="text-vmuted" />
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => handlePublishToggle(d.id, d.title, d.status)}
+                      disabled={busy === d.id}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition active:scale-95 disabled:opacity-50 ${
+                        d.status === 'Published'
+                          ? 'bg-vgold/15 text-vgold hover:bg-vgold/25'
+                          : 'bg-green-500/15 text-green-400 hover:bg-green-500/25'
+                      }`}
+                    >
+                      {d.status === 'Published' ? 'Unpublish' : 'Publish'}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(d.id, d.title)}
+                      disabled={busy === d.id}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/15 text-vmuted hover:text-red-400 disabled:opacity-50"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -87,21 +152,36 @@ export function AdminDocumentaries() {
               </button>
             </div>
             <div className="space-y-3">
-              <input placeholder="Title (English)" className="w-full px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred" />
-              <input placeholder="தலைப்பு (Tamil)" className="w-full px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred font-tamil" />
-              <select className="w-full px-4 py-3 rounded-xl glass text-sm text-white outline-none">
-                <option>Genre: Environment</option>
-                <option>Genre: Wildlife</option>
-                <option>Genre: History</option>
-                <option>Genre: Science</option>
+              <input
+                value={nt}
+                onChange={(e) => setNt(e.target.value)}
+                placeholder="Title (English)"
+                className="w-full px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred"
+              />
+              <input
+                value={ntTa}
+                onChange={(e) => setNtTa(e.target.value)}
+                placeholder="தலைப்பு (Tamil)"
+                className="w-full px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred font-tamil"
+              />
+              <select
+                value={ng}
+                onChange={(e) => setNg(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl glass text-sm text-white outline-none"
+              >
+                {genreOptions.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
               <div className="border-2 border-dashed border-white/15 rounded-xl p-6 flex flex-col items-center">
                 <Upload size={24} className="text-vmuted mb-2" />
                 <p className="text-sm text-white font-semibold">Drop video file here</p>
                 <p className="text-xs text-vmuted mt-1">MP4, MOV · max 2GB</p>
               </div>
-              <button className="w-full py-3 rounded-full bg-vred text-white font-bold text-sm active:scale-95">
-                Save as Draft
+              <button
+                onClick={handleCreate}
+                disabled={busy === 'new'}
+                className="w-full py-3 rounded-full bg-vred text-white font-bold text-sm active:scale-95 disabled:opacity-50"
+              >
+                {busy === 'new' ? 'Saving…' : 'Save as Draft'}
               </button>
             </div>
           </div>

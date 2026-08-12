@@ -6,6 +6,7 @@ import {
 import { feedReels as mockFeedReels, genres, type FeedReel, type FeedContentType } from '@/data/mockData';
 import { pexelsUrl } from '@/data/mockData';
 import { fetchFeedReels } from '@/services/feed';
+import { createFeedReel, deleteFeedReel } from '@/services/admin-writes';
 
 const contentTypes: FeedContentType[] = ['News', 'Teaser', 'Short Story', 'Other'];
 
@@ -36,9 +37,8 @@ export function AdminFeedContent() {
   const [showUpload, setShowUpload] = useState(false);
   const [filterType, setFilterType] = useState<FeedContentType | 'All'>('All');
 
-  useEffect(() => {
-    fetchFeedReels().then((r) => setReels([...r].sort((a, b) => a.order - b.order)));
-  }, []);
+  const load = () => fetchFeedReels().then((r) => setReels([...r].sort((a, b) => a.order - b.order)));
+  useEffect(() => { load(); }, []);
 
   const filtered = reels.filter((r) => {
     const matchesQuery = r.title.toLowerCase().includes(query.toLowerCase()) || r.titleTa.includes(query);
@@ -58,8 +58,11 @@ export function AdminFeedContent() {
     });
   };
 
-  const deleteReel = (id: string) => {
-    setReels((prev) => prev.filter((r) => r.id !== id));
+  const deleteReel = async (id: string) => {
+    const reel = reels.find((r) => r.id === id);
+    if (!window.confirm(`Delete "${reel?.title ?? 'this reel'}"?`)) return;
+    try { await deleteFeedReel(id, reel?.title); await load(); }
+    catch (e) { alert(`Delete failed: ${(e as Error).message}`); }
   };
 
   const toggleStripAd = (id: string) => {
@@ -210,9 +213,25 @@ export function AdminFeedContent() {
       {showUpload && (
         <UploadModal
           onClose={() => setShowUpload(false)}
-          onAdd={(newReel) => {
-            setReels((prev) => [...prev, newReel]);
-            setShowUpload(false);
+          onAdd={async (newReel) => {
+            try {
+              await createFeedReel({
+                title: newReel.title,
+                titleTa: newReel.titleTa,
+                caption: newReel.caption,
+                captionTa: newReel.captionTa,
+                contentType: newReel.contentType,
+                genre: newReel.genre,
+                durationSec: newReel.durationSec,
+                thumb: newReel.thumb,
+                status: newReel.status,
+                stripAdHost: newReel.stripAdHost,
+                bannerAfter: newReel.bannerAfter,
+                sortOrder: newReel.order,
+              });
+              setShowUpload(false);
+              await load();
+            } catch (e) { alert(`Create failed: ${(e as Error).message}`); }
           }}
           nextOrder={reels.length}
         />

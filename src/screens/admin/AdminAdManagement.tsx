@@ -1,13 +1,24 @@
 import { useState, useEffect } from 'react';
 import { adminAdPlacements as mockAdPlacements } from '@/data/mockData';
 import { fetchAdminAdPlacements } from '@/services/admin';
+import { pauseAdPlacement, resumeAdPlacement } from '@/services/admin-writes';
 
 export function AdminAdManagement() {
   const [adminAdPlacements, setAdminAdPlacements] = useState(mockAdPlacements);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAdminAdPlacements().then(setAdminAdPlacements);
-  }, []);
+  const load = () => fetchAdminAdPlacements().then(setAdminAdPlacements);
+  useEffect(() => { load(); }, []);
+
+  const toggle = async (id: string, placement: string, status: string) => {
+    setBusy(id);
+    try {
+      if (status === 'Paused') await resumeAdPlacement(id, placement);
+      else await pauseAdPlacement(id, placement);
+      await load();
+    } catch (e) { alert(`Action failed: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
 
   return (
     <div className="space-y-4">
@@ -34,6 +45,7 @@ export function AdminAdManagement() {
               <th className="text-left px-4 py-3 font-bold">Placement</th>
               <th className="text-left px-4 py-3 font-bold">Impressions</th>
               <th className="text-left px-4 py-3 font-bold">Status</th>
+              <th className="text-left px-4 py-3 font-bold">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
@@ -43,9 +55,24 @@ export function AdminAdManagement() {
                 <td className="px-4 py-3 text-vmuted">{a.placement}</td>
                 <td className="px-4 py-3 text-vgold font-bold">{a.impressions.toLocaleString('en-IN')}</td>
                 <td className="px-4 py-3">
-                  <span className="px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 text-[10px] font-bold">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    a.status === 'Paused' ? 'bg-vgold/15 text-vgold' : 'bg-green-500/15 text-green-400'
+                  }`}>
                     {a.status}
                   </span>
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => toggle(a.id, a.placement, a.status)}
+                    disabled={busy === a.id}
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition active:scale-95 disabled:opacity-50 ${
+                      a.status === 'Paused'
+                        ? 'bg-green-500/15 text-green-400 hover:bg-green-500/25'
+                        : 'bg-vgold/15 text-vgold hover:bg-vgold/25'
+                    }`}
+                  >
+                    {a.status === 'Paused' ? 'Resume' : 'Pause'}
+                  </button>
                 </td>
               </tr>
             ))}

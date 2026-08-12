@@ -7,6 +7,7 @@ seo-site/node_modules/
 
 # Build output
 dist/
+dist.zip
 build/
 backend/dist/
 seo-site/.next/

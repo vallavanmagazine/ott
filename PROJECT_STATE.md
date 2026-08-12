@@ -4,6 +4,30 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 
 ---
 
+## 2026-08-12 — Session 3: FINAL_AUTONOMOUS_DISPATCH (14 phases)
+
+Executing the 14-phase dispatch (`C:\vallavan_new\FINAL_AUTONOMOUS_DISPATCH.md`). `.env` is now populated → app reads live Supabase. Verified live DB matches reconciled services exactly (documentaries, live_slots start_time24/duration_min, ads sponsor/bg_image, app_users, ad_placements). `app_users`/`campaigns`/`sponsors`/`audit_logs` are empty.
+
+### SQL handed to user — `supabase/rls_and_tables.sql`
+Write RLS (gated on `is_admin()` / sponsor ownership — NOT world-writable, because the anon key is public), new tables (broadcast_config, ticker_items, rss_feeds, ad_insert_points), schema adds (campaigns.target_districts, documentaries/live_slots.video_url, live_slots.break_after_sec), and seed of admin/sponsor app_users rows. User runs this in Supabase SQL Editor.
+
+### Phase 1 — Admin writes (DONE, build green 491 kB)
+- `src/services/admin-writes.ts`: full CRUD + audit logging for documentaries, feed_reels, live_slots, inspire_items; user suspend/activate; campaign approve/reject; ad-placement pause/resume. Every mutation appends an `audit_logs` row. Guarded (throws if supabase null).
+- Wired admin screens (admin UI edits allowed per dispatch rule 6/7):
+  - AdminCampaignApprovals → Approve/Reject
+  - AdminUsers → Suspend/Activate toggle
+  - AdminAdManagement → Pause/Resume (+ status-aware badge, new Action column)
+  - AdminDocumentaries → Delete, Publish/Unpublish, Add (wired modal → createDocumentary Draft)
+  - AdminFeedContent → real Delete + Add (UploadModal → createFeedReel)
+  - AdminLiveTV → Delete + Add-slot modal
+- Writes take effect once an admin is authenticated (Phase 2) and RLS SQL is applied.
+- **Decision:** admin CRUD via direct Supabase client (per dispatch); security via `is_admin()` RLS rather than world-writable policies (anon key is public).
+
+### Deploy status
+Per dispatch rule 5, NOT deploying to VPS this session (build only). Supersedes the earlier SSH deploy attempt.
+
+---
+
 ## 2026-08-12 — Session 2: Wire screens to services
 
 ### Done

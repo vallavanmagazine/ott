@@ -2,13 +2,27 @@ import { useState, useEffect } from 'react';
 import { Check, X, IndianRupee } from 'lucide-react';
 import { adminPendingCampaigns as mockPendingCampaigns } from '@/data/mockData';
 import { fetchAdminPendingCampaigns } from '@/services/admin';
+import { approveCampaign, rejectCampaign } from '@/services/admin-writes';
 
 export function AdminCampaignApprovals() {
   const [adminPendingCampaigns, setAdminPendingCampaigns] = useState(mockPendingCampaigns);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchAdminPendingCampaigns().then(setAdminPendingCampaigns);
-  }, []);
+  const load = () => fetchAdminPendingCampaigns().then(setAdminPendingCampaigns);
+  useEffect(() => { load(); }, []);
+
+  const handleApprove = async (id: string, name: string) => {
+    setBusy(id);
+    try { await approveCampaign(id, name); await load(); }
+    catch (e) { alert(`Approve failed: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
+  const handleReject = async (id: string, name: string) => {
+    setBusy(id);
+    try { await rejectCampaign(id, name); await load(); }
+    catch (e) { alert(`Reject failed: ${(e as Error).message}`); }
+    finally { setBusy(null); }
+  };
 
   return (
     <div className="space-y-4">
@@ -34,10 +48,18 @@ export function AdminCampaignApprovals() {
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <button className="px-3 py-2 rounded-lg bg-green-500/20 text-green-400 text-xs font-bold flex items-center gap-1.5 active:scale-95 hover:bg-green-500/30 transition">
+                <button
+                  onClick={() => handleApprove(c.id, c.name)}
+                  disabled={busy === c.id}
+                  className="px-3 py-2 rounded-lg bg-green-500/20 text-green-400 text-xs font-bold flex items-center gap-1.5 active:scale-95 hover:bg-green-500/30 transition disabled:opacity-50"
+                >
                   <Check size={14} /> Approve
                 </button>
-                <button className="px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-xs font-bold flex items-center gap-1.5 active:scale-95 hover:bg-red-500/30 transition">
+                <button
+                  onClick={() => handleReject(c.id, c.name)}
+                  disabled={busy === c.id}
+                  className="px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-xs font-bold flex items-center gap-1.5 active:scale-95 hover:bg-red-500/30 transition disabled:opacity-50"
+                >
                   <X size={14} /> Reject
                 </button>
               </div>
