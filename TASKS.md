@@ -66,6 +66,33 @@ Statuses mirrored into `PROJECT_STATE.md` as work lands.
 - [ ] Deep-link "Watch Now" into SPA
 
 ## Cross-cutting
-- [ ] `.env` provisioning for a real Supabase project (setup dep — BLOCKERS)
+- [x] `.env` provisioning for a real Supabase project (live DB confirmed)
 - [ ] Service-layer shape tests vs mock snapshot
 - [ ] Backend wallet/approval unit tests
+
+---
+
+## FINAL_AUTONOMOUS_DISPATCH — Phases 1–19 status (Sessions 3–4)
+
+- [x] **Phase 1** Admin CRUD + audit logging (frontend live)
+- [x] **Phase 2** Real Supabase Auth (admin role-gated + sponsor)
+- [x] **Phase 3** Sponsor dashboard / campaign create / wallet billing
+- [x] **Phase 4** Video playback (hls.js, code-split) + geo-detect + ad-engine + ad_events
+- [x] **Phase 5** NestJS backend scaffold: wallet (Razorpay test) + campaigns lifecycle + wallet-api frontend *(server app not installed/run)*
+- [x] **Phase 6** Broadcast overlay — 11 components + Realtime (frontend live)
+- [x] **Phase 7** News feed system (feed_reel + ticker in one action)
+- [x] **Phase 8** Ad timers — `ad_insert_points` table + engine hooks
+- [x] **Phase 9** Schedule engine (client helper: now/next/progress)
+- [x] **Phase 10** Playout service scaffold (FFmpeg/HLS, RSS, upload, Docker) *(not started)*
+- [x] **Phase 11** LiveScreen broadcast experience (overlay integrated)
+- [x] **Phase 12** Admin dashboards — Broadcast Control + API Settings
+- [x] **Phase 13** SEO site scaffold (Next.js SSR, VideoObject JSON-LD, sitemap/robots) *(not installed/built)*
+- [x] **Phase 14** Social publishing — Meta **stub only**
+- [x] **Phase 15** Fast2SMS OTP (backend) *(server-side)*
+- [x] **Phase 16** Resend email service (backend)
+- [x] **Phase 17** WhatsApp notification service (backend)
+- [x] **Phase 18** Firebase push service (backend)
+- [x] **Phase 19** AI Studio — Anthropic ad-creative (frontend + backend)
+
+Frontend: `typecheck` + `build` green (1721 modules, 524 kB main + 525 kB lazy hls).
+Server apps (`backend/`, `playout/`, `seo-site/`) are coherent scaffolds with READMEs; run steps documented, none deployed (build-only mandate).

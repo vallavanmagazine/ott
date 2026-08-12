@@ -1,0 +1,22 @@
+{
+  "name": "vallavan-seo-site",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SSR public layer for crawlable documentary/genre pages, VideoObject JSON-LD, dynamic sitemap.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "next": "^14.2.5",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.5",
+    "typescript": "^5.5.3"
+  }
+}

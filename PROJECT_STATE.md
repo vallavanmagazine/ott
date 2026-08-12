@@ -4,6 +4,54 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 
 ---
 
+## 2026-08-12 — Session 4: Phases 5–19 (autonomous, one execution)
+
+Frontend stays green throughout: **1721 modules, 524 kB main + 525 kB lazy hls chunk.** `backend/`, `playout/`, `seo-site/` are separate apps excluded from the frontend build (own package.json/tsconfig) — scaffolded, coherent, **not installed/built/deployed** in this session.
+
+### Cross-cutting security decision (important)
+Integration secrets (Anthropic, Razorpay secret, Resend, Fast2SMS, WhatsApp, Firebase) are **server-side only**. Two sources: `backend/.env` and the `platform_settings` table (set from the admin **API Settings** page). `platform_settings` has **no client SELECT policy** — values never reach any browser; the admin UI only learns *which* keys are set via `configured_setting_keys()`. NestJS reads values with the service-role key. **Never `VITE_`-prefixed** (that would bundle into the client). Only public values are `VITE_` (Razorpay key_id delivered by backend, `VITE_API_BASE_URL`).
+
+### Phase 5 — Wallet + NestJS backend (scaffold)
+`backend/` NestJS app: `common` (service-role Supabase + SettingsService with DB→env fallback), `wallet` (Razorpay **test-mode only**, refuses non-`rzp_test_` keys; order/verify HMAC/balance/idempotent per-post deduction from `pricing_config`), `campaigns` (lifecycle). Frontend `wallet-api.ts` + BillingScreen Top-Up placeholder.
+
+### Phase 6 + 11 — Broadcast overlay (DONE, frontend live)
+11 components + BroadcastOverlay driven by `broadcast_config` + `ticker_items` via Realtime; integrated into LiveScreen. Weather via Open-Meteo (no key). See Session-3-style notes above.
+
+### Phase 7 — News feed system (DONE)
+`news-feed.ts createNewsItem` → one action writes a `feed_reels` (News, 60-char title) + a `ticker_items` (200-char, 24h). Admin "Quick News Post" in Broadcast Control.
+
+### Phase 8 — Ad timers
+`ad_insert_points` table (in rls_and_tables.sql) for per-program pre/mid/post-roll. Playout `ad-inserter` + browser player use them. Admin timeline editing is minimal (deferred polish).
+
+### Phase 9 — Schedule engine (DONE, client helper)
+`schedule-engine.ts`: current/next program + progress from `live_slots` (drives lower-third + fallback playback). Authoritative adjustment lives in playout.
+
+### Phase 10 — Playout service (scaffold)
+`playout/` standalone Node+FFmpeg app + Dockerfile: scheduler → HLS, playlist-builder, ffmpeg-engine, ad-inserter, schedule-adjuster, filler, health-check, rss-fetcher (15-min ticker auto-fill), upload-server (admin video upload → `/data/videos`). **Not started** (needs FFmpeg + server).
+
+### Phase 12 — Admin dashboards (DONE)
+Broadcast Control Panel + API Settings pages, wired into AdminApp nav.
+
+### Phase 13 — SEO site (scaffold)
+`seo-site/` Next.js App Router: landing, `documentaries/[id]` (dynamic meta/OG + **VideoObject JSON-LD** + Watch-Now deep link), `genre/[genre]`, dynamic `sitemap.xml`, `robots.txt`. **Not installed/built** (would pull full Next toolchain).
+
+### Phase 14 — Social publishing (stub only)
+`backend/social`: Meta publish logs `[STUB] Would publish…`, returns `{success:false}`. No live calls (BLOCKERS B5).
+
+### Phases 15–18 — Messaging (scaffold, server-side)
+`backend/messaging`: **15** Fast2SMS OTP (`/api/otp/send|verify`, codes hashed in `otp_verifications`), **16** Resend email (welcome/approval/receipt), **17** WhatsApp Cloud API, **18** Firebase FCM push. Each reads its key from settings; logs `[skip]` when unset.
+
+### Phase 19 — AI Studio (DONE frontend + backend)
+`backend/ai` Anthropic (`claude-sonnet-5`) `/api/ai/ad-creative`; AIStudioScreen calls it (template fallback when backend/key absent). Key server-side only.
+
+### Judgment calls logged
+- Used hls.js (not Video.js) — Phase 4 decision, code-split.
+- Admin CRUD/sponsor writes via direct Supabase + RLS `is_admin()`/ownership (not world-writable).
+- Server scaffolds (backend/playout/seo) intentionally not installed/run — build-only mandate + heavy toolchains; each has a README with run steps.
+- Meta = stub; Razorpay = test-mode-enforced in code.
+
+---
+
 ## 2026-08-12 — Session 3: FINAL_AUTONOMOUS_DISPATCH (14 phases)
 
 Executing the 14-phase dispatch (`C:\vallavan_new\FINAL_AUTONOMOUS_DISPATCH.md`). `.env` is now populated → app reads live Supabase. Verified live DB matches reconciled services exactly (documentaries, live_slots start_time24/duration_min, ads sponsor/bg_image, app_users, ad_placements). `app_users`/`campaigns`/`sponsors`/`audit_logs` are empty.
