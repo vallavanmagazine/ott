@@ -1,11 +1,19 @@
+import { useState, useEffect } from 'react';
 import {
   Megaphone, TrendingUp, MousePointerClick, IndianRupee,
   ChevronRight, Plus, BarChart3, Eye,
 } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
-import { campaigns } from '@/data/mockData';
+import { campaigns as mockCampaigns } from '@/data/mockData';
+import { fetchCampaigns } from '@/services/campaigns';
 
 export function SponsorDashboard({ onBack, onNavigate }: { onBack: () => void; onNavigate: (item: string) => void }) {
+  const [campaigns, setCampaigns] = useState(mockCampaigns);
+
+  useEffect(() => {
+    fetchCampaigns().then(setCampaigns);
+  }, []);
+
   const active = campaigns.filter((c) => c.status === 'Active').length;
   const totalSpend = campaigns.reduce((s, c) => s + c.spend, 0);
   const totalImp = campaigns.reduce((s, c) => s + c.impressions, 0);

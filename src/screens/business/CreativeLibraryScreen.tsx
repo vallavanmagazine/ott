@@ -1,8 +1,16 @@
+import { useState, useEffect } from 'react';
 import { Download, MoreVertical } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
-import { ads, pexelsUrl } from '@/data/mockData';
+import { ads as mockAds, pexelsUrl } from '@/data/mockData';
+import { fetchAds } from '@/services/ads';
 
 export function CreativeLibraryScreen({ onBack }: { onBack: () => void }) {
+  const [ads, setAds] = useState(mockAds);
+
+  useEffect(() => {
+    fetchAds().then(setAds);
+  }, []);
+
   const creatives = [
     ...ads,
     { id: 'cr1', sponsor: 'A2B Foods', sponsorLogo: '', headline: 'Festive Thali Special', body: '', cta: 'Order Now', bgImage: 'img/723198/pexels-photo-723198.jpeg', accent: '#EF6C00' },

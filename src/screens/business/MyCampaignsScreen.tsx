@@ -1,8 +1,16 @@
+import { useState, useEffect } from 'react';
 import { SubPageHeader } from '@/components/ScreenShell';
 import { StatusTag } from './SponsorDashboard';
-import { campaigns } from '@/data/mockData';
+import { campaigns as mockCampaigns } from '@/data/mockData';
+import { fetchCampaigns } from '@/services/campaigns';
 
 export function MyCampaignsScreen({ onBack }: { onBack: () => void }) {
+  const [campaigns, setCampaigns] = useState(mockCampaigns);
+
+  useEffect(() => {
+    fetchCampaigns().then(setCampaigns);
+  }, []);
+
   return (
     <div className="min-h-screen bg-vblack">
       <SubPageHeader title="My Campaigns" onBack={onBack} />
