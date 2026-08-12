@@ -21,8 +21,8 @@ Statuses mirrored into `PROJECT_STATE.md` as work lands.
 - [ ] `src/services/content.ts` (documentaries, inspire)
 - [ ] `src/services/ads.ts`, `feed.ts`, `live.ts`
 - [ ] `loadInitialData()` preloader (runs behind splash)
-- [ ] Swap imports per screen (Home → Explore → Feed → Inspire → Live → Search → Detail → Player → Notifications → Profile), typecheck after each
-- [ ] Swap admin screens' read imports
+- [x] Swap imports per screen — viewer (Home, Explore, Feed, Inspire, Live, Search, Detail, Player, Notifications; Profile n/a), typecheck green
+- [x] Swap admin screens' read imports (all 8) + business (SponsorDashboard, MyCampaigns, CreativeLibrary); typecheck + build green
 ### Admin CMS writes
 - [ ] NestJS scaffold (`backend/`) OR Supabase RLS-scoped writes (decision → PROJECT_STATE)
 - [ ] Documentaries create/edit/publish

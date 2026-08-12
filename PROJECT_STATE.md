@@ -4,6 +4,36 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 
 ---
 
+## 2026-08-12 — Session 2: Wire screens to services
+
+### Done
+- Wired **all 20 data-consuming screens** to `src/services/*` using the pattern: keep mock import (aliased `mock*`) as `useState` seed + `useEffect` calling `fetchX()`. Zero JSX/structural changes.
+  - Viewer (9): Home, Explore, Live, Inspire, Search, Notifications, DocumentaryDetail, VideoPlayer, Feed.
+  - Admin (8): AdManagement, AuditLogs, CampaignApprovals, Documentaries, FeedContent, LiveTV, Sponsors, Users.
+  - Business (3): SponsorDashboard, MyCampaigns, CreativeLibrary.
+- `FeedScreen.buildFeedSequence()` parametrized to take `(reels, ads)` (was reading module-scope mock) — data-layer only; rebuilt in `useEffect` after fetch.
+- `npm run typecheck` green after each group; `npm run build` green (1696 modules).
+- Committed in 3 groups (`1b34eef` viewer, `a2eadcf` admin, `4189e42` business).
+
+### Not swapped (intentional — no service / static)
+- ProfileScreen (`userProfile` is a single static object; viewers stay local per B3).
+- CreateCampaign / GeoTargeting (`tamilNaduDistricts` static list).
+- `pexelsUrl`, `genreColors`, `genres`, `inspireCategories`, `recentSearches`, `trendingSearches` — static helpers/config, kept in place per CURRENT_SPEC.
+
+### ⚠️ Follow-up for when a real Supabase DB is connected (not blocking now — supabase is null, all fetches fall back to mock)
+The pre-existing services reference table/column names that **do not match** `supabase/schema.sql`. Must reconcile before live data works:
+- `ads.ts` → table `ad_contents` + `sponsor_name`/`status`; schema has table `ads` + `sponsor`, no `status`.
+- `documentaries.ts` → `cast_members`; schema column is `cast`.
+- `live.ts` → `time_display`/`time_24`/`duration_display`; schema has `start_time24`/`duration_min` (12h + "30 min" must be derived).
+- `feed.ts` → `uploaded_at`; schema uses `created_at`.
+- `admin.ts` → table `users` + `joined_at`; schema has `app_users` + `created_at`. Audit `user_email`; schema `actor`. Sponsors campaign-count/spend are placeholder 0 (need join).
+- Decision needed: align services to `schema.sql`, or align schema to services. Recommend aligning services→schema. Logged so it isn't lost.
+
+### Verify
+- Pushed to `backend-integration-dev`; `git ls-remote` re-confirmed. `main` still untouched.
+
+---
+
 ## 2026-08-12 — Session 1: Planning + schema + repo setup
 
 ### Status snapshot
