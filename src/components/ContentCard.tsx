@@ -2,6 +2,7 @@ import { Plus, Play, Check, Star } from 'lucide-react';
 import { useState } from 'react';
 import { type Documentary, genreColors, pexelsUrl } from '@/data/mockData';
 import { useDevice } from '@/hooks/useDevice';
+import { isWatchLater, toggleWatchLater } from '@/lib/library';
 
 interface ContentCardProps {
   item: Documentary;
@@ -11,7 +12,7 @@ interface ContentCardProps {
 }
 
 export function ContentCard({ item, onClick, variant = 'landscape', showProgress }: ContentCardProps) {
-  const [added, setAdded] = useState(false);
+  const [added, setAdded] = useState(() => isWatchLater(item.id));
   const device = useDevice();
   const genreColor = genreColors[item.genre] || '#666';
 
@@ -70,7 +71,7 @@ export function ContentCard({ item, onClick, variant = 'landscape', showProgress
           className="absolute bottom-2 left-2 w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center active:scale-90 transition"
           onClick={(e) => {
             e.stopPropagation();
-            setAdded((v) => !v);
+            setAdded(toggleWatchLater(item));
           }}
         >
           {added ? (

@@ -1,5 +1,5 @@
 import {
-  Camera, ChevronRight, History, Bookmark, Download,
+  Camera, ChevronRight, History, Bookmark,
   Star, Megaphone, BarChart3, CreditCard, LifeBuoy,
   Bot, MessageCircle, Settings, HelpCircle, Info, Heart,
 } from 'lucide-react';
@@ -7,27 +7,38 @@ import { Header } from '@/components/Header';
 import { Divider } from '@/components/ui';
 import { userProfile, pexelsUrl } from '@/data/mockData';
 import { useAuth } from '@/context/AuthContext';
+import { getWatchHistory, getWatchLater } from '@/lib/library';
 
 export function ProfileScreen({
   onNotifications,
-  onSettings,
   onBusinessItem,
   onLive,
+  onWatchHistory,
+  onWatchLater,
+  onAppSettings,
+  onHelp,
+  onAbout,
 }: {
   onNotifications: () => void;
-  onSettings: () => void;
   onBusinessItem: (item: string) => void;
   onLive: () => void;
+  onWatchHistory: () => void;
+  onWatchLater: () => void;
+  onAppSettings: () => void;
+  onHelp: () => void;
+  onAbout: () => void;
 }) {
   const auth = useAuth();
   const name = auth.isLoggedIn ? auth.name : userProfile.name;
   const email = auth.isLoggedIn ? auth.email : userProfile.email;
+  const historyCount = getWatchHistory().length;
+  const laterCount = getWatchLater().length;
 
   return (
     <div>
       <Header
         onNotifications={onNotifications}
-        onSettings={onSettings}
+        onSettings={onAppSettings}
         onLive={onLive}
         showSettings
         showCast={false}
@@ -79,18 +90,18 @@ export function ProfileScreen({
       <section className="px-4 sm:px-6 lg:px-8 mt-5">
         <h3 className="text-[10px] tracking-wider uppercase text-vmuted font-bold mb-2.5 px-1">Account</h3>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
-          <ProfileRow icon={History} label="Watch History" value="32 titles" />
-          <ProfileRow icon={Bookmark} label="Watch Later" value="12 titles" />
-          <ProfileRow icon={Download} label="Downloads" value="3 titles" />
+          <ProfileRow icon={History} label="Watch History" value={`${historyCount} ${historyCount === 1 ? 'title' : 'titles'}`} onClick={onWatchHistory} />
+          <ProfileRow icon={Bookmark} label="Watch Later" value={`${laterCount} saved`} onClick={onWatchLater} />
         </div>
       </section>
 
       {/* Business Center */}
       <section className="px-4 sm:px-6 lg:px-8 mt-5">
-        <div className="flex items-center gap-2 mb-2.5 px-1">
+        <button onClick={() => onBusinessItem('sponsor')} className="flex items-center gap-2 mb-2.5 px-1 active:scale-95 transition">
           <Star size={14} className="text-vgold" fill="currentColor" />
           <h3 className="text-[10px] tracking-wider uppercase text-vgold font-bold">Business Center</h3>
-        </div>
+          <ChevronRight size={12} className="text-vgold" />
+        </button>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
           <ProfileRow icon={Star} label="Become a Sponsor" onClick={() => onBusinessItem('sponsor')} accent />
           <ProfileRow icon={Megaphone} label="Create Campaign" onClick={() => onBusinessItem('create-campaign')} accent />
@@ -131,10 +142,9 @@ export function ProfileScreen({
       <section className="px-4 sm:px-6 lg:px-8">
         <h3 className="text-[10px] tracking-wider uppercase text-vmuted font-bold mb-2.5 px-1">Settings</h3>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
-          <ProfileRow icon={Settings} label="App Settings" onClick={onSettings} />
-          <ProfileRow icon={HelpCircle} label="Help & Support" onClick={onSettings} />
-          <ProfileRow icon={Info} label="About Vallavan" value="v2.1.0" onClick={onSettings} />
-          <ProfileRow icon={Info} label="Admin Panel" value="Internal" onClick={() => { window.location.hash = '#admin'; }} accent />
+          <ProfileRow icon={Settings} label="App Settings" onClick={onAppSettings} />
+          <ProfileRow icon={HelpCircle} label="Help & Support" onClick={onHelp} />
+          <ProfileRow icon={Info} label="About Vallavan" value="v2.1.0" onClick={onAbout} />
         </div>
       </section>
 

@@ -4,6 +4,24 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 
 ---
 
+## 2026-08-12 — Session 5: FIX DISPATCH (6 issues)
+
+Build green: **1730 modules, 540 kB main + 525 kB lazy hls.** Explicit user request authorized editing viewer screens (Profile, BottomNav, Player).
+
+1. **Profile cleanup** — removed Downloads + Admin Panel (admin now only via `#admin`). Activated Watch History / Watch Later (localStorage via `src/lib/library.ts`, real counts), App Settings (`SettingsScreen`: language/notifications/district → `src/lib/prefs.ts`), Help & Support (`HelpScreen`), About (`AboutScreen`). Business Center header now opens the sponsor dashboard. Sponsor Login kept. New overlays wired in App.tsx.
+2. **Bottom nav visibility** — mobile bar changed from `glass-strong` (transparent) to solid `bg-vblack/95 backdrop-blur-xl` matching the header; icons always legible over light content.
+3. **Player auto-rotate** — Screen Orientation API `lock('landscape')` on player mount, `unlock()` on exit, wrapped in try/catch (graceful on desktop/iOS Safari). Also records Watch History on play.
+4. **Admin dashboard dynamic** — `src/services/admin-stats.ts fetchDashboardStats`: real counts (users, docs, active sponsors), revenue = Σ spend_paise/100, views/clicks/CTR from campaigns, new users (7d), revenue-by-week from wallet_transactions, recent activity = last 10 audit_logs.
+5. **All-dynamic** — AdminRevenueReports (`fetchRevenueReport`: totals, by-month, top sponsors), AdminCMS Quick Edit persists SITE_TITLE/SITE_TAGLINE to platform_settings. Campaign approvals already real (Phase 1).
+6. **Razorpay top-up** — BillingScreen loads checkout.js, opens **test-mode** checkout with `VITE_RAZORPAY_KEY_ID`, on success `topUpWallet()` credits `wallets` + inserts `wallet_transactions` (idempotent by payment id) and refreshes. Watch-Later "+" now persists (ContentCard + DetailScreen).
+
+### New SQL (run once): `supabase/wallet_client_rls.sql`
+Sponsor-scoped RLS on `wallets` + `wallet_transactions` so the client top-up can write the signed-in sponsor's own rows. (Production: prefer server-verified `/wallet/verify`.)
+
+### New env var (frontend, public): `VITE_RAZORPAY_KEY_ID` (test key). Documented in new `.env.example`.
+
+---
+
 ## 2026-08-12 — Session 4: Phases 5–19 (autonomous, one execution)
 
 Frontend stays green throughout: **1721 modules, 524 kB main + 525 kB lazy hls chunk.** `backend/`, `playout/`, `seo-site/` are separate apps excluded from the frontend build (own package.json/tsconfig) — scaffolded, coherent, **not installed/built/deployed** in this session.

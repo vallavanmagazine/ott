@@ -8,6 +8,7 @@ import { fetchAds } from '@/services/ads';
 import { detectVideoKind, youtubeEmbedUrl, attachVideo } from '@/lib/video-player';
 import { detectDistrict } from '@/lib/geo-detect';
 import { trackImpression } from '@/services/ad-engine';
+import { addToHistory } from '@/lib/library';
 
 export function VideoPlayerScreen({
   item,
@@ -31,6 +32,17 @@ export function VideoPlayerScreen({
   useEffect(() => {
     fetchAds().then(setAllAds);
     detectDistrict().then(setDistrict);
+    if (item.id !== 'live-player') addToHistory(item);
+
+    // Auto-rotate to landscape on mobile; restore on exit. Graceful fallback
+    // where the Screen Orientation API is unsupported (desktop, iOS Safari).
+    try {
+      const lock = (screen.orientation as unknown as { lock?: (o: string) => Promise<void> })?.lock;
+      lock?.call(screen.orientation, 'landscape').catch(() => {});
+    } catch { /* unsupported */ }
+    return () => {
+      try { (screen.orientation as unknown as { unlock?: () => void })?.unlock?.(); } catch { /* unsupported */ }
+    };
   }, []);
 
   // Attach the real content video once the pre-roll/mid-roll ad is done.

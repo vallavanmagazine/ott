@@ -180,3 +180,31 @@ export async function fetchWallet(): Promise<WalletView> {
     })),
   };
 }
+
+/**
+ * Credit the sponsor wallet after a successful Razorpay (test) payment.
+ * Idempotent by payment reference. Requires the sponsor wallet RLS in
+ * supabase/wallet_client_rls.sql. For production, prefer the NestJS /wallet/verify
+ * path (server-verified signature). Test-mode client credit is fine for now.
+ */
+export async function topUpWallet(amountRupees: number, reference: string): Promise<WalletView> {
+  const sponsorId = await getCurrentSponsorId();
+  if (!supabase || !sponsorId) throw new Error('No sponsor profile linked to this account.');
+  const sb = supabase;
+  const paise = Math.round(amountRupees * 100);
+
+  const { data: existing } = await sb
+    .from('wallet_transactions').select('id').eq('kind', 'topup').eq('reference', reference).maybeSingle();
+
+  if (!existing) {
+    await sb.from('wallet_transactions').insert({ sponsor_id: sponsorId, amount_paise: paise, kind: 'topup', reference });
+    const { data: w } = await sb.from('wallets').select('balance_paise').eq('sponsor_id', sponsorId).maybeSingle();
+    const current = Number(w?.balance_paise ?? 0);
+    await sb.from('wallets').upsert(
+      { sponsor_id: sponsorId, balance_paise: current + paise, updated_at: new Date().toISOString() },
+      { onConflict: 'sponsor_id' },
+    );
+    await logAudit(`Wallet topped up ₹${amountRupees.toLocaleString('en-IN')} (test)`);
+  }
+  return fetchWallet();
+}

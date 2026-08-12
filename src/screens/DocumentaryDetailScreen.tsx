@@ -4,6 +4,7 @@ import { ContentCard } from '@/components/ContentCard';
 import { SectionRow } from '@/components/ui';
 import { genreColors, documentaries as mockDocuments, pexelsUrl, type Documentary } from '@/data/mockData';
 import { fetchDocumentaries } from '@/services/documentaries';
+import { isWatchLater, toggleWatchLater } from '@/lib/library';
 import { useDevice } from '@/hooks/useDevice';
 
 export function DocumentaryDetailScreen({
@@ -17,7 +18,7 @@ export function DocumentaryDetailScreen({
   onPlay: (item: Documentary) => void;
   onCardClick: (d: Documentary) => void;
 }) {
-  const [added, setAdded] = useState(false);
+  const [added, setAdded] = useState(() => isWatchLater(item.id));
   const [allDocs, setAllDocs] = useState(mockDocuments);
   const device = useDevice();
 
@@ -76,7 +77,7 @@ export function DocumentaryDetailScreen({
             <button onClick={() => onPlay(item)} className="w-[180px] sm:w-[200px] py-3 rounded-full bg-vred text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition shadow-glow">
               <Play size={16} fill="currentColor" /> Watch Now
             </button>
-            <button onClick={() => setAdded((v) => !v)} className="w-12 h-12 rounded-full glass text-white font-bold flex items-center justify-center active:scale-95 transition flex-shrink-0">
+            <button onClick={() => setAdded(toggleWatchLater(item))} className="w-12 h-12 rounded-full glass text-white font-bold flex items-center justify-center active:scale-95 transition flex-shrink-0">
               {added ? <Check size={16} className="text-vgold" /> : <Plus size={16} />}
             </button>
           </div>

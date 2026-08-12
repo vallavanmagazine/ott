@@ -12,6 +12,11 @@ import { DocumentaryDetailScreen } from '@/screens/DocumentaryDetailScreen';
 import { VideoPlayerScreen } from '@/screens/VideoPlayerScreen';
 import { SearchScreen } from '@/screens/SearchScreen';
 import { NotificationsScreen } from '@/screens/NotificationsScreen';
+import { SettingsScreen } from '@/screens/SettingsScreen';
+import { HelpScreen } from '@/screens/HelpScreen';
+import { AboutScreen } from '@/screens/AboutScreen';
+import { WatchHistoryScreen } from '@/screens/WatchHistoryScreen';
+import { WatchLaterScreen } from '@/screens/WatchLaterScreen';
 import { SponsorDashboard } from '@/screens/business/SponsorDashboard';
 import { CreateCampaignScreen } from '@/screens/business/CreateCampaignScreen';
 import { AIStudioScreen } from '@/screens/business/AIStudioScreen';
@@ -34,7 +39,12 @@ type Overlay =
   | { type: 'notifications' }
   | { type: 'business'; key: string }
   | { type: 'admin' }
-  | { type: 'live' };
+  | { type: 'live' }
+  | { type: 'settings' }
+  | { type: 'help' }
+  | { type: 'about' }
+  | { type: 'watch-history' }
+  | { type: 'watch-later' };
 
 const SPONSOR_ITEMS = ['sponsor', 'create-campaign', 'my-campaigns', 'campaign-analytics', 'billing'];
 
@@ -174,6 +184,17 @@ function AppInner() {
     return <NotificationsScreen onBack={() => setOverlay({ type: 'none' })} />;
   }
 
+  // --- Profile sub-screens ---
+  if (overlay.type === 'settings') return <SettingsScreen onBack={() => setOverlay({ type: 'none' })} />;
+  if (overlay.type === 'help') return <HelpScreen onBack={() => setOverlay({ type: 'none' })} />;
+  if (overlay.type === 'about') return <AboutScreen onBack={() => setOverlay({ type: 'none' })} />;
+  if (overlay.type === 'watch-history') {
+    return <WatchHistoryScreen onBack={() => setOverlay({ type: 'none' })} onCardClick={(item) => setOverlay({ type: 'detail', item })} />;
+  }
+  if (overlay.type === 'watch-later') {
+    return <WatchLaterScreen onBack={() => setOverlay({ type: 'none' })} onCardClick={(item) => setOverlay({ type: 'detail', item })} />;
+  }
+
   // --- Live screen overlay ---
   if (overlay.type === 'live') {
     return (
@@ -235,9 +256,13 @@ function AppInner() {
       {tab === 'profile' && (
         <ProfileScreen
           onNotifications={openNotifications}
-          onSettings={() => {}}
           onBusinessItem={openBusiness}
           onLive={openLive}
+          onWatchHistory={() => setOverlay({ type: 'watch-history' })}
+          onWatchLater={() => setOverlay({ type: 'watch-later' })}
+          onAppSettings={() => setOverlay({ type: 'settings' })}
+          onHelp={() => setOverlay({ type: 'help' })}
+          onAbout={() => setOverlay({ type: 'about' })}
         />
       )}
 
