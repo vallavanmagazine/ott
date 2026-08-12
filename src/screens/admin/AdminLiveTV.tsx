@@ -1,7 +1,15 @@
+import { useState, useEffect } from 'react';
 import { Plus, Tv, MoreVertical } from 'lucide-react';
-import { liveSchedule } from '@/data/mockData';
+import { liveSchedule as mockSchedule } from '@/data/mockData';
+import { fetchLiveSchedule } from '@/services/live';
 
 export function AdminLiveTV() {
+  const [liveSchedule, setLiveSchedule] = useState(mockSchedule);
+
+  useEffect(() => {
+    fetchLiveSchedule().then(setLiveSchedule);
+  }, []);
+
   return (
     <div className="space-y-4">
       {/* Channel info */}

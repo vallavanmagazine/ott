@@ -1,7 +1,15 @@
+import { useState, useEffect } from 'react';
 import { MoreVertical } from 'lucide-react';
-import { adminSponsors } from '@/data/mockData';
+import { adminSponsors as mockAdminSponsors } from '@/data/mockData';
+import { fetchAdminSponsors } from '@/services/admin';
 
 export function AdminSponsors() {
+  const [adminSponsors, setAdminSponsors] = useState(mockAdminSponsors);
+
+  useEffect(() => {
+    fetchAdminSponsors().then(setAdminSponsors);
+  }, []);
+
   const statusColors: Record<string, string> = {
     Active: 'text-green-400 bg-green-500/15',
     Pending: 'text-vgold bg-vgold/15',

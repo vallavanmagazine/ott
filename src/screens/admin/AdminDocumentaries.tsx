@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, MoreVertical, Upload, X } from 'lucide-react';
-import { adminDocumentaries } from '@/data/mockData';
+import { adminDocumentaries as mockAdminDocs } from '@/data/mockData';
+import { fetchAdminDocumentaries } from '@/services/admin';
 
 export function AdminDocumentaries() {
   const [query, setQuery] = useState('');
   const [showUpload, setShowUpload] = useState(false);
+  const [adminDocumentaries, setAdminDocumentaries] = useState(mockAdminDocs);
+
+  useEffect(() => {
+    fetchAdminDocumentaries().then(setAdminDocumentaries);
+  }, []);
 
   const filtered = adminDocumentaries.filter((d) =>
     d.title.toLowerCase().includes(query.toLowerCase())

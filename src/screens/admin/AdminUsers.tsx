@@ -1,10 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, MoreVertical, Filter } from 'lucide-react';
-import { adminUsers } from '@/data/mockData';
+import { adminUsers as mockAdminUsers } from '@/data/mockData';
+import { fetchAdminUsers } from '@/services/admin';
 
 export function AdminUsers() {
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
+  const [adminUsers, setAdminUsers] = useState(mockAdminUsers);
+
+  useEffect(() => {
+    fetchAdminUsers().then(setAdminUsers);
+  }, []);
 
   const filtered = adminUsers.filter((u) => {
     const matchesQuery = u.name.toLowerCase().includes(query.toLowerCase()) || u.email.toLowerCase().includes(query.toLowerCase());

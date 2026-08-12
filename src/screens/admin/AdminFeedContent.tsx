@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Plus, Search, MoreVertical, Upload, X, ChevronUp, ChevronDown,
   Film, Tag, Calendar, ToggleLeft, ToggleRight,
 } from 'lucide-react';
-import { feedReels, genres, type FeedReel, type FeedContentType } from '@/data/mockData';
+import { feedReels as mockFeedReels, genres, type FeedReel, type FeedContentType } from '@/data/mockData';
 import { pexelsUrl } from '@/data/mockData';
+import { fetchFeedReels } from '@/services/feed';
 
 const contentTypes: FeedContentType[] = ['News', 'Teaser', 'Short Story', 'Other'];
 
@@ -31,9 +32,13 @@ const mockCampaigns = [
 
 export function AdminFeedContent() {
   const [query, setQuery] = useState('');
-  const [reels, setReels] = useState<FeedReel[]>([...feedReels].sort((a, b) => a.order - b.order));
+  const [reels, setReels] = useState<FeedReel[]>([...mockFeedReels].sort((a, b) => a.order - b.order));
   const [showUpload, setShowUpload] = useState(false);
   const [filterType, setFilterType] = useState<FeedContentType | 'All'>('All');
+
+  useEffect(() => {
+    fetchFeedReels().then((r) => setReels([...r].sort((a, b) => a.order - b.order)));
+  }, []);
 
   const filtered = reels.filter((r) => {
     const matchesQuery = r.title.toLowerCase().includes(query.toLowerCase()) || r.titleTa.includes(query);

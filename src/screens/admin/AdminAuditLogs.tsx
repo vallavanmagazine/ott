@@ -1,6 +1,14 @@
-import { adminAuditLogs } from '@/data/mockData';
+import { useState, useEffect } from 'react';
+import { adminAuditLogs as mockAuditLogs } from '@/data/mockData';
+import { fetchAdminAuditLogs } from '@/services/admin';
 
 export function AdminAuditLogs() {
+  const [adminAuditLogs, setAdminAuditLogs] = useState(mockAuditLogs);
+
+  useEffect(() => {
+    fetchAdminAuditLogs().then(setAdminAuditLogs);
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">

@@ -1,6 +1,14 @@
-import { adminAdPlacements } from '@/data/mockData';
+import { useState, useEffect } from 'react';
+import { adminAdPlacements as mockAdPlacements } from '@/data/mockData';
+import { fetchAdminAdPlacements } from '@/services/admin';
 
 export function AdminAdManagement() {
+  const [adminAdPlacements, setAdminAdPlacements] = useState(mockAdPlacements);
+
+  useEffect(() => {
+    fetchAdminAdPlacements().then(setAdminAdPlacements);
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">

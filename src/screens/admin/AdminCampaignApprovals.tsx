@@ -1,7 +1,15 @@
+import { useState, useEffect } from 'react';
 import { Check, X, IndianRupee } from 'lucide-react';
-import { adminPendingCampaigns } from '@/data/mockData';
+import { adminPendingCampaigns as mockPendingCampaigns } from '@/data/mockData';
+import { fetchAdminPendingCampaigns } from '@/services/admin';
 
 export function AdminCampaignApprovals() {
+  const [adminPendingCampaigns, setAdminPendingCampaigns] = useState(mockPendingCampaigns);
+
+  useEffect(() => {
+    fetchAdminPendingCampaigns().then(setAdminPendingCampaigns);
+  }, []);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
