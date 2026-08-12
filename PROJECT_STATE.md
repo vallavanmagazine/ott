@@ -23,6 +23,16 @@ Write RLS (gated on `is_admin()` / sponsor ownership — NOT world-writable, bec
 - Writes take effect once an admin is authenticated (Phase 2) and RLS SQL is applied.
 - **Decision:** admin CRUD via direct Supabase client (per dispatch); security via `is_admin()` RLS rather than world-writable policies (anon key is public).
 
+### Phase 2 — Real Supabase Auth (DONE, build green 492 kB)
+- `src/context/AuthContext.tsx` rewritten: `signInWithPassword`, role fetched from `app_users` by email, `getSession()` + `onAuthStateChange` for persistence. Interface preserved (isLoggedIn/isSponsor/name/email/login/logout) and extended (`isAdmin`, `role`, `loading`). `login` is now `(email, password) => Promise<{ok,error?,role?}>`.
+- `AdminLogin.tsx` → real auth, **admin-role-gated** (non-admin is rejected + signed out), error display.
+- `AdminApp.tsx` → shows panel when `auth.isAdmin` (session persistence); header shows real email.
+- `SponsorLoginModal.tsx` → email+password Supabase sign-in (OTP flow removed; OTP returns in Phase 15).
+- Requires the two auth users (admin@vallavan.in / ads@tamiltea.in) — user created them.
+
+### Phase 15 (future, logged per user request) — OTP + transactional email
+- **Fast2SMS** for OTP (sponsor/viewer phone login) and **Resend** for transactional emails (campaign approvals, receipts, notifications). Not built yet; Supabase built-in email auth used for now. Revisit after Phase 14.
+
 ### Deploy status
 Per dispatch rule 5, NOT deploying to VPS this session (build only). Supersedes the earlier SSH deploy attempt.
 

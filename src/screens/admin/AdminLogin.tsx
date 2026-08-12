@@ -1,10 +1,24 @@
 import { useState } from 'react';
 import { Lock, ArrowRight, X, ShieldCheck } from 'lucide-react';
 import { LogoMark } from '@/components/Logo';
+import { useAuth } from '@/context/AuthContext';
 
 export function AdminLogin({ onLogin, onExit }: { onLogin: () => void; onExit: () => void }) {
+  const auth = useAuth();
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setError('');
+    setLoading(true);
+    const res = await auth.login(email.trim(), pass);
+    setLoading(false);
+    if (!res.ok) { setError(res.error ?? 'Login failed.'); return; }
+    if (res.role !== 'Admin') { setError('This account does not have admin access.'); await auth.logout(); return; }
+    onLogin();
+  };
 
   return (
     <div className="min-h-screen bg-vblack flex flex-col items-center justify-center p-4">
@@ -41,13 +55,16 @@ export function AdminLogin({ onLogin, onExit }: { onLogin: () => void; onExit: (
               className="w-full mt-1.5 px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred"
             />
           </div>
+          {error && (
+            <p className="text-[11px] text-red-400 text-center mb-3 bg-red-500/10 rounded-lg py-2 px-3">{error}</p>
+          )}
           <button
-            onClick={onLogin}
-            className="w-full py-3 rounded-full bg-vred text-white font-bold text-sm active:scale-95 transition flex items-center justify-center gap-2 shadow-glow"
+            onClick={handleLogin}
+            disabled={loading || !email || !pass}
+            className="w-full py-3 rounded-full bg-vred text-white font-bold text-sm active:scale-95 transition flex items-center justify-center gap-2 shadow-glow disabled:opacity-50"
           >
-            Sign In <ArrowRight size={14} />
+            {loading ? 'Signing in…' : <>Sign In <ArrowRight size={14} /></>}
           </button>
-          <p className="text-[10px] text-vgold text-center mt-3">Demo — tap Sign In to enter</p>
         </div>
 
         <button

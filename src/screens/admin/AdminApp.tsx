@@ -17,6 +17,7 @@ import { AdminRevenueReports } from './AdminRevenueReports';
 import { AdminCMS } from './AdminCMS';
 import { AdminSettings } from './AdminSettings';
 import { AdminAuditLogs } from './AdminAuditLogs';
+import { useAuth } from '@/context/AuthContext';
 
 export type AdminPage =
   | 'dashboard'
@@ -48,10 +49,11 @@ const navItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard }[
 ];
 
 export function AdminApp({ onExit }: { onExit: () => void }) {
+  const auth = useAuth();
   const [loggedIn, setLoggedIn] = useState(false);
   const [page, setPage] = useState<AdminPage>('dashboard');
 
-  if (!loggedIn) {
+  if (!loggedIn && !auth.isAdmin) {
     return <AdminLogin onLogin={() => setLoggedIn(true)} onExit={onExit} />;
   }
 
@@ -132,7 +134,7 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
             <ChevronLeft size={16} className="text-white" />
           </button>
           <h1 className="text-lg font-black text-white">{currentLabel}</h1>
-          <div className="ml-auto text-xs text-vmuted">admin@vallavan.in</div>
+          <div className="ml-auto text-xs text-vmuted">{auth.email || 'admin@vallavan.in'}</div>
         </header>
         <div className="p-6">
           {renderPage()}
