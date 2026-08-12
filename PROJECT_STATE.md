@@ -37,6 +37,16 @@ Write RLS (gated on `is_admin()` / sponsor ownership — NOT world-writable, bec
 - BillingScreen → real wallet balance + transactions; Top Up is a Phase-5 placeholder.
 - Graceful when no sponsor row / empty tables (shows zero state). GeoTargeting/CreativeLibrary/CampaignAnalytics remain as-is (pickers/charts) — deeper wiring deferred.
 
+### Phase 4 — Video playback + geo + ad engine (DONE, build green; main 497 kB, hls.js lazy 525 kB chunk)
+- **Decision:** used `hls.js` + native `<video>` + YouTube iframe instead of Video.js (lighter, TS-clean). hls.js is **code-split** (dynamic import) so it only loads when an HLS stream actually plays — main bundle stayed ~497 kB.
+- `src/lib/video-player.ts`: `detectVideoKind`, `youtubeEmbedUrl`, `attachVideo` (lazy hls).
+- `src/lib/geo-detect.ts`: `detectDistrict()` via ip-api.com → nearest TN district, localStorage cache, 'Chennai' default.
+- `src/services/ad-engine.ts`: `getAdsForDistrict` (active campaigns targeting district → ads, graceful fallback), `getVideoAdForViewer`/`getOverlayAdForViewer`, `trackImpression`/`trackClick` → `ad_events`.
+- `Documentary` interface gains `videoUrl?` (additive); documentaries service maps `video_url`.
+- VideoPlayerScreen (Phase 4 authorizes editing this viewer screen): renders real `<video>`/YouTube iframe when `videoUrl` present, else the poster fallback; play/pause drives the element; pre-roll impression tracked with detected district. Ad overlays preserved.
+- Added `ad_events` table + public-insert RLS to `supabase/rls_and_tables.sql` (**re-run that appended section**).
+- No video URLs seeded yet → players fall back to poster until admin sets `video_url` on documentaries/live_slots.
+
 ### Phase 15 (future, logged per user request) — OTP + transactional email
 - **Fast2SMS** for OTP (sponsor/viewer phone login) and **Resend** for transactional emails (campaign approvals, receipts, notifications). Not built yet; Supabase built-in email auth used for now. Revisit after Phase 14.
 

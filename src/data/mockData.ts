@@ -47,6 +47,7 @@ export interface Documentary {
   exclusive?: boolean;
   director?: string;
   cast?: string[];
+  videoUrl?: string;
 }
 
 export interface InspireItem {

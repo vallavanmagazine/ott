@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, Maximize,
   Settings, Cast, ChevronLeft, ArrowRight,
 } from 'lucide-react';
 import { type Documentary, pexelsUrl, ads as mockAds } from '@/data/mockData';
 import { fetchAds } from '@/services/ads';
+import { detectVideoKind, youtubeEmbedUrl, attachVideo } from '@/lib/video-player';
+import { detectDistrict } from '@/lib/geo-detect';
+import { trackImpression } from '@/services/ad-engine';
 
 export function VideoPlayerScreen({
   item,
@@ -20,13 +23,35 @@ export function VideoPlayerScreen({
   const [showControls, setShowControls] = useState(true);
   const [ended, setEnded] = useState(false);
   const [allAds, setAllAds] = useState(mockAds);
+  const [district, setDistrict] = useState('Chennai');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const kind = detectVideoKind(item.videoUrl);
+  const hasRealVideo = kind === 'mp4' || kind === 'hls';
 
   useEffect(() => {
     fetchAds().then(setAllAds);
+    detectDistrict().then(setDistrict);
   }, []);
+
+  // Attach the real content video once the pre-roll/mid-roll ad is done.
+  useEffect(() => {
+    if (showAd || showMidRoll || !hasRealVideo || !item.videoUrl) return;
+    const v = videoRef.current;
+    if (!v) return;
+    const cleanup = attachVideo(v, item.videoUrl);
+    v.play().then(() => setPlaying(true)).catch(() => {});
+    return cleanup;
+  }, [showAd, showMidRoll, hasRealVideo, item.videoUrl]);
+
+  // Count the pre-roll ad impression (best-effort; needs real UUID ads).
+  useEffect(() => {
+    if (showAd && allAds[0]) trackImpression(allAds[0].id, undefined, district);
+  }, [showAd, allAds, district]);
 
   const togglePlay = () => {
     if (showAd) return;
+    const v = videoRef.current;
+    if (v) { if (v.paused) v.play().catch(() => {}); else v.pause(); }
     setPlaying((p) => !p);
     setShowControls(true);
   };
@@ -38,7 +63,24 @@ export function VideoPlayerScreen({
         className="relative flex-1 bg-black"
         onClick={() => setShowControls((s) => !s)}
       >
-        <img src={pexelsUrl(item.backdrop, 800)} alt={item.title} className="absolute inset-0 w-full h-full object-cover opacity-60" />
+        {kind === 'youtube' && !showAd && !showMidRoll && item.videoUrl ? (
+          <iframe
+            src={youtubeEmbedUrl(item.videoUrl)}
+            title={item.title}
+            className="absolute inset-0 w-full h-full"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        ) : hasRealVideo && !showAd && !showMidRoll ? (
+          <video
+            ref={videoRef}
+            className="absolute inset-0 w-full h-full object-contain bg-black"
+            playsInline
+            onEnded={() => setEnded(true)}
+          />
+        ) : (
+          <img src={pexelsUrl(item.backdrop, 800)} alt={item.title} className="absolute inset-0 w-full h-full object-cover opacity-60" />
+        )}
 
         {/* Pre-roll ad overlay */}
         {showAd && (

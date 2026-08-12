@@ -30,6 +30,7 @@ function rowToDocumentary(row: any): Documentary {
     exclusive: row.exclusive || undefined,
     director: row.director || undefined,
     cast: row.cast?.length ? row.cast : undefined,
+    videoUrl: row.video_url || undefined,
   };
 }
 

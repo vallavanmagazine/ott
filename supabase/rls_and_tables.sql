@@ -198,7 +198,31 @@ on conflict (email) do nothing;
 -- values ('Tamil Tea Co.', 'ads@tamiltea.in', 'Active', '<ADS_AUTH_UID>')
 -- on conflict do nothing;
 
+-- ---------------------------------------------------------------------------
+-- 9. Ad events (Phase 4) — anon viewers may append impression/click events;
+--    admins read them for the performance dashboard.
+-- ---------------------------------------------------------------------------
+create table if not exists ad_events (
+  id          uuid primary key default gen_random_uuid(),
+  ad_id       uuid references ads(id) on delete set null,
+  campaign_id uuid references campaigns(id) on delete set null,
+  district    text,
+  kind        text not null,     -- 'impression' | 'click'
+  created_at  timestamptz default now()
+);
+create index if not exists ad_events_campaign_idx on ad_events (campaign_id, kind);
+alter table ad_events enable row level security;
+
+drop policy if exists pub_insert_ad_events on ad_events;
+create policy pub_insert_ad_events on ad_events for insert to anon, authenticated
+  with check (kind in ('impression','click'));
+
+drop policy if exists admin_read_ad_events on ad_events;
+create policy admin_read_ad_events on ad_events for select to authenticated
+  using (public.is_admin());
+
 -- ============================================================================
 -- END. After this: Phase 1 admin CRUD, Phase 2 auth, Phase 3 sponsor flows,
--- and the Phase 6–8 broadcast/ticker/ad-timer features are all unblocked.
+-- Phase 4 ad events, and the Phase 6–8 broadcast/ticker/ad-timer features
+-- are all unblocked.
 -- ============================================================================
