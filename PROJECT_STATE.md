@@ -30,6 +30,13 @@ Write RLS (gated on `is_admin()` / sponsor ownership — NOT world-writable, bec
 - `SponsorLoginModal.tsx` → email+password Supabase sign-in (OTP flow removed; OTP returns in Phase 15).
 - Requires the two auth users (admin@vallavan.in / ads@tamiltea.in) — user created them.
 
+### Phase 3 — Sponsor flows (DONE, build green 494 kB)
+- `src/services/sponsor.ts`: `getCurrentSponsorId()` (owner_id then email), `fetchMyCampaigns`, `createCampaign`/`submitCampaign`/`pause`/`resume`, `createAd`, `fetchWallet`. Money paise↔rupees at the boundary; audit-logged.
+- SponsorDashboard + MyCampaigns → per-sponsor campaigns (dynamic counts, CTR divide-by-zero guard).
+- CreateCampaign → final step inserts a real `Pending Approval` campaign with target_districts + budget.
+- BillingScreen → real wallet balance + transactions; Top Up is a Phase-5 placeholder.
+- Graceful when no sponsor row / empty tables (shows zero state). GeoTargeting/CreativeLibrary/CampaignAnalytics remain as-is (pickers/charts) — deeper wiring deferred.
+
 ### Phase 15 (future, logged per user request) — OTP + transactional email
 - **Fast2SMS** for OTP (sponsor/viewer phone login) and **Resend** for transactional emails (campaign approvals, receipts, notifications). Not built yet; Supabase built-in email auth used for now. Revisit after Phase 14.
 

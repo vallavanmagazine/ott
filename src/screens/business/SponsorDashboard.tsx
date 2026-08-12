@@ -5,20 +5,20 @@ import {
 } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
 import { campaigns as mockCampaigns } from '@/data/mockData';
-import { fetchCampaigns } from '@/services/campaigns';
+import { fetchMyCampaigns } from '@/services/sponsor';
 
 export function SponsorDashboard({ onBack, onNavigate }: { onBack: () => void; onNavigate: (item: string) => void }) {
-  const [campaigns, setCampaigns] = useState(mockCampaigns);
+  const [campaigns, setCampaigns] = useState<typeof mockCampaigns[number][]>(mockCampaigns);
 
   useEffect(() => {
-    fetchCampaigns().then(setCampaigns);
+    fetchMyCampaigns().then(setCampaigns);
   }, []);
 
   const active = campaigns.filter((c) => c.status === 'Active').length;
   const totalSpend = campaigns.reduce((s, c) => s + c.spend, 0);
   const totalImp = campaigns.reduce((s, c) => s + c.impressions, 0);
   const totalClicks = campaigns.reduce((s, c) => s + c.clicks, 0);
-  const ctr = ((totalClicks / totalImp) * 100).toFixed(1);
+  const ctr = totalImp > 0 ? ((totalClicks / totalImp) * 100).toFixed(1) : '0.0';
 
   const stats = [
     { icon: Megaphone, label: 'Active Campaigns', value: String(active), color: '#D32F2F' },

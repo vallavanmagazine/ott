@@ -2,14 +2,18 @@ import { useState, useEffect } from 'react';
 import { SubPageHeader } from '@/components/ScreenShell';
 import { StatusTag } from './SponsorDashboard';
 import { campaigns as mockCampaigns } from '@/data/mockData';
-import { fetchCampaigns } from '@/services/campaigns';
+import { fetchMyCampaigns } from '@/services/sponsor';
 
 export function MyCampaignsScreen({ onBack }: { onBack: () => void }) {
-  const [campaigns, setCampaigns] = useState(mockCampaigns);
+  const [campaigns, setCampaigns] = useState<typeof mockCampaigns[number][]>(mockCampaigns);
 
   useEffect(() => {
-    fetchCampaigns().then(setCampaigns);
+    fetchMyCampaigns().then(setCampaigns);
   }, []);
+
+  const activeCount = campaigns.filter((c) => c.status === 'Active').length;
+  const pendingCount = campaigns.filter((c) => c.status === 'Pending Approval').length;
+  const endedCount = campaigns.filter((c) => c.status === 'Ended').length;
 
   return (
     <div className="min-h-screen bg-vblack">
@@ -19,15 +23,15 @@ export function MyCampaignsScreen({ onBack }: { onBack: () => void }) {
       <div className="px-4 mt-4">
         <div className="grid grid-cols-3 gap-2">
           <div className="p-2.5 rounded-card glass text-center">
-            <div className="text-lg font-black text-green-400">2</div>
+            <div className="text-lg font-black text-green-400">{activeCount}</div>
             <div className="text-[9px] text-vmuted">Active</div>
           </div>
           <div className="p-2.5 rounded-card glass text-center">
-            <div className="text-lg font-black text-vgold">1</div>
+            <div className="text-lg font-black text-vgold">{pendingCount}</div>
             <div className="text-[9px] text-vmuted">Pending</div>
           </div>
           <div className="p-2.5 rounded-card glass text-center">
-            <div className="text-lg font-black text-vmuted">1</div>
+            <div className="text-lg font-black text-vmuted">{endedCount}</div>
             <div className="text-[9px] text-vmuted">Ended</div>
           </div>
         </div>

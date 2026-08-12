@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, ChevronRight, Upload, Sparkles, MapPin, IndianRupee, ArrowLeft } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
 import { tamilNaduDistricts } from '@/data/mockData';
+import { createCampaign } from '@/services/sponsor';
 
 const steps = ['Campaign Name', 'Creative', 'Geo Targeting', 'Budget', 'Review'];
 
@@ -10,6 +11,7 @@ export function CreateCampaignScreen({ onBack }: { onBack: () => void }) {
   const [name, setName] = useState('');
   const [selectedDistricts, setSelectedDistricts] = useState<string[]>(['Chennai', 'Coimbatore', 'Madurai']);
   const [budget, setBudget] = useState('15000');
+  const [submitting, setSubmitting] = useState(false);
 
   const toggleDistrict = (d: string) => {
     setSelectedDistricts((prev) =>
@@ -19,6 +21,23 @@ export function CreateCampaignScreen({ onBack }: { onBack: () => void }) {
 
   const next = () => step < steps.length - 1 && setStep(step + 1);
   const prev = () => step > 0 && setStep(step - 1);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      await createCampaign({
+        name: name.trim() || 'Untitled Campaign',
+        budgetRupees: Number(budget),
+        targetDistricts: selectedDistricts,
+        submit: true,
+      });
+      onBack();
+    } catch (e) {
+      alert(`Could not submit campaign: ${(e as Error).message}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-vblack">
@@ -147,8 +166,12 @@ export function CreateCampaignScreen({ onBack }: { onBack: () => void }) {
               <ArrowLeft size={14} /> Back
             </button>
           )}
-          <button onClick={step === steps.length - 1 ? onBack : next} className="flex-1 py-3 rounded-full bg-vred text-white font-bold text-sm active:scale-95 transition flex items-center justify-center gap-1.5 shadow-glow">
-            {step === steps.length - 1 ? 'Submit Campaign' : 'Continue'}
+          <button
+            onClick={step === steps.length - 1 ? handleSubmit : next}
+            disabled={submitting}
+            className="flex-1 py-3 rounded-full bg-vred text-white font-bold text-sm active:scale-95 transition flex items-center justify-center gap-1.5 shadow-glow disabled:opacity-50"
+          >
+            {step === steps.length - 1 ? (submitting ? 'Submitting…' : 'Submit Campaign') : 'Continue'}
             <ChevronRight size={14} />
           </button>
         </div>
