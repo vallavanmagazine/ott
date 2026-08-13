@@ -7,6 +7,7 @@ import { feedReels as mockFeedReels, genres, type FeedReel, type FeedContentType
 import { pexelsUrl } from '@/data/mockData';
 import { fetchFeedReels } from '@/services/feed';
 import { createFeedReel, deleteFeedReel } from '@/services/admin-writes';
+import { DyneTubeUpload } from '@/components/DyneTubeUpload';
 
 const contentTypes: FeedContentType[] = ['News', 'Teaser', 'Short Story', 'Other'];
 
@@ -323,6 +324,7 @@ function UploadModal({
           <div>
             <label className="text-[10px] uppercase tracking-wider text-vmuted font-bold">Video URL (YouTube / HLS / MP4)</label>
             <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://…" className="w-full mt-1 px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred" />
+            <div className="mt-2"><DyneTubeUpload onUploaded={setVideoUrl} /></div>
           </div>
           <div>
             <label className="text-[10px] uppercase tracking-wider text-vmuted font-bold">Thumbnail URL / Pexels id</label>

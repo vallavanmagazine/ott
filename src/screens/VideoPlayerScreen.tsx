@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize, Minimize,
-  Cast, ChevronLeft, ArrowRight,
+  Cast, ChevronLeft, ArrowRight, X,
 } from 'lucide-react';
-import { type Documentary, genreColors, pexelsUrl, ads as mockAds } from '@/data/mockData';
-import { fetchAds } from '@/services/ads';
+import { type Documentary, genreColors, pexelsUrl } from '@/data/mockData';
 import { fetchDocumentaries } from '@/services/documentaries';
 import { ContentCard } from '@/components/ContentCard';
 import { SectionRow } from '@/components/ui';
 import { detectVideoKind, youtubeEmbedUrl, attachVideo } from '@/lib/video-player';
 import { detectDistrict } from '@/lib/geo-detect';
-import { trackImpression } from '@/services/ad-engine';
+import { getVideoAd, getOverlayAd, getHouseAd, trackAdImpression, trackAdClick, type ServedAd } from '@/services/ad-engine';
 import { addToHistory } from '@/lib/library';
 
 function fmt(sec: number): string {
@@ -19,6 +18,8 @@ function fmt(sec: number): string {
   const s = Math.floor(sec % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
+
+const MIDROLL_MIN_SEC = 300; // mid-roll only for videos longer than 5 min
 
 export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
   item: Documentary;
@@ -31,7 +32,7 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
   const hasNoVideo = kind === 'none';
 
   const [playing, setPlaying] = useState(false);
-  const [showAd, setShowAd] = useState(!hasNoVideo);
+  const [showAd, setShowAd] = useState(!hasNoVideo);       // pre-roll (mandatory)
   const [adCountdown, setAdCountdown] = useState(5);
   const [showMidRoll, setShowMidRoll] = useState(false);
   const [midRollShown, setMidRollShown] = useState(false);
@@ -41,34 +42,50 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
   const [duration, setDuration] = useState(item.durationSec || 0);
   const [muted, setMuted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [allAds, setAllAds] = useState(mockAds);
   const [district, setDistrict] = useState('Chennai');
   const [related, setRelated] = useState<Documentary[]>([]);
 
+  // Geo-targeted ad creatives per slot.
+  const [preroll, setPreroll] = useState<ServedAd>(getHouseAd());
+  const [midroll, setMidroll] = useState<ServedAd>(getHouseAd());
+  const [postroll, setPostroll] = useState<ServedAd>(getHouseAd());
+  const [strip, setStrip] = useState<ServedAd>(getHouseAd());
+  const [stripVisible, setStripVisible] = useState(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const prerollTracked = useRef(false);
+  const stripSchedule = useRef<((ms: number) => void) | null>(null);
 
-  // Reset when the item changes (playing a related video inline).
+  // Reset + fetch geo-targeted ads whenever the item changes.
   useEffect(() => {
-    setShowAd(detectVideoKind(item.videoUrl) !== 'none');
-    setShowMidRoll(false); setMidRollShown(false); setEnded(false);
+    const noVideo = detectVideoKind(item.videoUrl) === 'none';
+    setShowAd(!noVideo); setShowMidRoll(false); setMidRollShown(false); setEnded(false);
     setCurrentTime(0); setDuration(item.durationSec || 0); setPlaying(false);
+    setStripVisible(false); prerollTracked.current = false;
     if (item.id !== 'live-player') addToHistory(item);
-    fetchAds().then(setAllAds);
-    detectDistrict().then(setDistrict);
     fetchDocumentaries().then((docs) => setRelated(docs.filter((d) => d.id !== item.id && d.genre === item.genre).slice(0, 8)));
+
+    detectDistrict().then(async (d) => {
+      setDistrict(d);
+      const pre = await getVideoAd(d);
+      setPreroll(pre);
+      setMidroll(await getVideoAd(d, [pre.ad.id]));         // rotate: different from pre-roll
+      setPostroll(await getOverlayAd(d, [pre.ad.id]));
+      setStrip(await getOverlayAd(d));
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id]);
 
-  // Pre-roll countdown → auto-dismiss.
+  // Pre-roll countdown + impression (mandatory before content).
   useEffect(() => {
     if (!showAd) return;
-    if (allAds[0]) trackImpression(allAds[0].id, undefined, district);
+    if (!prerollTracked.current) { trackAdImpression(preroll.ad.id, preroll.campaignId, district, 'preroll'); prerollTracked.current = true; }
     setAdCountdown(5);
     const t = setInterval(() => setAdCountdown((c) => { if (c <= 1) { clearInterval(t); setShowAd(false); return 0; } return c - 1; }), 1000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showAd, allAds, district]);
+  }, [showAd, preroll, district]);
 
   // Attach native/HLS video once ads are done.
   useEffect(() => {
@@ -80,15 +97,33 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
     return cleanup;
   }, [showAd, showMidRoll, hasRealVideo, item.videoUrl]);
 
-  // Fullscreen state + landscape lock ONLY while fullscreen (no auto-rotate on play).
+  // Timer-based STRIP overlay: first at 30s, shows 8s, then every 90s; dismiss → 2 min.
+  useEffect(() => {
+    if (showAd || showMidRoll || ended || hasNoVideo) return;
+    let hideT: ReturnType<typeof setTimeout>;
+    let nextT: ReturnType<typeof setTimeout>;
+    const show = () => {
+      setStripVisible(true);
+      trackAdImpression(strip.ad.id, strip.campaignId, district, 'strip');
+      hideT = setTimeout(() => { setStripVisible(false); schedule(90_000); }, 8_000);
+    };
+    const schedule = (ms: number) => { nextT = setTimeout(show, ms); };
+    stripSchedule.current = (ms: number) => { clearTimeout(hideT); clearTimeout(nextT); setStripVisible(false); schedule(ms); };
+    schedule(30_000);
+    return () => { clearTimeout(hideT); clearTimeout(nextT); stripSchedule.current = null; };
+  }, [showAd, showMidRoll, ended, hasNoVideo, strip, district]);
+
+  // Post-roll impression when the end card appears.
+  useEffect(() => { if (ended) trackAdImpression(postroll.ad.id, postroll.campaignId, district, 'postroll'); }, [ended, postroll, district]);
+
+  // Fullscreen state + landscape lock only while fullscreen.
   useEffect(() => {
     const onFs = () => {
       const fs = !!document.fullscreenElement;
       setIsFullscreen(fs);
       try {
         const o = screen.orientation as unknown as { lock?: (x: string) => Promise<void>; unlock?: () => void };
-        if (fs) o?.lock?.('landscape').catch(() => {});
-        else o?.unlock?.();
+        if (fs) o?.lock?.('landscape').catch(() => {}); else o?.unlock?.();
       } catch { /* unsupported */ }
     };
     document.addEventListener('fullscreenchange', onFs);
@@ -99,19 +134,16 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
   const onTimeUpdate = () => {
     const v = videoRef.current; if (!v) return;
     setCurrentTime(v.currentTime);
-    if (!midRollShown && v.duration > 0 && v.currentTime / v.duration >= 0.5) { setMidRollShown(true); setShowMidRoll(true); v.pause(); }
+    if (!midRollShown && v.duration > MIDROLL_MIN_SEC && v.currentTime / v.duration >= 0.5) { setMidRollShown(true); setShowMidRoll(true); v.pause(); }
   };
   const seek = (e: React.ChangeEvent<HTMLInputElement>) => { const v = videoRef.current; const t = Number(e.target.value); setCurrentTime(t); if (v) v.currentTime = t; };
   const toggleMute = () => { const v = videoRef.current; const n = !muted; setMuted(n); if (v) v.muted = n; };
   const skip = (d: number) => { const v = videoRef.current; if (v) v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + d)); };
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) stageRef.current?.requestFullscreen?.().catch(() => {});
-    else document.exitFullscreen?.().catch(() => {});
-  };
+  const toggleFullscreen = () => { if (!document.fullscreenElement) stageRef.current?.requestFullscreen?.().catch(() => {}); else document.exitFullscreen?.().catch(() => {}); };
+  const dismissStrip = () => { setStripVisible(false); stripSchedule.current?.(120_000); };
 
-  const ad = allAds[0];
-  const midAd = allAds[1] ?? allAds[0];
   const genreColor = genreColors[item.genre] || '#666';
+  const nextUp = related[0];
 
   return (
     <div className="pb-20 min-h-screen">
@@ -124,10 +156,10 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
         </div>
       </header>
 
-      {/* 16:9 video stage — horizontal even in portrait */}
+      {/* 16:9 video stage */}
       <div ref={stageRef} className="relative w-full aspect-video bg-black" onClick={() => setShowControls((s) => !s)}>
-        {isYouTube && !showAd && !showMidRoll && item.videoUrl ? (
-          <iframe src={youtubeEmbedUrl(item.videoUrl)} title={item.title} className="absolute inset-0 w-full h-full" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
+        {isYouTube && !showAd && !showMidRoll ? (
+          <iframe src={youtubeEmbedUrl(item.videoUrl!)} title={item.title} className="absolute inset-0 w-full h-full" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
         ) : hasRealVideo && !showAd && !showMidRoll ? (
           <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain bg-black" playsInline
             onClick={togglePlay} onTimeUpdate={onTimeUpdate} onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
@@ -144,39 +176,51 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
           </>
         )}
 
-        {/* Pre-roll ad */}
-        {showAd && ad && (
-          <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-20">
-            <img src={pexelsUrl(ad.bgImage, 800)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-            <div className="absolute top-2 left-2 px-2 py-0.5 bg-vgold rounded text-[9px] font-black uppercase text-black">Ad · {adCountdown}s</div>
-            <div className="relative text-center px-4">
-              <div className="text-[10px] text-vgold font-bold">{ad.sponsor}</div>
-              <div className="text-sm font-black text-white">{ad.headline}</div>
-            </div>
-            <button onClick={(e) => { e.stopPropagation(); setShowAd(false); }} disabled={adCountdown > 0} className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full glass text-white text-xs font-bold disabled:opacity-40">
-              {adCountdown > 0 ? `Skip ${adCountdown}s` : <>Skip <ArrowRight size={12} className="inline" /></>}
-            </button>
-          </div>
+        {/* PRE-ROLL (mandatory) */}
+        {showAd && (
+          <AdCard slot="pre" served={preroll} countdown={adCountdown} district={district}
+            onSkip={() => setShowAd(false)} />
         )}
 
-        {/* Mid-roll */}
+        {/* MID-ROLL */}
         {showMidRoll && (
-          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-4 z-20">
-            <div className="px-2 py-0.5 bg-vgold rounded text-[9px] font-black uppercase text-black mb-2">Mid-roll Ad</div>
-            <p className="text-sm font-bold text-white text-center">{midAd.headline}</p>
-            <button onClick={(e) => { e.stopPropagation(); setShowMidRoll(false); videoRef.current?.play().catch(() => {}); }} className="mt-3 px-4 py-2 rounded-full bg-vred text-white text-xs font-bold">Skip Ad</button>
-          </div>
+          <AdCard slot="mid" served={midroll} countdown={0} district={district}
+            onSkip={() => { setShowMidRoll(false); videoRef.current?.play().catch(() => {}); }} />
         )}
 
-        {/* End overlay */}
+        {/* POST-ROLL sponsor card + Watch Next */}
         {ended && (
-          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-3 z-20">
-            <h3 className="text-sm font-black text-white">You finished watching</h3>
-            <button onClick={(e) => { e.stopPropagation(); setEnded(false); const v = videoRef.current; if (v) { v.currentTime = 0; v.play(); } }} className="px-5 py-2 rounded-full bg-vred text-white text-xs font-bold">Replay</button>
+          <div className="absolute inset-0 bg-black/92 flex flex-col items-center justify-center gap-3 p-4 z-20 overflow-y-auto">
+            <span className="px-2 py-0.5 bg-vgold rounded text-[9px] font-black uppercase text-black">Sponsored</span>
+            <div className="text-center">
+              <div className="text-[11px] text-vgold font-bold">{postroll.ad.sponsor}</div>
+              <div className="text-sm font-black text-white">{postroll.ad.headline}</div>
+              <button onClick={() => trackAdClick(postroll.ad.id, postroll.campaignId, district, 'postroll')} className="mt-2 px-4 py-1.5 rounded-full bg-white text-black text-xs font-bold">{postroll.ad.cta}</button>
+            </div>
+            {nextUp && (
+              <button onClick={() => onPlayRelated(nextUp)} className="mt-1 flex items-center gap-2 p-2 rounded-lg glass max-w-xs">
+                <img src={pexelsUrl(nextUp.poster, 200)} alt="" className="w-16 h-10 rounded object-cover" />
+                <div className="text-left"><div className="text-[9px] text-vmuted uppercase font-bold">Watch Next</div><div className="text-xs font-bold text-white line-clamp-1">{nextUp.title}</div></div>
+              </button>
+            )}
+            <button onClick={(e) => { e.stopPropagation(); setEnded(false); const v = videoRef.current; if (v) { v.currentTime = 0; v.play(); } }} className="text-[11px] text-vmuted underline">Replay</button>
           </div>
         )}
 
-        {/* Controls (native video only; YouTube uses its own) */}
+        {/* STRIP overlay (timer-based, closable) */}
+        {stripVisible && !showAd && !showMidRoll && !ended && (
+          <div className="absolute bottom-0 left-0 right-0 z-10 p-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="rounded-lg bg-black/80 backdrop-blur-sm border border-vgold/30 px-2.5 py-2 flex items-center gap-2">
+              <span className="px-1.5 py-0.5 bg-vgold rounded text-[7px] font-black uppercase text-black flex-shrink-0">Ad</span>
+              <img src={pexelsUrl(strip.ad.bgImage, 100)} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />
+              <div className="flex-1 min-w-0"><div className="text-[10px] text-vgold font-bold truncate">{strip.ad.sponsor}</div><div className="text-[11px] text-white font-semibold truncate">{strip.ad.headline}</div></div>
+              <button onClick={() => trackAdClick(strip.ad.id, strip.campaignId, district, 'strip')} className="px-2.5 py-1 rounded-full bg-white text-black text-[10px] font-bold flex-shrink-0">Learn More</button>
+              <button onClick={dismissStrip} className="w-5 h-5 flex items-center justify-center rounded-full bg-white/15 flex-shrink-0"><X size={11} className="text-white" /></button>
+            </div>
+          </div>
+        )}
+
+        {/* Controls (native video only) */}
         {hasRealVideo && showControls && !showAd && !showMidRoll && !ended && (
           <>
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -198,7 +242,6 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
           </>
         )}
 
-        {/* Fullscreen button for YouTube (native iframe handles the rest) */}
         {isYouTube && !showAd && (
           <button onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }} className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center z-10">{isFullscreen ? <Minimize size={15} className="text-white" /> : <Maximize size={15} className="text-white" />}</button>
         )}
@@ -222,7 +265,6 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
         )}
       </div>
 
-      {/* Related */}
       {related.length > 0 && (
         <SectionRow title="Related Videos" titleTa="தொடர்புடைய">
           {related.map((d) => <ContentCard key={d.id} item={d} onClick={() => onPlayRelated(d)} />)}
@@ -230,6 +272,26 @@ export function VideoPlayerScreen({ item, onBack, onPlayRelated }: {
       )}
 
       <div className="h-6" />
+    </div>
+  );
+}
+
+/** Full-stage pre/mid-roll ad card (image creative shown for the countdown). */
+function AdCard({ slot, served, countdown, district, onSkip }: {
+  slot: 'pre' | 'mid'; served: ServedAd; countdown: number; district: string; onSkip: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-20">
+      <img src={pexelsUrl(served.ad.bgImage, 800)} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+      <div className="absolute top-2 left-2 px-2 py-0.5 bg-vgold rounded text-[9px] font-black uppercase text-black">{slot === 'pre' ? 'Ad' : 'Mid-roll Ad'}{countdown > 0 ? ` · ${countdown}s` : ''}</div>
+      <div className="relative text-center px-4">
+        <div className="text-[10px] text-vgold font-bold">{served.ad.sponsor}</div>
+        <div className="text-sm font-black text-white">{served.ad.headline}</div>
+        <button onClick={(e) => { e.stopPropagation(); trackAdClick(served.ad.id, served.campaignId, district, slot === 'pre' ? 'preroll' : 'midroll'); }} className="mt-2 px-3 py-1.5 rounded-full bg-white text-black text-xs font-bold">{served.ad.cta}</button>
+      </div>
+      <button onClick={(e) => { e.stopPropagation(); onSkip(); }} disabled={slot === 'pre' && countdown > 0} className="absolute bottom-3 right-3 px-3 py-1.5 rounded-full glass text-white text-xs font-bold disabled:opacity-40">
+        {slot === 'pre' && countdown > 0 ? `Skip ${countdown}s` : <>Skip Ad <ArrowRight size={12} className="inline" /></>}
+      </button>
     </div>
   );
 }

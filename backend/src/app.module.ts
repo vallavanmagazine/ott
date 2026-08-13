@@ -6,6 +6,7 @@ import { CampaignsModule } from './campaigns/campaigns.module';
 import { AiModule } from './ai/ai.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { SocialModule } from './social/social.module';
+import { DyneTubeModule } from './dynetube/dynetube.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { SocialModule } from './social/social.module';
     AiModule,
     MessagingModule,
     SocialModule,
+    DyneTubeModule,
   ],
 })
 export class AppModule {}

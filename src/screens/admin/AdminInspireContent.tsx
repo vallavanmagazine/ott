@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, X } from 'lucide-react';
 import { fetchInspireItems } from '@/services/inspire';
 import { createInspireItem, updateInspireItem, deleteInspireItem, type InspireItemInput } from '@/services/admin-writes';
 import { pexelsUrl, type InspireItem } from '@/data/mockData';
+import { DyneTubeUpload } from '@/components/DyneTubeUpload';
 
 const CATEGORIES = ['Motivation', 'Success Stories', 'Life Lessons', 'Changemakers', 'Youth Voices'];
 
@@ -102,6 +103,7 @@ export function AdminInspireContent() {
               </div>
               <input value={editing.form.poster} onChange={(e) => setEditing({ ...editing, form: { ...editing.form, poster: e.target.value } })} placeholder="Poster URL / Pexels id" className={inp} />
               <input value={editing.form.videoUrl} onChange={(e) => setEditing({ ...editing, form: { ...editing.form, videoUrl: e.target.value } })} placeholder="Video URL (YouTube / HLS / MP4)" className={inp} />
+              <DyneTubeUpload onUploaded={(url) => setEditing((ed) => ed && ({ ...ed, form: { ...ed.form, videoUrl: url } }))} />
               <textarea value={editing.form.quote} onChange={(e) => setEditing({ ...editing, form: { ...editing.form, quote: e.target.value } })} placeholder="Quote (optional)" rows={2} className={`${inp} resize-none`} />
               <div className="grid grid-cols-2 gap-3">
                 <input value={editing.form.attribution} onChange={(e) => setEditing({ ...editing, form: { ...editing.form, attribution: e.target.value } })} placeholder="Attribution" className={inp} />

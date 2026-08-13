@@ -4,6 +4,29 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 
 ---
 
+## 2026-08-12 — Session 9: Mandatory geo ads + DyneTube
+
+Frontend green (1733 modules, 571 kB); backend `nest build` green.
+
+### Part 1 — video formats (already satisfied, verified)
+Feed = 9:16 vertical reels; Explore/Inspire/docs = inline 16:9 player; back never exits (popstate trap). No change needed. (Note: used popstate trap rather than react-router — behavior meets "never exit"; full router migration deferred.)
+
+### Part 2/3 — Ad engine + mandatory ads
+- `src/services/ad-engine.ts` rewritten: geo cascade (district → statewide empty target_districts → any ad → **house ad**), fair rotation (least impressions first from `ad_events`), `getVideoAd(district, exclude)`, `getOverlayAd`, `getHouseAd`, `trackAdImpression/Click(…, slot)`. Back-compat shims kept.
+- **VideoPlayerScreen** (inline docs/inspire): **pre-roll** mandatory (5s skip, image creative, impression tracked) → **mid-roll** at 50% **only if >5min** (different ad, rotated) → **post-roll** sponsor card + Watch-Next + Replay → **timer strip overlay** (first at 30s, shows 8s, every 90s, dismiss→120s, closable, Learn-More click tracked). All geo-targeted; house-ad fallback so **every video shows ads**.
+- Feed strip cadence updated to every 3 reels, banner every 5 (admin flags still honored). Feed ads draw from the active-ads pool (per-district feed ads = follow-up).
+
+### Part 4 — DyneTube
+- `src/services/dynetube.ts`: `uploadVideo` (XHR progress), get/list/delete, `createLiveStream`; normalizes id/HLS/player URLs.
+- `src/components/DyneTubeUpload.tsx`: admin upload button w/ progress → fills `video_url`. Added to Documentaries, Feed, Inspire forms (paste OR upload).
+- Backend `dynetube` module (server-side get/list/delete/live via `DYNETUBE_API_KEY`).
+- Env: `VITE_DYNETUBE_API_KEY` (+`_BASE`) frontend, `DYNETUBE_API_KEY` backend. **Security note:** VITE key is client-exposed per dispatch; server-side upload preferred for prod.
+
+### New SQL (run once): `supabase/ad_events_placement.sql` (adds `ad_events.placement`).
+### DyneTube API caveat: endpoint/field names follow the documented spec; verify against the real API and adjust `normalize()` if needed.
+
+---
+
 ## 2026-08-12 — Session 8: Mobile-first video player fixes
 
 Build green (1731 modules, 563 kB).

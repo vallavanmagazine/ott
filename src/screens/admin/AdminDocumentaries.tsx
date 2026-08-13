@@ -3,6 +3,7 @@ import { Plus, Search, Trash2, Pencil, X } from 'lucide-react';
 import { adminDocumentaries as mockAdminDocs } from '@/data/mockData';
 import { fetchAdminDocumentaries } from '@/services/admin';
 import { fetchDocumentaryById } from '@/services/documentaries';
+import { DyneTubeUpload } from '@/components/DyneTubeUpload';
 import {
   createDocumentary, updateDocumentary, deleteDocumentary,
   publishDocumentary, unpublishDocumentary, type DocumentaryInput,
@@ -186,7 +187,10 @@ function DocFormModal({ form, isEdit, saving, onChange, onClose, onSave }: {
             <Field label="Duration (sec)"><input type="number" value={form.durationSec} onChange={(e) => onChange({ durationSec: Number(e.target.value) })} className={inp} /></Field>
             <Field label="Year"><input type="number" value={form.year} onChange={(e) => onChange({ year: Number(e.target.value) })} className={inp} /></Field>
           </div>
-          <Field label="Video URL (YouTube / HLS .m3u8 / MP4)"><input value={form.videoUrl} onChange={(e) => onChange({ videoUrl: e.target.value })} placeholder="https://www.youtube.com/embed/…" className={inp} /></Field>
+          <Field label="Video URL (YouTube / HLS .m3u8 / MP4) — paste, or upload below">
+            <input value={form.videoUrl} onChange={(e) => onChange({ videoUrl: e.target.value })} placeholder="https://www.youtube.com/embed/…" className={inp} />
+            <div className="mt-2"><DyneTubeUpload onUploaded={(url) => onChange({ videoUrl: url })} /></div>
+          </Field>
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label="Poster URL / Pexels id"><input value={form.poster} onChange={(e) => onChange({ poster: e.target.value })} className={inp} /></Field>
             <Field label="Backdrop URL / Pexels id"><input value={form.backdrop} onChange={(e) => onChange({ backdrop: e.target.value })} className={inp} /></Field>

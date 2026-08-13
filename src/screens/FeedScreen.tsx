@@ -34,12 +34,14 @@ function buildFeedSequence(feedReels: FeedReel[], ads: AdContent[]): Item[] {
   const sorted = [...feedReels].sort((a, b) => a.order - b.order);
 
   sorted.forEach((reel, idx) => {
-    const hasStrip = reel.stripAdHost || (idx > 0 && (idx + 1) % 5 === 0);
-    const stripAd = hasStrip ? ads[idx % ads.length] : undefined;
+    // Strip ad between every 3 reels (or where admin flagged the reel).
+    const hasStrip = reel.stripAdHost || (idx > 0 && (idx + 1) % 3 === 0);
+    const stripAd = hasStrip && ads.length ? ads[idx % ads.length] : undefined;
 
     items.push({ type: 'reel', reel, stripAd });
 
-    if (reel.bannerAfter || ((idx + 1) % 9 === 0 && idx > 0)) {
+    // Banner interstitial after every 5 reels (or where admin flagged).
+    if ((reel.bannerAfter || ((idx + 1) % 5 === 0 && idx > 0)) && ads.length) {
       items.push({ type: 'banner', ad: ads[(idx + 2) % ads.length] });
     }
   });
