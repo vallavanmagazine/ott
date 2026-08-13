@@ -76,6 +76,26 @@ export function AdminBroadcast() {
 
   return (
     <div className="space-y-5 max-w-3xl">
+      {/* Channel go-live switch */}
+      <section>
+        <div className={`p-4 rounded-xl border ${cfg.channel_live ? 'bg-vred/10 border-vred/40' : 'bg-vgold/10 border-vgold/30'}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-black text-white flex items-center gap-2">
+                <Radio size={16} className={cfg.channel_live ? 'text-vred' : 'text-vgold'} />
+                VALLAVAN TV Channel
+              </div>
+              <div className="text-[11px] text-vmuted mt-0.5">
+                {cfg.channel_live ? 'LIVE — viewers see the player + broadcast overlay.' : 'Coming Soon mode — viewers see the promo screen. Flip on when playout is running.'}
+              </div>
+            </div>
+            <button onClick={() => patch({ channel_live: !cfg.channel_live })} className={`px-4 py-2 rounded-full text-xs font-black active:scale-95 transition ${cfg.channel_live ? 'bg-vred text-white' : 'bg-vgold text-black'}`}>
+              {cfg.channel_live ? 'GO OFFLINE' : 'GO LIVE'}
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Overlay toggles */}
       <section>
         <h3 className="text-sm font-bold text-white mb-3 flex items-center gap-2"><Radio size={16} className="text-vred" /> Overlay Layers</h3>

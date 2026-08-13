@@ -1,6 +1,7 @@
 import { Bell, Cast, Search, Settings, Tv } from 'lucide-react';
 import { LogoFull } from './Logo';
 import { useDevice } from '@/hooks/useDevice';
+import { useChannelLive } from '@/hooks/useChannelLive';
 
 interface HeaderProps {
   onSearch?: () => void;
@@ -30,6 +31,7 @@ export function Header({
   subtitle,
 }: HeaderProps) {
   const device = useDevice();
+  const channelLive = useChannelLive();
   const logoSize = device.isMobile ? 34 : 40;
 
   return (
@@ -53,11 +55,16 @@ export function Header({
                 aria-label="Live TV"
               >
                 <Tv size={18} className="text-white/80" />
-                {/* Animated pulsing red dot — shown when live stream is airing */}
-                <span className="absolute top-1.5 right-1.5 flex">
-                  <span className="absolute inline-flex h-2 w-2 rounded-full bg-vred opacity-75 animate-ping" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-vred" />
-                </span>
+                {channelLive === false ? (
+                  // Channel not live yet → "Soon" badge
+                  <span className="absolute -top-1 -right-1.5 px-1 rounded-full bg-vgold text-black text-[7px] font-black leading-[1.4] tracking-wide">SOON</span>
+                ) : (
+                  // Live/airing → pulsing red dot
+                  <span className="absolute top-1.5 right-1.5 flex">
+                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-vred opacity-75 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-vred" />
+                  </span>
+                )}
               </button>
             )}
             {showCast && (

@@ -7,6 +7,7 @@ import { logAudit } from '@/services/admin-writes';
 
 export interface BroadcastConfig {
   id: number;
+  channel_live: boolean;
   logo_enabled: boolean;
   logo_position: string;
   logo_opacity: number;
@@ -28,6 +29,7 @@ export interface BroadcastConfig {
 
 export const DEFAULT_BROADCAST_CONFIG: BroadcastConfig = {
   id: 1,
+  channel_live: false,
   logo_enabled: true,
   logo_position: 'bottom-right',
   logo_opacity: 70,

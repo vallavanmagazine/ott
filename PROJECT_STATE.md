@@ -4,6 +4,18 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 
 ---
 
+## 2026-08-12 — Session 7: Live TV "Coming Soon" mode
+
+Build green (1732 modules, 562 kB). No playout code touched.
+- Added `broadcast_config.channel_live` (SQL `supabase/channel_live.sql`) + to `BroadcastConfig` type (default false).
+- **LiveScreen** gated: `channel_live !== true` → **Coming Soon** promo mode (large logo, pulsing "COMING SOON", tagline "24/7 Tamil Documentaries, News, Events & More", "Launching Soon" badge, auto-play poster slideshow `PromoReel`, "Get Notified" → localStorage `vallavan_livetv_notify`, "Upcoming Schedule Preview"). `channel_live === true` → existing player + BroadcastOverlay (untouched).
+- **Header** Live TV icon shows a "SOON" badge when not live (via `useChannelLive` module-cached hook), else the airing red dot.
+- **Admin Broadcast Control** — GO LIVE / GO OFFLINE toggle writes `channel_live`; one switch flips all viewers instantly (Realtime).
+
+### New SQL (run once): `supabase/channel_live.sql`
+
+---
+
 ## 2026-08-12 — Session 6: FULL FUNCTIONALITY pass
 
 Build green: **1731 modules, 557 kB main + 525 kB lazy hls.** Focused on real gaps (much was already functional from Sessions 1–5).
