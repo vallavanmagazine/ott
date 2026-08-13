@@ -1,0 +1,27 @@
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    // Pin kotlin-stdlib to the compiler version (some plugins pull a newer
+    // stdlib whose metadata the Kotlin 1.9 compiler can't read).
+    configurations.all {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-stdlib:1.9.24"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24"
+        }
+    }
+}
+
+rootProject.buildDir = "../build"
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(":app")
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
