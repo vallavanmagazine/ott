@@ -4,6 +4,29 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 
 ---
 
+## 2026-08-12 — Session 6: FULL FUNCTIONALITY pass
+
+Build green: **1731 modules, 557 kB main + 525 kB lazy hls.** Focused on real gaps (much was already functional from Sessions 1–5).
+
+- **Video player (rewrite)** — real controls wired to the `<video>`: play/pause, ±10s skip, draggable seek bar (bound to currentTime/duration), mute, fullscreen (container `requestFullscreen`), live time display. YouTube → iframe (native controls); MP4/HLS → native/hls.js; no URL → "Video coming soon". Pre-roll 5s countdown auto-dismiss + Skip; mid-roll auto-fires at 50%; end overlay; landscape lock; Watch History on play; ad impression tracked.
+- **Home** — hero carousel auto-slides every 5s; "Watch Now" now opens the player directly (`onPlay`) so one click plays.
+- **Admin Documentaries** — full Add/Edit modal with ALL fields (incl. `video_url`, all 13 genres, badge, cast, status); Edit prefills via `fetchDocumentaryById`; delete + publish toggle.
+- **Admin Inspire (NEW screen)** — `AdminInspireContent` full CRUD (incl. `video_url`), added to admin nav.
+- **Admin Live TV** — form gains `video_url`, `air_date`, `is_live` toggle.
+- **Admin Feed** — form gains `video_url` + thumbnail URL.
+- **Feed screen** — active reel plays its `video_url` (YouTube iframe / native video) else thumb.
+- **Inspire** — items with `video_url` play directly (App `openInspireCard` → player).
+- **Plumbing** — `videoUrl` added to `InspireItem` + `FeedReel` interfaces, inspire/feed services map `video_url`, admin-writes inputs extended.
+
+### New SQL (run once): `supabase/video_urls.sql`
+Adds `video_url` to `feed_reels` + `inspire_items`, and seeds 6 sample YouTube URLs on documentaries so playback works immediately.
+
+### Already-functional (verified, not re-done): cards→detail, Watch Later persist, Explore/Inspire filters, Search, Notifications from DB, Profile screens, BottomNav solid bg, admin dashboard/revenue/broadcast/approvals/ad-mgmt, sponsor flows, Razorpay top-up.
+
+### Known limits (honest): Feed like/share are optimistic-local (viewer anon can't write feed_reels under RLS — would need an increment RPC/policy); HLS reels play natively only on Safari (hls.js attach per-card not wired); search "recent" still uses mock list (localStorage recency not added).
+
+---
+
 ## 2026-08-12 — Session 5: FIX DISPATCH (6 issues)
 
 Build green: **1730 modules, 540 kB main + 525 kB lazy hls.** Explicit user request authorized editing viewer screens (Profile, BottomNav, Player).

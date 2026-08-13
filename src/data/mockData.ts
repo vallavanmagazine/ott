@@ -60,6 +60,7 @@ export interface InspireItem {
   quote?: string;
   attribution?: string;
   badge?: string;
+  videoUrl?: string;
 }
 
 export interface LiveSlot {
@@ -506,6 +507,7 @@ export interface FeedReel {
   bannerAfter: boolean;
   attachedCampaign?: string;
   order: number;
+  videoUrl?: string;
 }
 
 export const feedReels: FeedReel[] = [

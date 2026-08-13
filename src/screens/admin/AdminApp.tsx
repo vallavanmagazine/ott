@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Users, Film, Tv, Building2, CheckSquare,
   Megaphone, BarChart3, FileText, Settings, ScrollText, LogOut,
-  ChevronLeft, Lock, Clapperboard, Radio, KeyRound,
+  ChevronLeft, Lock, Clapperboard, Radio, KeyRound, Sparkles,
 } from 'lucide-react';
 import { AdminLogin } from './AdminLogin';
 import { AdminDashboard } from './AdminDashboard';
@@ -19,6 +19,7 @@ import { AdminSettings } from './AdminSettings';
 import { AdminAuditLogs } from './AdminAuditLogs';
 import { AdminBroadcast } from './AdminBroadcast';
 import { AdminApiSettings } from './AdminApiSettings';
+import { AdminInspireContent } from './AdminInspireContent';
 import { useAuth } from '@/context/AuthContext';
 
 export type AdminPage =
@@ -26,6 +27,7 @@ export type AdminPage =
   | 'users'
   | 'documentaries'
   | 'feed'
+  | 'inspire'
   | 'livetv'
   | 'sponsors'
   | 'approvals'
@@ -42,6 +44,7 @@ const navItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard }[
   { key: 'users', label: 'Users', icon: Users },
   { key: 'documentaries', label: 'Documentaries', icon: Film },
   { key: 'feed', label: 'Feed Content', icon: Clapperboard },
+  { key: 'inspire', label: 'Inspire Content', icon: Sparkles },
   { key: 'livetv', label: 'Live TV', icon: Tv },
   { key: 'sponsors', label: 'Sponsors', icon: Building2 },
   { key: 'approvals', label: 'Campaign Approvals', icon: CheckSquare },
@@ -69,6 +72,7 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
       case 'users': return <AdminUsers />;
       case 'documentaries': return <AdminDocumentaries />;
       case 'feed': return <AdminFeedContent />;
+      case 'inspire': return <AdminInspireContent />;
       case 'livetv': return <AdminLiveTV />;
       case 'sponsors': return <AdminSponsors />;
       case 'approvals': return <AdminCampaignApprovals />;

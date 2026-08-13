@@ -133,6 +133,7 @@ export interface FeedReelInput {
   stripAdHost?: boolean;
   bannerAfter?: boolean;
   sortOrder?: number;
+  videoUrl?: string | null;
 }
 
 function reelToRow(input: Partial<FeedReelInput>): Record<string, unknown> {
@@ -151,6 +152,7 @@ function reelToRow(input: Partial<FeedReelInput>): Record<string, unknown> {
   if (input.stripAdHost !== undefined) row.strip_ad_host = input.stripAdHost;
   if (input.bannerAfter !== undefined) row.banner_after = input.bannerAfter;
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
+  if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
   return row;
 }
 
@@ -199,6 +201,7 @@ export interface LiveSlotInput {
   videoUrl?: string | null;
   breakAfterSec?: number;
   sortOrder?: number;
+  airDate?: string;
 }
 
 function slotToRow(input: Partial<LiveSlotInput>): Record<string, unknown> {
@@ -213,6 +216,7 @@ function slotToRow(input: Partial<LiveSlotInput>): Record<string, unknown> {
   if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
   if (input.breakAfterSec !== undefined) row.break_after_sec = input.breakAfterSec;
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
+  if (input.airDate !== undefined) row.air_date = input.airDate;
   return row;
 }
 
@@ -248,6 +252,7 @@ export interface InspireItemInput {
   quote?: string | null;
   attribution?: string | null;
   badge?: string | null;
+  videoUrl?: string | null;
 }
 
 function inspireToRow(input: Partial<InspireItemInput>): Record<string, unknown> {
@@ -260,6 +265,7 @@ function inspireToRow(input: Partial<InspireItemInput>): Record<string, unknown>
   if (input.quote !== undefined) row.quote = input.quote;
   if (input.attribution !== undefined) row.attribution = input.attribution;
   if (input.badge !== undefined) row.badge = input.badge;
+  if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
   return row;
 }
 

@@ -19,6 +19,7 @@ function rowToInspireItem(row: any): InspireItem {
     quote: row.quote || undefined,
     attribution: row.attribution || undefined,
     badge: row.badge || undefined,
+    videoUrl: row.video_url || undefined,
   };
 }
 

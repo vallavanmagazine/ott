@@ -151,8 +151,10 @@ function AppInner() {
       synopsisTa: 'ஊக்கமூட்டும் குறுக்கட்டி உள்ளடக்கம்.',
       director: item.attribution,
       cast: [],
+      videoUrl: item.videoUrl,
     };
-    setOverlay({ type: 'detail', item: doc });
+    // Play directly when a video exists; otherwise open detail.
+    setOverlay(item.videoUrl ? { type: 'player', item: doc } : { type: 'detail', item: doc });
   };
   const openSearch = () => setOverlay({ type: 'search' });
   const openNotifications = () => setOverlay({ type: 'notifications' });
@@ -229,6 +231,7 @@ function AppInner() {
           onSearch={openSearch}
           onNotifications={openNotifications}
           onCardClick={openCard}
+          onPlay={(item) => setOverlay({ type: 'player', item })}
           onSeeAll={() => setTab('explore')}
           onWatchLive={openLive}
           onLive={openLive}

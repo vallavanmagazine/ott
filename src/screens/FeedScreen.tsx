@@ -14,6 +14,7 @@ import {
 } from '@/data/mockData';
 import { fetchFeedReels } from '@/services/feed';
 import { fetchAds } from '@/services/ads';
+import { detectVideoKind, youtubeEmbedUrl } from '@/lib/video-player';
 
 interface FeedItem {
   type: 'reel';
@@ -253,11 +254,17 @@ function ReelCard({
     <div className="relative w-full h-full flex items-center justify-center">
       {/* Full-screen background image (mimicking video) */}
       <div className="absolute inset-0">
-        <img
-          src={pexelsUrl(reel.thumb, 1080)}
-          alt={reel.title}
-          className={`w-full h-full object-cover transition-transform duration-700 ${active ? 'scale-100' : 'scale-105'}`}
-        />
+        {active && reel.videoUrl && detectVideoKind(reel.videoUrl) === 'youtube' ? (
+          <iframe src={youtubeEmbedUrl(reel.videoUrl)} title={reel.title} className="w-full h-full" allow="autoplay; encrypted-media; picture-in-picture" />
+        ) : active && reel.videoUrl && (detectVideoKind(reel.videoUrl) === 'mp4' || detectVideoKind(reel.videoUrl) === 'hls') ? (
+          <video src={reel.videoUrl} className="w-full h-full object-cover" autoPlay muted={muted} loop playsInline />
+        ) : (
+          <img
+            src={pexelsUrl(reel.thumb, 1080)}
+            alt={reel.title}
+            className={`w-full h-full object-cover transition-transform duration-700 ${active ? 'scale-100' : 'scale-105'}`}
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40" />
         <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
       </div>

@@ -228,6 +228,7 @@ export function AdminFeedContent() {
                 stripAdHost: newReel.stripAdHost,
                 bannerAfter: newReel.bannerAfter,
                 sortOrder: newReel.order,
+                videoUrl: newReel.videoUrl,
               });
               setShowUpload(false);
               await load();
@@ -270,6 +271,8 @@ function UploadModal({
   const [stripAd, setStripAd] = useState(false);
   const [bannerAfter, setBannerAfter] = useState(false);
   const [attachedCampaign, setAttachedCampaign] = useState('None');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [thumb, setThumb] = useState('20212135');
 
   const handleAdd = () => {
     const newReel: FeedReel = {
@@ -284,7 +287,8 @@ function UploadModal({
       genre: genre as FeedReel['genre'],
       duration: '0:30',
       durationSec: 30,
-      thumb: '20212135',
+      thumb: thumb || '20212135',
+      videoUrl: videoUrl || undefined,
       likes: 0,
       comments: 0,
       shares: 0,
@@ -315,6 +319,14 @@ function UploadModal({
             <Upload size={24} className="text-vmuted mb-2" />
             <p className="text-sm text-white font-semibold">Upload Video</p>
             <p className="text-xs text-vmuted mt-1">MP4, MOV · max 500MB · vertical 9:16</p>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-vmuted font-bold">Video URL (YouTube / HLS / MP4)</label>
+            <input value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://…" className="w-full mt-1 px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred" />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-vmuted font-bold">Thumbnail URL / Pexels id</label>
+            <input value={thumb} onChange={(e) => setThumb(e.target.value)} placeholder="20212135" className="w-full mt-1 px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred" />
           </div>
 
           {/* Title fields */}

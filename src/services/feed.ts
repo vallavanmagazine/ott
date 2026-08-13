@@ -33,6 +33,7 @@ function rowToFeedReel(row: any): FeedReel {
     // attached_campaign is a UUID FK; mock shape expects the campaign NAME.
     attachedCampaign: row.campaign?.name || undefined,
     order: row.sort_order,
+    videoUrl: row.video_url || undefined,
   };
 }
 

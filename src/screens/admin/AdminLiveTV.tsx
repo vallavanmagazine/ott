@@ -8,7 +8,7 @@ export function AdminLiveTV() {
   const [liveSchedule, setLiveSchedule] = useState(mockSchedule);
   const [busy, setBusy] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ title: '', titleTa: '', description: '', startTime24: '18:00', durationMin: 30 });
+  const [form, setForm] = useState({ title: '', titleTa: '', description: '', startTime24: '18:00', durationMin: 30, videoUrl: '', isLive: false, airDate: new Date().toISOString().slice(0, 10) });
 
   const load = () => fetchLiveSchedule().then(setLiveSchedule);
   useEffect(() => { load(); }, []);
@@ -32,9 +32,12 @@ export function AdminLiveTV() {
         thumb: '30004134',
         startTime24: form.startTime24,
         durationMin: Number(form.durationMin) || 30,
+        videoUrl: form.videoUrl.trim() || null,
+        isLive: form.isLive,
+        airDate: form.airDate,
         sortOrder: liveSchedule.length,
       });
-      setForm({ title: '', titleTa: '', description: '', startTime24: '18:00', durationMin: 30 });
+      setForm({ title: '', titleTa: '', description: '', startTime24: '18:00', durationMin: 30, videoUrl: '', isLive: false, airDate: new Date().toISOString().slice(0, 10) });
       setShowAdd(false);
       await load();
     } catch (e) { alert(`Create failed: ${(e as Error).message}`); }
@@ -110,6 +113,17 @@ export function AdminLiveTV() {
                   <label className="text-[10px] uppercase tracking-wider text-vmuted font-bold">Duration (min)</label>
                   <input type="number" value={form.durationMin} onChange={(e) => setForm({ ...form, durationMin: Number(e.target.value) })} className="w-full mt-1 px-4 py-3 rounded-xl glass text-sm text-white outline-none" />
                 </div>
+              </div>
+              <input value={form.videoUrl} onChange={(e) => setForm({ ...form, videoUrl: e.target.value })} placeholder="Streaming/Video URL (HLS .m3u8 / YouTube / MP4)" className="w-full px-4 py-3 rounded-xl glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred" />
+              <div className="grid grid-cols-2 gap-3 items-end">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-vmuted font-bold">Air Date</label>
+                  <input type="date" value={form.airDate} onChange={(e) => setForm({ ...form, airDate: e.target.value })} className="w-full mt-1 px-4 py-3 rounded-xl glass text-sm text-white outline-none" />
+                </div>
+                <button onClick={() => setForm({ ...form, isLive: !form.isLive })} className="flex items-center justify-between px-4 py-3 rounded-xl glass">
+                  <span className="text-sm font-semibold text-white">Live now</span>
+                  <div className={`w-11 h-6 rounded-full p-0.5 transition ${form.isLive ? 'bg-vred' : 'bg-white/15'}`}><div className={`w-5 h-5 rounded-full bg-white transition ${form.isLive ? 'translate-x-5' : ''}`} /></div>
+                </button>
               </div>
               <button onClick={handleCreate} disabled={busy === 'new'} className="w-full py-3 rounded-full bg-vred text-white font-bold text-sm active:scale-95 disabled:opacity-50">
                 {busy === 'new' ? 'Saving…' : 'Add Slot'}

@@ -21,6 +21,7 @@ export function HomeScreen({
   onSearch,
   onNotifications,
   onCardClick,
+  onPlay,
   onSeeAll,
   onWatchLive,
   onLive,
@@ -28,6 +29,7 @@ export function HomeScreen({
   onSearch: () => void;
   onNotifications: () => void;
   onCardClick: (d: Documentary) => void;
+  onPlay: (d: Documentary) => void;
   onSeeAll: (row: string) => void;
   onWatchLive: () => void;
   onLive: () => void;
@@ -49,7 +51,15 @@ export function HomeScreen({
   const liveNow = schedule.find((s) => s.isLive)!;
 
   const [heroIdx, setHeroIdx] = useState(0);
-  const hero = featured[heroIdx];
+
+  // Auto-slide the hero carousel every 5s.
+  useEffect(() => {
+    if (featured.length <= 1) return;
+    const t = setInterval(() => setHeroIdx((i) => (i + 1) % featured.length), 5000);
+    return () => clearInterval(t);
+  }, [featured.length]);
+
+  const hero = featured[heroIdx % Math.max(1, featured.length)];
 
   return (
     <div>
@@ -68,7 +78,7 @@ export function HomeScreen({
           badge: 'FEATURED',
           backdrop: pexelsUrl(hero.backdrop, 1280),
         }}
-        onWatch={() => onCardClick(hero)}
+        onWatch={() => onPlay(hero)}
         dots={featured.length}
         dotIdx={heroIdx}
         onDotClick={setHeroIdx}
