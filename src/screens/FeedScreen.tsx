@@ -47,6 +47,8 @@ function buildFeedSequence(feedReels: FeedReel[], ads: AdContent[]): Item[] {
   return items;
 }
 
+const FEED_CATEGORIES = ['All', 'News', 'Teaser', 'Short Story', 'Entertainment', 'Sports'];
+
 const formatCount = (n: number): string => {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
@@ -59,16 +61,20 @@ export function FeedScreen({
   onBack?: () => void;
 }) {
   const device = useDevice();
-  const [items, setItems] = useState<Item[]>(() => buildFeedSequence(mockFeedReels, mockAds));
+  const [rawReels, setRawReels] = useState<FeedReel[]>(mockFeedReels);
   const [allAds, setAllAds] = useState<AdContent[]>(mockAds);
+  const [category, setCategory] = useState<string>('All');
   const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
     Promise.all([fetchFeedReels(), fetchAds()]).then(([reels, adList]) => {
+      setRawReels(reels);
       setAllAds(adList);
-      setItems(buildFeedSequence(reels, adList));
     });
   }, []);
+
+  const filteredReels = category === 'All' ? rawReels : rawReels.filter((r) => r.contentType === category);
+  const items = buildFeedSequence(filteredReels, allAds);
   const [muted, setMuted] = useState(true);
   const [liked, setLiked] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
@@ -139,6 +145,12 @@ export function FeedScreen({
           if (idx !== activeIdx) setActiveIdx(idx);
         }}
       >
+        {items.length === 0 && (
+          <div className="h-full w-full flex flex-col items-center justify-center text-center px-6">
+            <p className="text-white font-bold">Nothing in {category} yet</p>
+            <p className="text-xs text-vmuted mt-1">Try another category.</p>
+          </div>
+        )}
         {items.map((item, i) => (
           <div
             key={i}
@@ -200,11 +212,24 @@ export function FeedScreen({
             </button>
           )}
         </div>
+        {/* Category chips */}
+        <div className="pointer-events-auto hscroll flex gap-2 px-4 pb-2">
+          {FEED_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => { setCategory(c); setActiveIdx(0); containerRef.current?.scrollTo({ top: 0 }); }}
+              className={`flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition active:scale-95 ${category === c ? 'bg-vred text-white' : 'bg-black/40 text-white/70'}`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
         {/* Progress bar */}
         <div className="h-0.5 bg-white/10 mx-4 rounded-full overflow-hidden">
           <div
             className="h-full bg-vred rounded-full transition-all duration-300"
-            style={{ width: `${((activeIdx + 1) / items.length) * 100}%` }}
+            style={{ width: `${items.length ? ((activeIdx + 1) / items.length) * 100 : 0}%` }}
           />
         </div>
       </div>

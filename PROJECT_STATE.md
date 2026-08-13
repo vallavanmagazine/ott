@@ -4,6 +4,16 @@ Newest first. Records where things stand, decisions taken, and why. Read after `
 
 ---
 
+## 2026-08-12 — Session 8: Mobile-first video player fixes
+
+Build green (1731 modules, 563 kB).
+- **BUG1** Removed the header Live-icon SOON badge/dot entirely — icon is plain now (`useChannelLive` no longer used by Header; hook file orphaned, harmless).
+- **BUG2/3/4 — inline player**: VideoPlayerScreen rewritten to play **within** the app layout — sticky back bar, **16:9 stage** (horizontal even in portrait), then title/synopsis/meta/Related cards below; NOT `fixed inset-0`. App renders it inside `ScreenShell` so **BottomNav stays visible**; tapping a tab exits the player. Back button uses state (`setOverlay none`) — never exits site. Added a **popstate trap** (pushState on overlay open; back closes overlay) so hardware/swipe-back returns to the previous screen instead of leaving. Fullscreen is **user-triggered only** (button) and locks landscape only while fullscreen — **no auto-rotate on play**. Related cards play inline (`onPlayRelated`).
+- **BUG5** Feed now has category chips (All | News | Teaser | Short Story | Entertainment | Sports) filtering by `content_type` with empty-state + guards; Explore (genre) and Inspire (category) chips already filter from DB (verified).
+- **BUG6** Cards already render thumbnail+title+duration+genre/category consistently (verified, no change).
+
+---
+
 ## 2026-08-12 — Session 7: Live TV "Coming Soon" mode
 
 Build green (1732 modules, 562 kB). No playout code touched.

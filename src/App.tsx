@@ -67,6 +67,17 @@ function AppInner() {
     return () => window.removeEventListener('hashchange', checkHash);
   }, []);
 
+  // Trap the browser/hardware Back gesture: close the open overlay instead of
+  // leaving the site. A history entry is pushed whenever an overlay opens.
+  useEffect(() => {
+    const onPop = () => setOverlay((o) => (o.type === 'none' ? o : { type: 'none' }));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  useEffect(() => {
+    if (overlay.type !== 'none') window.history.pushState({ o: overlay.type }, '');
+  }, [overlay.type]);
+
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;
   }
@@ -116,11 +127,6 @@ function AppInner() {
         onCardClick={(item) => setOverlay({ type: 'detail', item })}
       />
     );
-  }
-
-  // --- Video player ---
-  if (overlay.type === 'player') {
-    return <VideoPlayerScreen item={overlay.item} onBack={() => setOverlay({ type: 'detail', item: overlay.item })} />;
   }
 
   // --- Search overlay ---
@@ -226,6 +232,14 @@ function AppInner() {
 
   return (
     <ScreenShell>
+      {overlay.type === 'player' ? (
+        <VideoPlayerScreen
+          item={overlay.item}
+          onBack={() => setOverlay({ type: 'none' })}
+          onPlayRelated={(d) => setOverlay({ type: 'player', item: d })}
+        />
+      ) : (
+      <>
       {tab === 'home' && (
         <HomeScreen
           onSearch={openSearch}
@@ -268,10 +282,11 @@ function AppInner() {
           onAbout={() => setOverlay({ type: 'about' })}
         />
       )}
+      </>
+      )}
 
-      <BottomNav active={tab} onChange={setTab} />
+      <BottomNav active={tab} onChange={(t) => { setOverlay({ type: 'none' }); setTab(t); }} />
 
-      {/* Hidden admin access via long-press on logo or hash — add a subtle admin link in profile */}
       {showSponsorLogin && <SponsorLoginModal onClose={onSponsorLoginClose} />}
     </ScreenShell>
   );
