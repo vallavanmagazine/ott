@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/theme.dart';
 import '../services/auth_service.dart';
 import 'about_screen.dart';
-import 'ai_chatbot_screen.dart';
+import 'faq_screen.dart';
 import 'settings_screen.dart';
 import 'sponsor/sponsor_dashboard_screen.dart';
 import 'sponsor/sponsor_login_screen.dart';
@@ -62,7 +62,7 @@ class ProfileScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 16),
           _section('SUPPORT', [
-            _row(context, Icons.smart_toy_outlined, 'AI Assistant', const AIChatbotScreen()),
+            _row(context, Icons.help_outline, 'Help & Support', const FaqScreen()),
             _row(context, Icons.settings, 'App Settings', const SettingsScreen()),
             _row(context, Icons.info_outline, 'About Vallavan', const AboutScreen()),
           ]),

@@ -33,6 +33,8 @@ class _FreelancerCareerScreenState extends State<FreelancerCareerScreen> {
     'Writer': '₹1,000–4,000 / script',
     'Visual Editor': '₹2,000–10,000 / project',
     'Program Producer': '₹5,000–20,000 / project',
+    'Telecaller': '₹200–500 per sale',
+    'Field Executive': '₹300–800 per sale + travel',
   };
 
   @override

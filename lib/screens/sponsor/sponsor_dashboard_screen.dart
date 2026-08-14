@@ -5,6 +5,7 @@ import '../../services/auth_service.dart';
 import '../../services/supabase_client.dart';
 import 'create_campaign_screen.dart';
 import 'wallet_topup_screen.dart';
+import '../ai_chatbot_screen.dart';
 
 class SponsorDashboardScreen extends StatefulWidget {
   const SponsorDashboardScreen({super.key});
@@ -52,7 +53,14 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
       backgroundColor: AppColors.black,
       appBar: AppBar(
         title: const Text('Sponsor Dashboard', style: TextStyle(fontWeight: FontWeight.w900)), backgroundColor: AppColors.black,
-        actions: [IconButton(onPressed: () async { await AuthService.logout(); if (context.mounted) Navigator.pop(context); }, icon: const Icon(Icons.logout, size: 20))],
+        actions: [
+          IconButton(
+            tooltip: 'AI Ad Assistant',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatbotScreen(variant: 'sponsor', title: 'AI Ad Assistant'))),
+            icon: const Icon(Icons.smart_toy_outlined, size: 20),
+          ),
+          IconButton(onPressed: () async { await AuthService.logout(); if (context.mounted) Navigator.pop(context); }, icon: const Icon(Icons.logout, size: 20)),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.red))

@@ -6,7 +6,10 @@ import '../services/chat_service.dart';
 /// FIX 4 — AI Assistant chatbot. Combines Help & Support + AI Assistant into
 /// one screen. Text + voice input (speech_to_text). No phone/WhatsApp.
 class AIChatbotScreen extends StatefulWidget {
-  const AIChatbotScreen({super.key});
+  /// 'sponsor' (Ad Assistant), 'freelancer' (Task/Recruiter Assistant), or 'general'.
+  final String variant;
+  final String title;
+  const AIChatbotScreen({super.key, this.variant = 'general', this.title = 'AI Assistant'});
   @override
   State<AIChatbotScreen> createState() => _AIChatbotScreenState();
 }
@@ -15,9 +18,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _speech = SpeechToText();
-  final List<ChatMsg> _messages = [
-    const ChatMsg('assistant', "Hi! I'm the Vallavan AI Assistant 🤖 — I can help with advertising options, freelancer questions, or using the app. How can I help?"),
-  ];
+  final List<ChatMsg> _messages = [];
   bool _busy = false;
   bool _speechReady = false;
   bool _listening = false;
@@ -25,7 +26,19 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> {
   @override
   void initState() {
     super.initState();
+    _messages.add(ChatMsg('assistant', _greeting()));
     _initSpeech();
+  }
+
+  String _greeting() {
+    switch (widget.variant) {
+      case 'sponsor':
+        return "Hi! I'm your Vallavan Ad Assistant 🤖 — I can help you design ads, plan campaigns, understand pricing, and analyze performance. What are we promoting?";
+      case 'freelancer':
+        return "Hi! I'm your Vallavan Freelancer Assistant 🤖 — ask me about tasks, submissions, or payments. To get started, what roles and experience do you have?";
+      default:
+        return "Hi! I'm the Vallavan AI Assistant 🤖 — I can help with advertising, freelancing, or using the app. How can I help?";
+    }
   }
 
   Future<void> _initSpeech() async {
@@ -57,7 +70,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> {
     if (t.isEmpty || _busy) return;
     setState(() { _messages.add(ChatMsg('user', t)); _busy = true; _input.clear(); });
     _scrollDown();
-    final reply = await ChatService.send(_messages);
+    final reply = await ChatService.send(_messages, variant: widget.variant);
     if (!mounted) return;
     setState(() { _messages.add(ChatMsg('assistant', reply)); _busy = false; });
     _scrollDown();
@@ -77,7 +90,7 @@ class _AIChatbotScreenState extends State<AIChatbotScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.black,
-      appBar: AppBar(title: const Text('AI Assistant', style: TextStyle(fontWeight: FontWeight.w900)), backgroundColor: AppColors.black),
+      appBar: AppBar(title: Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w900)), backgroundColor: AppColors.black),
       body: Column(children: [
         Expanded(child: ListView.builder(
           controller: _scroll,

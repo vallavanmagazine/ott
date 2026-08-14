@@ -9,7 +9,6 @@ import '../services/ads_service.dart';
 import '../services/feed_service.dart';
 import '../utils/formatters.dart';
 import '../widgets/ad_strip.dart';
-import '../widgets/category_chips.dart';
 
 String _kindOf(String? url) {
   if (url == null || url.isEmpty) return 'none';
@@ -35,7 +34,7 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   List<FeedReel> _reels = [];
   List<AdContent> _ads = [];
-  String _category = 'All';
+  String _query = '';
   int _active = 0;
   bool _muted = true;
   final _controller = PageController();
@@ -56,7 +55,11 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   List<_Item> _build() {
-    final reels = _category == 'All' ? _reels : _reels.where((r) => r.contentType == _category).toList();
+    // FIX 3: no categories — latest first (service order), optional title search.
+    final q = _query.trim().toLowerCase();
+    final reels = q.isEmpty
+        ? _reels
+        : _reels.where((r) => r.title.toLowerCase().contains(q) || r.titleTa.toLowerCase().contains(q)).toList();
     final items = <_Item>[];
     for (var i = 0; i < reels.length; i++) {
       final r = reels[i];
@@ -77,7 +80,7 @@ class _FeedScreenState extends State<FeedScreen> {
       backgroundColor: Colors.black,
       body: Stack(children: [
         if (items.isEmpty)
-          const Center(child: Text('Nothing in this category yet', style: TextStyle(color: AppColors.muted)))
+          Center(child: Text(_query.isEmpty ? 'Nothing here yet' : 'No matches', style: const TextStyle(color: AppColors.muted)))
         else
           PageView.builder(
             controller: _controller,
@@ -91,10 +94,27 @@ class _FeedScreenState extends State<FeedScreen> {
             },
           ),
         // Top: title + category chips
-        Positioned(top: 0, left: 0, right: 0, child: SafeArea(child: Column(children: [
-          const Padding(padding: EdgeInsets.fromLTRB(16, 8, 16, 8), child: Align(alignment: Alignment.centerLeft, child: Text('Feed', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)))),
-          FilterChipsBar(options: K.feedCategories, active: _category, onSelected: (c) { setState(() { _category = c; _active = 0; }); if (_controller.hasClients) _controller.jumpToPage(0); }),
-        ]))),
+        Positioned(top: 0, left: 0, right: 0, child: SafeArea(child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Row(children: [
+            const Text('Feed', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+            const SizedBox(width: 12),
+            Expanded(child: Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(999), border: Border.all(color: Colors.white24)),
+              child: Row(children: [
+                const Icon(Icons.search, size: 16, color: Colors.white60),
+                const SizedBox(width: 8),
+                Expanded(child: TextField(
+                  onChanged: (v) { setState(() { _query = v; _active = 0; }); if (_controller.hasClients) _controller.jumpToPage(0); },
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                  decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: 'Search reels…', hintStyle: TextStyle(color: Colors.white54)),
+                )),
+              ]),
+            )),
+          ]),
+        ))),
       ]),
     );
   }

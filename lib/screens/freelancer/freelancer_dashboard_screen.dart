@@ -5,6 +5,7 @@ import 'freelancer_submit_screen.dart';
 import 'freelancer_earnings_screen.dart';
 import 'magazine_reseller_screen.dart';
 import 'ad_sales_screen.dart';
+import '../ai_chatbot_screen.dart';
 
 /// C3 — Freelancer dashboard. Mirrors web FreelancerDashboardScreen.
 class FreelancerDashboardScreen extends StatefulWidget {
@@ -64,8 +65,8 @@ class _FreelancerDashboardScreenState extends State<FreelancerDashboardScreen> {
                   _Tile(Icons.account_balance_wallet, 'Earnings', () => _push(const FreelancerEarningsScreen())),
                   _Tile(Icons.menu_book, 'Magazine', () => _push(const MagazineResellerScreen())),
                   _Tile(Icons.campaign, 'Ad Sales', () => _push(const AdSalesScreen())),
+                  _Tile(Icons.smart_toy_outlined, 'AI Assistant', () => _push(const AIChatbotScreen(variant: 'freelancer', title: 'AI Assistant'))),
                   const _Tile(Icons.assignment, 'Tasks', null),
-                  const _Tile(Icons.school, 'Training', null),
                 ],
               ),
               const SizedBox(height: 20),

@@ -12,13 +12,14 @@ class ChatMsg {
 class ChatService {
   static const supportEmail = 'support@vallavan.in';
 
-  static Future<String> send(List<ChatMsg> messages) async {
+  static Future<String> send(List<ChatMsg> messages, {String variant = 'general'}) async {
     if (!Api.hasBackend) {
       return 'The AI assistant needs the backend configured (API_BASE_URL). Meanwhile, email us at $supportEmail and our team will help.';
     }
     try {
       final res = await Api.post('/api/ai/chat', {
         'messages': messages.map((m) => m.toJson()).toList(),
+        'variant': variant,
       });
       final reply = (res['reply'] ?? '').toString().trim();
       return reply.isEmpty ? 'Sorry, please try again or email $supportEmail.' : reply;

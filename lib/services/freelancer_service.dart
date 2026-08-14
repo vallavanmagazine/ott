@@ -28,7 +28,9 @@ class FreelancerTask {
 
 /// Freelancer enrolment + tasks, mirroring the web `services/freelancer.ts`.
 class FreelancerService {
-  static const List<String> roles = ['Reporter', 'Anchor', 'Writer', 'Visual Editor', 'Program Producer'];
+  static const List<String> roles = ['Reporter', 'Anchor', 'Writer', 'Visual Editor', 'Program Producer', 'Telecaller', 'Field Executive'];
+  /// Ad-marketing roles (sell ads, create campaigns + payment links for sponsors).
+  static const List<String> adSalesRoles = ['Telecaller', 'Field Executive'];
   static const int enrollmentFeeRupees = 1499;
 
   /// Submit an application. Returns null on success, an error string otherwise.

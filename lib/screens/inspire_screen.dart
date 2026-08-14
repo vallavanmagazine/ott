@@ -5,6 +5,7 @@ import '../config/theme.dart';
 import '../models/documentary.dart';
 import '../models/inspire_item.dart';
 import '../services/inspire_service.dart';
+import '../services/categories_service.dart';
 import '../widgets/category_chips.dart';
 import '../widgets/vallavan_header.dart';
 import 'video_player_screen.dart';
@@ -17,6 +18,7 @@ class InspireScreen extends StatefulWidget {
 
 class _InspireScreenState extends State<InspireScreen> {
   List<InspireItem> _items = [];
+  List<String> _cats = K.inspireCategories;
   bool _loading = true;
   String _cat = 'All';
 
@@ -24,6 +26,10 @@ class _InspireScreenState extends State<InspireScreen> {
   void initState() {
     super.initState();
     _load();
+    // K.inspireCategories already starts with 'All'; DB names get 'All' prefixed.
+    CategoriesService.fetchNames('inspire').then((names) {
+      if (mounted && names.isNotEmpty) setState(() => _cats = ['All', ...names]);
+    });
   }
 
   Future<void> _load() async {
@@ -59,7 +65,7 @@ class _InspireScreenState extends State<InspireScreen> {
                     onRefresh: _load,
                     child: ListView(padding: EdgeInsets.zero, children: [
                       if (featured != null) _hero(featured),
-                      FilterChipsBar(options: K.inspireCategories, active: _cat, onSelected: (c) => setState(() => _cat = c)),
+                      FilterChipsBar(options: _cats, active: _cat, onSelected: (c) => setState(() => _cat = c)),
                       const SizedBox(height: 8),
                       if (filtered.isEmpty)
                         const Padding(padding: EdgeInsets.all(40), child: Center(child: Text('Nothing here yet', style: TextStyle(color: AppColors.muted))))

@@ -4,6 +4,7 @@ import '../config/constants.dart';
 import '../config/theme.dart';
 import '../models/documentary.dart';
 import '../services/documentaries_service.dart';
+import '../services/categories_service.dart';
 import '../widgets/category_chips.dart';
 import '../widgets/content_card.dart';
 import '../widgets/loading_skeleton.dart';
@@ -18,6 +19,7 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen> {
   List<Documentary> _docs = [];
+  List<String> _genres = const ['All', ...K.genres];
   bool _loading = true;
   String _genre = 'All';
 
@@ -25,6 +27,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void initState() {
     super.initState();
     _load();
+    CategoriesService.fetchNames('explore', fallback: K.genres).then((names) {
+      if (mounted) setState(() => _genres = ['All', ...names]);
+    });
   }
 
   Future<void> _load() async {
@@ -55,7 +60,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: CustomScrollView(slivers: [
                       if (featured != null) SliverToBoxAdapter(child: _hero(featured)),
                       SliverToBoxAdapter(
-                        child: FilterChipsBar(options: const ['All', ...K.genres], active: _genre, onSelected: (g) => setState(() => _genre = g)),
+                        child: FilterChipsBar(options: _genres, active: _genre, onSelected: (g) => setState(() => _genre = g)),
                       ),
                       const SliverToBoxAdapter(child: SizedBox(height: 12)),
                       filtered.isEmpty
