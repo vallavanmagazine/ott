@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/theme.dart';
 import '../services/auth_service.dart';
 import 'about_screen.dart';
-import 'help_screen.dart';
+import 'ai_chatbot_screen.dart';
 import 'settings_screen.dart';
 import 'sponsor/sponsor_dashboard_screen.dart';
 import 'sponsor/sponsor_login_screen.dart';
@@ -51,19 +51,19 @@ class ProfileScreen extends StatelessWidget {
             _row(context, Icons.bookmark_border, 'Watch Later', const WatchLaterScreen()),
           ]),
           const SizedBox(height: 16),
-          _section('BUSINESS CENTER', [
+          _section('SPONSOR', [
             _tile(Icons.star, 'Become a Sponsor', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SponsorPromoScreen())), accent: true),
             _tile(Icons.dashboard, 'Sponsor Dashboard', () => _sponsor(context), accent: true),
           ]),
           const SizedBox(height: 16),
-          _section('FREELANCER CENTER', [
+          _section('FREELANCER', [
             _tile(Icons.people, 'Join as Freelancer', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FreelancerCareerScreen())), accent: true),
             _tile(Icons.work_outline, 'Freelancer Dashboard', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FreelancerDashboardScreen())), accent: true),
           ]),
           const SizedBox(height: 16),
-          _section('SETTINGS', [
+          _section('SUPPORT', [
+            _row(context, Icons.smart_toy_outlined, 'AI Assistant', const AIChatbotScreen()),
             _row(context, Icons.settings, 'App Settings', const SettingsScreen()),
-            _row(context, Icons.help_outline, 'Help & Support', const HelpScreen()),
             _row(context, Icons.info_outline, 'About Vallavan', const AboutScreen()),
           ]),
           const SizedBox(height: 24),

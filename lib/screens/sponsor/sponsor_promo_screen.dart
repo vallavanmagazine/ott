@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../services/auth_service.dart';
+import '../../services/sponsor_service.dart';
 import '../../services/pricing_service.dart';
 import 'sponsor_dashboard_screen.dart';
-import 'sponsor_login_screen.dart';
+import 'sponsor_signup_screen.dart';
 
 /// B1 — Sponsor promo / pricing page. Mirrors web SponsorPromoScreen.
 class SponsorPromoScreen extends StatefulWidget {
@@ -29,9 +30,19 @@ class _SponsorPromoScreenState extends State<SponsorPromoScreen> {
     if (mounted) setState(() { _rates = rates; _packages = packages; _loading = false; });
   }
 
-  void _start() {
-    final next = AuthService.isLoggedIn ? const SponsorDashboardScreen() : const SponsorLoginScreen();
-    Navigator.push(context, MaterialPageRoute(builder: (_) => next));
+  Future<void> _start() async {
+    // If already registered as a sponsor, go straight to the dashboard;
+    // otherwise collect the signup form (identical fields to web).
+    if (AuthService.isLoggedIn) {
+      final sid = await SponsorService.currentSponsorId();
+      if (!mounted) return;
+      if (sid != null) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const SponsorDashboardScreen()));
+        return;
+      }
+    }
+    if (!mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const SponsorSignupScreen()));
   }
 
   @override

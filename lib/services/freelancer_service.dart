@@ -32,17 +32,22 @@ class FreelancerService {
   static const int enrollmentFeeRupees = 1499;
 
   /// Submit an application. Returns null on success, an error string otherwise.
+  /// Fields mirror the web FreelancerCareerScreen exactly (FIX 3).
   static Future<String?> apply({
     required String name,
     required String email,
     required String phone,
     required List<String> selectedRoles,
     String? district,
+    int experienceYears = 0,
+    String? portfolioUrl,
+    String? showreelUrl,
+    String? resumeUrl,
   }) async {
     final c = Db.client;
     if (c == null) return 'Service not configured';
-    if (name.trim().isEmpty || email.trim().isEmpty || selectedRoles.isEmpty) {
-      return 'Name, email and at least one role are required';
+    if (name.trim().isEmpty || email.trim().isEmpty || phone.trim().isEmpty || selectedRoles.isEmpty) {
+      return 'Name, phone, email and at least one role are required';
     }
     try {
       await c.from('freelancers').insert({
@@ -51,6 +56,10 @@ class FreelancerService {
         'phone': phone.trim(),
         'roles': selectedRoles,
         'district': district,
+        'experience_years': experienceYears,
+        'portfolio_url': portfolioUrl,
+        'showreel_url': showreelUrl,
+        'resume_url': resumeUrl,
         'status': 'pending',
       });
       return null;

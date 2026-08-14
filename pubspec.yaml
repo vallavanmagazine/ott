@@ -25,6 +25,7 @@ dependencies:
   google_fonts: ^6.2.1
   connectivity_plus: ^6.0.3
   http: ^1.2.0
+  speech_to_text: ^7.0.0
 
 dev_dependencies:
   flutter_test:

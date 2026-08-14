@@ -1,4 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for Supabase/HTTP in release builds (debug builds get this
+         automatically; release builds do not — its absence causes
+         "Failed host lookup"). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <!-- Voice input for the AI assistant (speech_to_text). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="vallavan_app"
         android:name="${applicationName}"
@@ -40,6 +47,10 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Lets speech_to_text discover the on-device recognition service (Android 11+). -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>
