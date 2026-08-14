@@ -1,4 +1,5 @@
 import 'supabase_client.dart';
+import 'auth_phone_service.dart';
 
 class FreelancerTask {
   final String id;
@@ -81,15 +82,19 @@ class FreelancerService {
     }
   }
 
-  /// The current signed-in user's freelancer profile, or null.
+  /// The current user's freelancer profile. Prefers the phone session's
+  /// freelancerId; falls back to Supabase Auth (admin-linked).
   static Future<Map<String, dynamic>?> fetchMyProfile() async {
     final c = Db.client;
     if (c == null) return null;
-    final user = c.auth.currentUser;
-    if (user == null) return null;
     try {
-      final row = await c.from('freelancers').select().eq('user_id', user.id).maybeSingle();
-      return row;
+      final session = await AuthPhone.currentSession();
+      if (session?.freelancerId != null) {
+        return await c.from('freelancers').select().eq('id', session!.freelancerId!).maybeSingle();
+      }
+      final user = c.auth.currentUser;
+      if (user == null) return null;
+      return await c.from('freelancers').select().eq('user_id', user.id).maybeSingle();
     } catch (_) {
       return null;
     }

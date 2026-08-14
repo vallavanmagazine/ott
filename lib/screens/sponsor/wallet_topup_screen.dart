@@ -5,7 +5,7 @@ import '../../config/theme.dart';
 import '../../services/pricing_service.dart';
 import '../../services/payments_service.dart';
 import '../../services/api_service.dart';
-import '../../services/supabase_client.dart';
+import '../../services/sponsor_service.dart';
 
 /// B4 — Wallet top-up with bonus display + payment link. Mirrors web WalletTopUpScreen.
 class WalletTopUpScreen extends StatefulWidget {
@@ -22,17 +22,7 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
 
   final _tiers = const [(min: 5000, pct: 10), (min: 10000, pct: 20), (min: 25000, pct: 30)];
 
-  Future<String?> _sponsorId() async {
-    final c = Db.client;
-    final user = c?.auth.currentUser;
-    if (c == null || user == null) return null;
-    try {
-      final s = await c.from('sponsors').select('id').eq('owner_id', user.id).maybeSingle();
-      return s?['id']?.toString();
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<String?> _sponsorId() => SponsorService.currentSponsorId();
 
   Future<void> _generate() async {
     setState(() { _error = null; });

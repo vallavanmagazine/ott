@@ -1,4 +1,5 @@
 import 'supabase_client.dart';
+import 'auth_phone_service.dart';
 
 /// Sponsor registration (FIX 3 — identical fields to web). Writes the sponsors
 /// business record. Links to the signed-in user when available. Idempotent by email.
@@ -41,8 +42,11 @@ class SponsorService {
     }
   }
 
-  /// Resolve the current user's sponsor id, or null.
+  /// Resolve the current user's sponsor id. Prefers the phone session; falls
+  /// back to Supabase Auth (admin-linked sponsor).
   static Future<String?> currentSponsorId() async {
+    final session = await AuthPhone.currentSession();
+    if (session?.sponsorId != null) return session!.sponsorId;
     final c = Db.client;
     final user = c?.auth.currentUser;
     if (c == null || user == null) return null;

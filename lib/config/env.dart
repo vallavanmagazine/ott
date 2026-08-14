@@ -16,6 +16,12 @@ class Env {
   ///   --dart-define=API_BASE_URL=https://api.vallavan.in
   static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
+  /// Fast2SMS key for client-side OTP (DEV). Empty → test OTP (123456).
+  ///   flutter build apk --dart-define=FAST2SMS_KEY=xxxx
+  static const fast2smsKey = String.fromEnvironment('FAST2SMS_KEY');
+  static const resendKey = String.fromEnvironment('RESEND_KEY');
+
   static bool get isConfigured => supabaseAnonKey.isNotEmpty;
   static bool get hasBackend => apiBaseUrl.isNotEmpty;
+  static bool get fast2smsConfigured => fast2smsKey.isNotEmpty;
 }

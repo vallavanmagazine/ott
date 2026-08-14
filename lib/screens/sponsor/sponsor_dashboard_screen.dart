@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../models/campaign.dart';
 import '../../services/auth_service.dart';
+import '../../services/auth_phone_service.dart';
+import '../../services/sponsor_service.dart';
 import '../../services/supabase_client.dart';
 import 'create_campaign_screen.dart';
 import 'wallet_topup_screen.dart';
@@ -27,12 +29,7 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
     final c = Db.client;
     if (c == null) { setState(() => _loading = false); return; }
     try {
-      final user = c.auth.currentUser;
-      String? sponsorId;
-      if (user != null) {
-        final s = await c.from('sponsors').select('id').eq('owner_id', user.id).maybeSingle();
-        sponsorId = s?['id']?.toString();
-      }
+      final sponsorId = await SponsorService.currentSponsorId();
       final query = sponsorId != null
           ? await c.from('campaigns').select().eq('sponsor_id', sponsorId).order('created_at', ascending: false)
           : <dynamic>[];
@@ -59,7 +56,7 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AIChatbotScreen(variant: 'sponsor', title: 'AI Ad Assistant'))),
             icon: const Icon(Icons.smart_toy_outlined, size: 20),
           ),
-          IconButton(onPressed: () async { await AuthService.logout(); if (context.mounted) Navigator.pop(context); }, icon: const Icon(Icons.logout, size: 20)),
+          IconButton(onPressed: () async { await AuthPhone.logout(); await AuthService.logout(); if (context.mounted) Navigator.pop(context); }, icon: const Icon(Icons.logout, size: 20)),
         ],
       ),
       body: _loading

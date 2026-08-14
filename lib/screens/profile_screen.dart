@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/theme.dart';
 import '../services/auth_service.dart';
+import '../services/auth_phone_service.dart';
 import 'about_screen.dart';
 import 'faq_screen.dart';
 import 'settings_screen.dart';
@@ -15,8 +16,10 @@ import 'watch_later_screen.dart';
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
-  void _sponsor(BuildContext context) {
-    if (AuthService.isLoggedIn) {
+  Future<void> _sponsor(BuildContext context) async {
+    final session = await AuthPhone.currentSession();
+    if (!context.mounted) return;
+    if (session != null || AuthService.isLoggedIn) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const SponsorDashboardScreen()));
     } else {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const SponsorLoginScreen()));
