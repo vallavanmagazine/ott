@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../services/freelancer_service.dart';
+import 'freelancer_submit_screen.dart';
+import 'freelancer_earnings_screen.dart';
+import 'magazine_reseller_screen.dart';
+import 'ad_sales_screen.dart';
 
 /// C3 — Freelancer dashboard. Mirrors web FreelancerDashboardScreen.
 class FreelancerDashboardScreen extends StatefulWidget {
@@ -24,6 +28,10 @@ class _FreelancerDashboardScreenState extends State<FreelancerDashboardScreen> {
     final profile = await FreelancerService.fetchMyProfile();
     final tasks = await FreelancerService.fetchOpenTasks();
     if (mounted) setState(() { _profile = profile; _tasks = tasks; _loading = false; });
+  }
+
+  void _push(Widget screen) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen)).then((_) => _load());
   }
 
   @override
@@ -51,13 +59,13 @@ class _FreelancerDashboardScreenState extends State<FreelancerDashboardScreen> {
               GridView.count(
                 crossAxisCount: 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
                 childAspectRatio: 0.95, crossAxisSpacing: 10, mainAxisSpacing: 10,
-                children: const [
-                  _Tile(Icons.assignment, 'Tasks'),
-                  _Tile(Icons.upload_file, 'Submissions'),
-                  _Tile(Icons.account_balance_wallet, 'Earnings'),
-                  _Tile(Icons.menu_book, 'Magazine'),
-                  _Tile(Icons.campaign, 'Ad Sales'),
-                  _Tile(Icons.school, 'Training'),
+                children: [
+                  _Tile(Icons.upload_file, 'Submissions', () => _push(const FreelancerSubmitScreen())),
+                  _Tile(Icons.account_balance_wallet, 'Earnings', () => _push(const FreelancerEarningsScreen())),
+                  _Tile(Icons.menu_book, 'Magazine', () => _push(const MagazineResellerScreen())),
+                  _Tile(Icons.campaign, 'Ad Sales', () => _push(const AdSalesScreen())),
+                  const _Tile(Icons.assignment, 'Tasks', null),
+                  const _Tile(Icons.school, 'Training', null),
                 ],
               ),
               const SizedBox(height: 20),
@@ -88,15 +96,19 @@ class _FreelancerDashboardScreenState extends State<FreelancerDashboardScreen> {
 class _Tile extends StatelessWidget {
   final IconData icon;
   final String label;
-  const _Tile(this.icon, this.label);
+  final VoidCallback? onTap;
+  const _Tile(this.icon, this.label, this.onTap);
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: AppColors.glass, borderRadius: BorderRadius.circular(12)),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: AppColors.gold, size: 22),
-          const SizedBox(height: 6),
-          Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
-        ]),
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: AppColors.glass, borderRadius: BorderRadius.circular(12)),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, color: AppColors.gold, size: 22),
+            const SizedBox(height: 6),
+            Text(label, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+          ]),
+        ),
       );
 }

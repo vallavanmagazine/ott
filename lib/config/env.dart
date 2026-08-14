@@ -11,5 +11,11 @@ class Env {
 
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
+  /// NestJS backend base URL (payment links, OTP). Empty → those features are
+  /// disabled and the UI explains the setup step. Inject with:
+  ///   --dart-define=API_BASE_URL=https://api.vallavan.in
+  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+
   static bool get isConfigured => supabaseAnonKey.isNotEmpty;
+  static bool get hasBackend => apiBaseUrl.isNotEmpty;
 }

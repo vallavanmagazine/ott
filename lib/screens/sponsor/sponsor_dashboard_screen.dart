@@ -4,6 +4,7 @@ import '../../models/campaign.dart';
 import '../../services/auth_service.dart';
 import '../../services/supabase_client.dart';
 import 'create_campaign_screen.dart';
+import 'wallet_topup_screen.dart';
 
 class SponsorDashboardScreen extends StatefulWidget {
   const SponsorDashboardScreen({super.key});
@@ -66,6 +67,12 @@ class _SponsorDashboardScreenState extends State<SponsorDashboardScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WalletTopUpScreen())),
+                icon: const Icon(Icons.account_balance_wallet), label: const Text('Top Up Wallet'),
+                style: FilledButton.styleFrom(backgroundColor: AppColors.gold, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
+              ),
+              const SizedBox(height: 10),
               FilledButton.icon(
                 onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateCampaignScreen())); _load(); },
                 icon: const Icon(Icons.add), label: const Text('Create Campaign'),
