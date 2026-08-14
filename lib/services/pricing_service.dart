@@ -34,11 +34,11 @@ class PricingService {
     final c = Db.client;
     if (c == null) return _fallbackRates;
     try {
-      final data = await c.from('pricing_rates').select().order('district_count', ascending: true);
+      final data = await c.from('pricing_rates').select().eq('is_active', true).order('districts_count', ascending: true);
       final rows = (data as List)
           .map((r) => PricingRate(
-                (r['district_count'] as num).toInt(),
-                (r['rate_paise'] as num).toInt(),
+                (r['districts_count'] as num).toInt(),
+                (r['daily_rate_paise'] as num).toInt(),
               ))
           .toList();
       return rows.isEmpty ? _fallbackRates : rows;
@@ -51,7 +51,7 @@ class PricingService {
     final c = Db.client;
     if (c == null) return _fallbackInspire;
     try {
-      final data = await c.from('inspire_packages').select().order('price_paise', ascending: true);
+      final data = await c.from('inspire_packages').select().eq('is_active', true).order('price_paise', ascending: true);
       final rows = (data as List)
           .map((r) => InspirePackage(
                 (r['name'] ?? '').toString(),
