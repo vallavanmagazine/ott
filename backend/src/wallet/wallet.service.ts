@@ -77,6 +77,46 @@ export class WalletService {
   }
 
   /**
+   * Section B5 — daily campaign deduction. For each Active campaign, debit its
+   * daily_rate_paise from the sponsor wallet. Idempotent per (campaign, day):
+   * the reference is `daily_<campaignId>_<YYYY-MM-DD>`. Campaigns whose sponsor
+   * has insufficient balance are auto-paused. Designed to be called once a day
+   * by an external scheduler (cron) hitting POST /api/wallet/run-daily-deduction.
+   */
+  async runDailyDeduction(dateISO?: string) {
+    const c = this.supa.client;
+    const day = (dateISO ?? new Date().toISOString()).slice(0, 10);
+    const { data: campaigns, error } = await c
+      .from('campaigns')
+      .select('id, name, sponsor_id, daily_rate_paise')
+      .eq('status', 'Active');
+    if (error) throw error;
+
+    const result = { day, processed: 0, charged: 0, paused: [] as string[], skipped: 0 };
+    for (const camp of campaigns ?? []) {
+      const cost = Number(camp.daily_rate_paise ?? 9900);
+      if (!camp.sponsor_id || cost <= 0) { result.skipped++; continue; }
+      const reference = `daily_${camp.id}_${day}`;
+
+      // idempotency: already charged today?
+      const { data: existing } = await c.from('wallet_transactions')
+        .select('id').eq('kind', 'daily_charge').eq('reference', reference).maybeSingle();
+      if (existing) { result.skipped++; continue; }
+
+      const balance = await this.balancePaise(camp.sponsor_id);
+      if (balance < cost) {
+        await c.from('campaigns').update({ status: 'Paused' }).eq('id', camp.id);
+        result.paused.push(camp.name ?? camp.id);
+        continue;
+      }
+      await this.credit(camp.sponsor_id, -cost, 'daily_charge', reference);
+      result.processed++;
+      result.charged += cost;
+    }
+    return result;
+  }
+
+  /**
    * Per-post deduction. cost = base + (districtCount-1)*perDistrict (paise),
    * from pricing_config. Idempotent by postId. Throws on insufficient balance.
    * TODO(pricing): confirm exact formula with Murugavel (BLOCKERS B1).

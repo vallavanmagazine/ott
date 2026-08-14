@@ -24,4 +24,10 @@ export class WalletController {
   transactions(@Param('sponsorId') sponsorId: string) {
     return this.wallet.transactions(sponsorId);
   }
+
+  /** Section B5 — run the daily campaign deduction (call from a daily cron). */
+  @Post('run-daily-deduction')
+  runDailyDeduction(@Body() body: { date?: string }) {
+    return this.wallet.runDailyDeduction(body?.date);
+  }
 }

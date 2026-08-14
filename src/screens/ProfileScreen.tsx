@@ -104,6 +104,7 @@ export function ProfileScreen({
         </button>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
           <ProfileRow icon={Star} label="Become a Sponsor" onClick={() => onBusinessItem('sponsor-promo')} accent />
+          <ProfileRow icon={CreditCard} label="Sponsor Signup (KYC)" sub="Verify your business with a phone OTP" onClick={() => onBusinessItem('sponsor-kyc')} accent />
           <ProfileRow icon={Megaphone} label="Create Campaign" onClick={() => onBusinessItem('create-campaign')} accent />
           <ProfileRow icon={BarChart3} label="My Campaigns" value="4 campaigns" onClick={() => onBusinessItem('my-campaigns')} accent />
           <ProfileRow icon={BarChart3} label="Campaign Reports" value="Analytics" onClick={() => onBusinessItem('campaign-analytics')} accent />
@@ -123,6 +124,8 @@ export function ProfileScreen({
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
           <ProfileRow icon={Users} label="Join as Freelancer" sub="Reporter, Anchor, Writer, Editor, Producer" onClick={() => onBusinessItem('freelancer-career')} accent />
           <ProfileRow icon={Briefcase} label="Freelancer Dashboard" onClick={() => onBusinessItem('freelancer-dashboard')} accent />
+          <ProfileRow icon={BarChart3} label="My Earnings" onClick={() => onBusinessItem('freelancer-earnings')} accent />
+          <ProfileRow icon={Bookmark} label="Magazine Reseller" onClick={() => onBusinessItem('magazine-reseller')} accent />
         </div>
       </section>
 

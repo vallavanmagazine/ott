@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   LayoutDashboard, Users, Film, Tv, Building2, CheckSquare,
-  Megaphone, BarChart3, FileText, Settings, ScrollText, LogOut,
+  Megaphone, BarChart3, TrendingUp, FileText, Settings, ScrollText, LogOut,
   ChevronLeft, Lock, Clapperboard, Radio, KeyRound, Sparkles, Briefcase, Share2, ReceiptText,
 } from 'lucide-react';
 import { AdminLogin } from './AdminLogin';
@@ -23,6 +23,7 @@ import { AdminInspireContent } from './AdminInspireContent';
 import { AdminFreelancers } from './AdminFreelancers';
 import { AdminSocial } from './AdminSocial';
 import { AdminInvoices } from './AdminInvoices';
+import { AdminAnalytics } from './AdminAnalytics';
 import { useAuth } from '@/context/AuthContext';
 
 export type AdminPage =
@@ -39,6 +40,7 @@ export type AdminPage =
   | 'social'
   | 'invoices'
   | 'revenue'
+  | 'analytics'
   | 'cms'
   | 'broadcast'
   | 'apisettings'
@@ -60,6 +62,7 @@ const navItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard }[
   { key: 'invoices', label: 'Invoices', icon: ReceiptText },
   { key: 'broadcast', label: 'Broadcast Control', icon: Radio },
   { key: 'revenue', label: 'Revenue Reports', icon: BarChart3 },
+  { key: 'analytics', label: 'Analytics', icon: TrendingUp },
   { key: 'cms', label: 'CMS', icon: FileText },
   { key: 'apisettings', label: 'API Settings', icon: KeyRound },
   { key: 'settings', label: 'System Settings', icon: Settings },
@@ -89,6 +92,7 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
       case 'freelancers': return <AdminFreelancers />;
       case 'social': return <AdminSocial />;
       case 'invoices': return <AdminInvoices />;
+      case 'analytics': return <AdminAnalytics />;
       case 'revenue': return <AdminRevenueReports />;
       case 'cms': return <AdminCMS />;
       case 'broadcast': return <AdminBroadcast />;

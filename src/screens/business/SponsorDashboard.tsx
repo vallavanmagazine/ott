@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Megaphone, TrendingUp, MousePointerClick, IndianRupee,
-  ChevronRight, Plus, BarChart3, Eye,
+  ChevronRight, Plus, BarChart3, Eye, Wallet, Sparkles,
 } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
 import { campaigns as mockCampaigns } from '@/data/mockData';
@@ -28,9 +28,11 @@ export function SponsorDashboard({ onBack, onNavigate }: { onBack: () => void; o
   ];
 
   const quickActions = [
+    { label: 'Top Up Wallet', icon: Wallet, key: 'wallet-topup' },
     { label: 'Create Campaign', icon: Plus, key: 'create-campaign' },
     { label: 'My Campaigns', icon: BarChart3, key: 'my-campaigns' },
     { label: 'AI Studio', icon: Megaphone, key: 'ai-studio' },
+    { label: 'Inspire PR Video', icon: Sparkles, key: 'inspire-order' },
     { label: 'Campaign Analytics', icon: TrendingUp, key: 'campaign-analytics' },
   ];
 

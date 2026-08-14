@@ -29,6 +29,13 @@ import { AIAssistantScreen } from '@/screens/business/AIAssistantScreen';
 import { SponsorPromoScreen } from '@/screens/business/SponsorPromoScreen';
 import { FreelancerCareerScreen } from '@/screens/business/FreelancerCareerScreen';
 import { FreelancerDashboardScreen } from '@/screens/business/FreelancerDashboardScreen';
+import { WalletTopUpScreen } from '@/screens/business/WalletTopUpScreen';
+import { SponsorKycScreen } from '@/screens/business/SponsorKycScreen';
+import { InspireOrderScreen } from '@/screens/business/InspireOrderScreen';
+import { FreelancerEarningsScreen } from '@/screens/business/FreelancerEarningsScreen';
+import { FreelancerSubmitScreen } from '@/screens/business/FreelancerSubmitScreen';
+import { MagazineResellerScreen } from '@/screens/business/MagazineResellerScreen';
+import { AdSalesScreen } from '@/screens/business/AdSalesScreen';
 import { AdminApp } from '@/screens/admin/AdminApp';
 import { SponsorLoginModal } from '@/components/SponsorLoginModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -49,7 +56,7 @@ type Overlay =
   | { type: 'watch-history' }
   | { type: 'watch-later' };
 
-const SPONSOR_ITEMS = ['sponsor', 'create-campaign', 'my-campaigns', 'campaign-analytics', 'billing'];
+const SPONSOR_ITEMS = ['sponsor', 'create-campaign', 'my-campaigns', 'campaign-analytics', 'billing', 'wallet-topup', 'inspire-order'];
 
 function AppInner() {
   const [showSplash, setShowSplash] = useState(true);
@@ -120,7 +127,21 @@ function AppInner() {
       case 'freelancer-career':
         return <FreelancerCareerScreen onBack={back} />;
       case 'freelancer-dashboard':
-        return <FreelancerDashboardScreen onBack={back} />;
+        return <FreelancerDashboardScreen onBack={back} onNavigate={navigate} />;
+      case 'wallet-topup':
+        return <WalletTopUpScreen onBack={back} />;
+      case 'sponsor-kyc':
+        return <SponsorKycScreen onBack={back} onDone={() => navigate('wallet-topup')} />;
+      case 'inspire-order':
+        return <InspireOrderScreen onBack={back} />;
+      case 'freelancer-earnings':
+        return <FreelancerEarningsScreen onBack={back} />;
+      case 'freelancer-submit':
+        return <FreelancerSubmitScreen onBack={back} />;
+      case 'magazine-reseller':
+        return <MagazineResellerScreen onBack={back} />;
+      case 'ad-sales':
+        return <AdSalesScreen onBack={back} />;
       default:
         return <SponsorDashboard onBack={back} onNavigate={navigate} />;
     }

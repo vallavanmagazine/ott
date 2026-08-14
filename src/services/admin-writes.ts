@@ -32,6 +32,16 @@ export async function logAudit(action: string): Promise<void> {
 }
 
 // ===========================================================================
+// SPONSORS (management)
+// ===========================================================================
+/** Suspend/activate a sponsor. Status is one of 'Active' | 'Suspended' | 'Pending'. */
+export async function setSponsorStatus(id: string, status: string, name?: string): Promise<void> {
+  const { error } = await client().from('sponsors').update({ status }).eq('id', id);
+  if (error) throw error;
+  await logAudit(`Sponsor ${name ?? id} → ${status}`);
+}
+
+// ===========================================================================
 // DOCUMENTARIES
 // ===========================================================================
 export interface DocumentaryInput {

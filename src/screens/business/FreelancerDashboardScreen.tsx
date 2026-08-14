@@ -3,7 +3,7 @@ import { Briefcase, ListChecks, Upload, Wallet, BookOpen, IndianRupee } from 'lu
 import { SubPageHeader } from '@/components/ScreenShell';
 import { fetchOpenTasks, fetchMyFreelancer, type FreelancerTask } from '@/services/freelancer';
 
-export function FreelancerDashboardScreen({ onBack }: { onBack: () => void }) {
+export function FreelancerDashboardScreen({ onBack, onNavigate }: { onBack: () => void; onNavigate?: (key: string) => void }) {
   const [tasks, setTasks] = useState<FreelancerTask[]>([]);
   const [profile, setProfile] = useState<any>(null);
 
@@ -12,13 +12,14 @@ export function FreelancerDashboardScreen({ onBack }: { onBack: () => void }) {
     fetchMyFreelancer().then(setProfile);
   }, []);
 
+  const go = (key: string) => onNavigate?.(key);
   const tiles = [
-    { icon: ListChecks, label: 'Available Tasks' },
-    { icon: Briefcase, label: 'My Assignments' },
-    { icon: Upload, label: 'Submit Content' },
-    { icon: Wallet, label: 'Earnings' },
-    { icon: BookOpen, label: 'Magazine Reseller' },
-    { icon: IndianRupee, label: 'Ad Sales' },
+    { icon: ListChecks, label: 'Available Tasks', key: '' },
+    { icon: Briefcase, label: 'My Assignments', key: 'freelancer-submit' },
+    { icon: Upload, label: 'Submit Content', key: 'freelancer-submit' },
+    { icon: Wallet, label: 'Earnings', key: 'freelancer-earnings' },
+    { icon: BookOpen, label: 'Magazine Reseller', key: 'magazine-reseller' },
+    { icon: IndianRupee, label: 'Ad Sales', key: 'ad-sales' },
   ];
 
   const status = profile?.status as string | undefined;
@@ -41,10 +42,10 @@ export function FreelancerDashboardScreen({ onBack }: { onBack: () => void }) {
 
         <section className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
           {tiles.map((t) => (
-            <div key={t.label} className="p-3.5 rounded-card glass">
+            <button key={t.label} onClick={() => t.key && go(t.key)} className="p-3.5 rounded-card glass text-left active:scale-95 transition">
               <t.icon size={18} className="text-vgold" />
               <div className="text-sm font-bold text-white mt-2">{t.label}</div>
-            </div>
+            </button>
           ))}
         </section>
 
