@@ -6,6 +6,9 @@ import 'help_screen.dart';
 import 'settings_screen.dart';
 import 'sponsor/sponsor_dashboard_screen.dart';
 import 'sponsor/sponsor_login_screen.dart';
+import 'sponsor/sponsor_promo_screen.dart';
+import 'freelancer/freelancer_career_screen.dart';
+import 'freelancer/freelancer_dashboard_screen.dart';
 import 'watch_history_screen.dart';
 import 'watch_later_screen.dart';
 
@@ -49,8 +52,13 @@ class ProfileScreen extends StatelessWidget {
           ]),
           const SizedBox(height: 16),
           _section('BUSINESS CENTER', [
-            _tile(Icons.star, 'Become a Sponsor', () => _sponsor(context), accent: true),
+            _tile(Icons.star, 'Become a Sponsor', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SponsorPromoScreen())), accent: true),
             _tile(Icons.dashboard, 'Sponsor Dashboard', () => _sponsor(context), accent: true),
+          ]),
+          const SizedBox(height: 16),
+          _section('FREELANCER CENTER', [
+            _tile(Icons.people, 'Join as Freelancer', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FreelancerCareerScreen())), accent: true),
+            _tile(Icons.work_outline, 'Freelancer Dashboard', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FreelancerDashboardScreen())), accent: true),
           ]),
           const SizedBox(height: 16),
           _section('SETTINGS', [
