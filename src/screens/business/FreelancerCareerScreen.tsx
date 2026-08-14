@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Check, Briefcase } from 'lucide-react';
+import { Briefcase } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
 import { tamilNaduDistricts } from '@/data/mockData';
 import { applyFreelancer, FREELANCER_ROLES, ENROLLMENT_FEE_RUPEES } from '@/services/freelancer';
+import { DownloadAppCard } from '@/components/GetApp';
 
 const ROLE_INFO: Record<string, { desc: string; pay: string }> = {
   Reporter: { desc: 'Field reporting, news gathering', pay: '₹1,500–5,000 / story' },
@@ -16,12 +17,13 @@ export function FreelancerCareerScreen({ onBack }: { onBack: () => void }) {
   const [applying, setApplying] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ name: '', phone: '', email: '', district: 'Chennai', roles: [] as string[], experienceYears: 0, portfolioUrl: '', showreelUrl: '' });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', district: 'Chennai', roles: [] as string[], experienceYears: 0, portfolioUrl: '', showreelUrl: '', resumeUrl: '', agree: false });
 
   const toggleRole = (r: string) => setForm((f) => ({ ...f, roles: f.roles.includes(r) ? f.roles.filter((x) => x !== r) : [...f.roles, r] }));
 
   const submit = async () => {
     if (!form.name.trim() || !form.phone.trim() || !form.email.trim() || form.roles.length === 0) { alert('Name, phone, email and at least one role are required.'); return; }
+    if (!form.agree) { alert('Please agree to the Terms to continue.'); return; }
     setBusy(true);
     try { await applyFreelancer(form); setDone(true); }
     catch (e) { alert(`Submit failed: ${(e as Error).message}. (You may need to be signed in.)`); }
@@ -34,10 +36,11 @@ export function FreelancerCareerScreen({ onBack }: { onBack: () => void }) {
     return (
       <div className="min-h-screen bg-vblack">
         <SubPageHeader title="Join as Freelancer" onBack={onBack} />
-        <div className="px-4 mt-10 max-w-[600px] mx-auto text-center">
-          <div className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center mx-auto"><Check size={30} className="text-green-400" /></div>
-          <h2 className="text-lg font-black text-white mt-4">Application submitted</h2>
-          <p className="text-sm text-vmuted mt-2">Our team will review and notify you by SMS + email. After approval, a ₹{ENROLLMENT_FEE_RUPEES.toLocaleString('en-IN')} enrollment fee activates your Freelancer Dashboard.</p>
+        <div className="px-4 mt-8 max-w-[560px] mx-auto w-full">
+          <DownloadAppCard
+            title="Application submitted! 🎉"
+            subtitle={`Our team will review and notify you by email. After approval, a ₹${ENROLLMENT_FEE_RUPEES.toLocaleString('en-IN')} enrollment fee activates your Freelancer Dashboard — download the Vallavan app to access it.`}
+          />
         </div>
       </div>
     );
@@ -84,6 +87,11 @@ export function FreelancerCareerScreen({ onBack }: { onBack: () => void }) {
             <input type="number" value={form.experienceYears} onChange={(e) => setForm({ ...form, experienceYears: Number(e.target.value) })} placeholder="Years of experience" className={inp} />
             <input value={form.portfolioUrl} onChange={(e) => setForm({ ...form, portfolioUrl: e.target.value })} placeholder="Portfolio URL (optional)" className={inp} />
             <input value={form.showreelUrl} onChange={(e) => setForm({ ...form, showreelUrl: e.target.value })} placeholder="Showreel URL (optional)" className={inp} />
+            <input value={form.resumeUrl} onChange={(e) => setForm({ ...form, resumeUrl: e.target.value })} placeholder="Resume URL (optional)" className={inp} />
+            <label className="flex items-center gap-2.5 px-1 py-1 cursor-pointer">
+              <input type="checkbox" checked={form.agree} onChange={(e) => setForm({ ...form, agree: e.target.checked })} className="w-4 h-4 accent-vred" />
+              <span className="text-xs text-white/90">I agree to the <span className="text-vgold font-semibold">Terms &amp; Conditions</span>.</span>
+            </label>
             <button onClick={submit} disabled={busy} className="w-full py-3.5 rounded-full bg-vred text-white font-bold text-sm active:scale-95 disabled:opacity-50">{busy ? 'Submitting…' : 'Submit Application'}</button>
           </div>
         )}

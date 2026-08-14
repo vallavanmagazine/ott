@@ -1,11 +1,17 @@
-import { Mail, Phone, MessageCircle, LifeBuoy } from 'lucide-react';
+import { Mail, LifeBuoy, Bot } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
+import { SUPPORT_EMAIL } from '@/services/chat';
 
-export function HelpScreen({ onBack }: { onBack: () => void }) {
+/**
+ * Support = AI chatbot + email only (FIX 5). No phone, no WhatsApp anywhere.
+ * The primary support entry point is the AI Assistant (see AIChatbot); this
+ * static screen is kept as a lightweight fallback.
+ */
+export function HelpScreen({ onBack, onChat }: { onBack: () => void; onChat?: () => void }) {
   const faqs = [
     { q: 'Is Vallavan free?', a: 'Yes — all documentaries are free to watch, supported by sponsors (AVOD).' },
     { q: 'Do I need an account?', a: 'No. Viewing needs no login. Watch History & Watch Later are saved on your device.' },
-    { q: 'How do I advertise?', a: 'Tap Profile → Business Center → Become a Sponsor to create geo-targeted campaigns.' },
+    { q: 'How do I advertise?', a: 'Tap Profile → Become a Sponsor to see pricing and sign up. Manage campaigns in the app.' },
   ];
 
   return (
@@ -15,23 +21,21 @@ export function HelpScreen({ onBack }: { onBack: () => void }) {
         <section className="p-4 rounded-card glass-strong flex items-center gap-3">
           <LifeBuoy size={22} className="text-vred" />
           <div>
-            <div className="text-sm font-black text-white">We're here to help</div>
-            <div className="text-[11px] text-vmuted">Typical reply within 24 hours.</div>
+            <div className="text-sm font-black text-white">Our AI assistant can help you 24/7</div>
+            <div className="text-[11px] text-vmuted">Ask about advertising, freelancing, or the app.</div>
           </div>
         </section>
 
         <section className="rounded-card glass overflow-hidden divide-y divide-white/5">
-          <a href="mailto:support@vallavan.in" className="flex items-center gap-3 px-4 py-3.5">
+          {onChat && (
+            <button onClick={onChat} className="w-full flex items-center gap-3 px-4 py-3.5 text-left">
+              <Bot size={18} className="text-vgold" />
+              <div className="flex-1"><div className="text-sm font-semibold text-white">AI Assistant</div><div className="text-[11px] text-vmuted">Chat now</div></div>
+            </button>
+          )}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="flex items-center gap-3 px-4 py-3.5">
             <Mail size={18} className="text-vgold" />
-            <div className="flex-1"><div className="text-sm font-semibold text-white">Email</div><div className="text-[11px] text-vmuted">support@vallavan.in</div></div>
-          </a>
-          <a href="tel:+914400000000" className="flex items-center gap-3 px-4 py-3.5">
-            <Phone size={18} className="text-vgold" />
-            <div className="flex-1"><div className="text-sm font-semibold text-white">Phone</div><div className="text-[11px] text-vmuted">+91 44 0000 0000</div></div>
-          </a>
-          <a href="https://wa.me/919000000000" target="_blank" rel="noreferrer" className="flex items-center gap-3 px-4 py-3.5">
-            <MessageCircle size={18} className="text-vgold" />
-            <div className="flex-1"><div className="text-sm font-semibold text-white">WhatsApp</div><div className="text-[11px] text-vmuted">Chat with support</div></div>
+            <div className="flex-1"><div className="text-sm font-semibold text-white">Email</div><div className="text-[11px] text-vmuted">{SUPPORT_EMAIL}</div></div>
           </a>
         </section>
 

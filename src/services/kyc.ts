@@ -12,8 +12,9 @@ export interface KycInput {
   ownerName: string;
   email: string;
   phone: string;
-  gstNumber?: string;
   businessType?: string;
+  district?: string;
+  gstNumber?: string;
 }
 
 /** Send an OTP to the phone via Fast2SMS (backend). */
@@ -45,8 +46,9 @@ export async function registerSponsorKyc(input: KycInput) {
     owner_name: input.ownerName,
     email: input.email,
     phone: input.phone,
-    gst_number: input.gstNumber ?? null,
     business_type: input.businessType ?? null,
+    district: input.district ?? null,
+    gst_number: input.gstNumber ?? null,
     owner_id: ownerId,
   };
 

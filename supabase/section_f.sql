@@ -195,6 +195,7 @@ ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS gst_number text;
 ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS business_type text;
 ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS owner_name text;
 ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS phone text;
+ALTER TABLE sponsors ADD COLUMN IF NOT EXISTS district text;
 
 -- Wallet fields (bonus tracking / low-balance auto-pause support)
 ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS daily_rate_paise int DEFAULT 9900;

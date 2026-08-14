@@ -27,7 +27,10 @@ import { CampaignAnalyticsScreen } from '@/screens/business/CampaignAnalyticsScr
 import { BillingScreen } from '@/screens/business/BillingScreen';
 import { AIAssistantScreen } from '@/screens/business/AIAssistantScreen';
 import { SponsorPromoScreen } from '@/screens/business/SponsorPromoScreen';
+import { SponsorSignupScreen } from '@/screens/business/SponsorSignupScreen';
 import { FreelancerCareerScreen } from '@/screens/business/FreelancerCareerScreen';
+import { DownloadAppScreen } from '@/screens/business/DownloadAppScreen';
+import { AIChatbot } from '@/components/AIChatbot';
 import { FreelancerDashboardScreen } from '@/screens/business/FreelancerDashboardScreen';
 import { WalletTopUpScreen } from '@/screens/business/WalletTopUpScreen';
 import { SponsorKycScreen } from '@/screens/business/SponsorKycScreen';
@@ -102,48 +105,19 @@ function AppInner() {
     const back = () => setOverlay({ type: 'none' });
     const navigate = (key: string) => setOverlay({ type: 'business', key });
 
+    // WEB is viewer + signup only (FIX 2). Sponsor/freelancer DASHBOARDS live in
+    // the mobile app — any dashboard/management key lands on DownloadAppScreen.
     switch (overlay.key) {
-      case 'sponsor-dashboard':
-      case 'sponsor':
-        return <SponsorDashboard onBack={back} onNavigate={navigate} />;
-      case 'create-campaign':
-        return <CreateCampaignScreen onBack={back} />;
-      case 'ai-studio':
-        return <AIStudioScreen onBack={back} />;
-      case 'creative-library':
-        return <CreativeLibraryScreen onBack={back} />;
-      case 'my-campaigns':
-        return <MyCampaignsScreen onBack={back} />;
-      case 'geo-targeting':
-        return <GeoTargetingScreen onBack={back} />;
-      case 'campaign-analytics':
-        return <CampaignAnalyticsScreen onBack={back} />;
-      case 'billing':
-        return <BillingScreen onBack={back} />;
-      case 'ai-assistant':
-        return <AIAssistantScreen onBack={back} />;
       case 'sponsor-promo':
-        return <SponsorPromoScreen onBack={back} onStart={() => navigate('sponsor')} />;
+        return <SponsorPromoScreen onBack={back} onStart={() => navigate('sponsor-signup')} />;
+      case 'sponsor-signup':
+        return <SponsorSignupScreen onBack={back} />;
       case 'freelancer-career':
         return <FreelancerCareerScreen onBack={back} />;
-      case 'freelancer-dashboard':
-        return <FreelancerDashboardScreen onBack={back} onNavigate={navigate} />;
-      case 'wallet-topup':
-        return <WalletTopUpScreen onBack={back} />;
-      case 'sponsor-kyc':
-        return <SponsorKycScreen onBack={back} onDone={() => navigate('wallet-topup')} />;
-      case 'inspire-order':
-        return <InspireOrderScreen onBack={back} />;
-      case 'freelancer-earnings':
-        return <FreelancerEarningsScreen onBack={back} />;
-      case 'freelancer-submit':
-        return <FreelancerSubmitScreen onBack={back} />;
-      case 'magazine-reseller':
-        return <MagazineResellerScreen onBack={back} />;
-      case 'ad-sales':
-        return <AdSalesScreen onBack={back} />;
+      case 'ai-assistant':
+        return <AIChatbot onBack={back} />;
       default:
-        return <SponsorDashboard onBack={back} onNavigate={navigate} />;
+        return <DownloadAppScreen onBack={back} />;
     }
   }
 
@@ -224,7 +198,7 @@ function AppInner() {
 
   // --- Profile sub-screens ---
   if (overlay.type === 'settings') return <SettingsScreen onBack={() => setOverlay({ type: 'none' })} />;
-  if (overlay.type === 'help') return <HelpScreen onBack={() => setOverlay({ type: 'none' })} />;
+  if (overlay.type === 'help') return <AIChatbot onBack={() => setOverlay({ type: 'none' })} />;
   if (overlay.type === 'about') return <AboutScreen onBack={() => setOverlay({ type: 'none' })} />;
   if (overlay.type === 'watch-history') {
     return <WatchHistoryScreen onBack={() => setOverlay({ type: 'none' })} onCardClick={(item) => setOverlay({ type: 'detail', item })} />;

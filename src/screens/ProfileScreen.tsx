@@ -1,14 +1,19 @@
 import {
   Camera, ChevronRight, History, Bookmark,
-  Star, Megaphone, BarChart3, CreditCard, LifeBuoy,
-  Bot, MessageCircle, Settings, HelpCircle, Info, Heart, Briefcase, Users,
+  Star, Users, Settings, Info, Heart, Bot, Briefcase,
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Divider } from '@/components/ui';
 import { userProfile, pexelsUrl } from '@/data/mockData';
 import { useAuth } from '@/context/AuthContext';
 import { getWatchHistory, getWatchLater } from '@/lib/library';
+import { GetAppBanner } from '@/components/GetApp';
 
+/**
+ * WEB profile (FIX 2/7). Web is viewer + signup only — NO dashboards. Sponsor
+ * and freelancer flows show pricing/career + a form, then point users to the
+ * mobile app. Support is the AI chatbot; no phone/WhatsApp anywhere.
+ */
 export function ProfileScreen({
   onNotifications,
   onBusinessItem,
@@ -65,18 +70,12 @@ export function ProfileScreen({
                 <span className="text-[9px] font-bold tracking-wider text-vmuted uppercase">Guest</span>
               </div>
             )}
-            {auth.isLoggedIn && (
-              <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-vgold/20 border border-vgold/40">
-                <Star size={10} className="text-vgold" fill="currentColor" />
-                <span className="text-[9px] font-black tracking-wider text-vgold uppercase">Sponsor</span>
-              </div>
-            )}
           </div>
           <ChevronRight size={20} className="text-vmuted" />
         </div>
       </section>
 
-      {/* AVOD message — replaces premium/subscription */}
+      {/* AVOD message */}
       <section className="px-4 sm:px-6 lg:px-8 mt-3">
         <div className="flex items-center gap-3 p-3.5 rounded-card glass border border-vred/20">
           <Heart size={18} className="text-vred flex-shrink-0" fill="currentColor" />
@@ -86,79 +85,44 @@ export function ProfileScreen({
         </div>
       </section>
 
-      {/* Account section */}
+      {/* Account */}
       <section className="px-4 sm:px-6 lg:px-8 mt-5">
         <h3 className="text-[10px] tracking-wider uppercase text-vmuted font-bold mb-2.5 px-1">Account</h3>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
           <ProfileRow icon={History} label="Watch History" value={`${historyCount} ${historyCount === 1 ? 'title' : 'titles'}`} onClick={onWatchHistory} />
           <ProfileRow icon={Bookmark} label="Watch Later" value={`${laterCount} saved`} onClick={onWatchLater} />
+          <ProfileRow icon={Settings} label="App Settings" onClick={onAppSettings} />
         </div>
       </section>
 
-      {/* Business Center */}
+      {/* Sponsor */}
       <section className="px-4 sm:px-6 lg:px-8 mt-5">
-        <button onClick={() => onBusinessItem('sponsor')} className="flex items-center gap-2 mb-2.5 px-1 active:scale-95 transition">
-          <Star size={14} className="text-vgold" fill="currentColor" />
-          <h3 className="text-[10px] tracking-wider uppercase text-vgold font-bold">Business Center</h3>
-          <ChevronRight size={12} className="text-vgold" />
-        </button>
+        <h3 className="text-[10px] tracking-wider uppercase text-vgold font-bold mb-2.5 px-1">Sponsor</h3>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
-          <ProfileRow icon={Star} label="Become a Sponsor" onClick={() => onBusinessItem('sponsor-promo')} accent />
-          <ProfileRow icon={CreditCard} label="Sponsor Signup (KYC)" sub="Verify your business with a phone OTP" onClick={() => onBusinessItem('sponsor-kyc')} accent />
-          <ProfileRow icon={Megaphone} label="Create Campaign" onClick={() => onBusinessItem('create-campaign')} accent />
-          <ProfileRow icon={BarChart3} label="My Campaigns" value="4 campaigns" onClick={() => onBusinessItem('my-campaigns')} accent />
-          <ProfileRow icon={BarChart3} label="Campaign Reports" value="Analytics" onClick={() => onBusinessItem('campaign-analytics')} accent />
-          <ProfileRow icon={CreditCard} label="Billing & Payments" onClick={() => onBusinessItem('billing')} accent />
-          <ProfileRow icon={LifeBuoy} label="Support" onClick={() => onBusinessItem('support')} accent />
-          <ProfileRow icon={Bot} label="AI Studio" sub="Generate ads, banners & captions with AI" onClick={() => onBusinessItem('ai-studio')} accent />
-          <ProfileRow icon={MessageCircle} label="AI Assistant" sub="Tamil voice & text campaign help" onClick={() => onBusinessItem('ai-assistant')} accent />
+          <ProfileRow icon={Star} label="Become a Sponsor" sub="See pricing & sign up your business" onClick={() => onBusinessItem('sponsor-promo')} accent />
         </div>
       </section>
 
-      {/* Freelancer Center */}
+      {/* Freelancer */}
       <section className="px-4 sm:px-6 lg:px-8 mt-5">
-        <div className="flex items-center gap-2 mb-2.5 px-1">
-          <Briefcase size={14} className="text-vgold" />
-          <h3 className="text-[10px] tracking-wider uppercase text-vgold font-bold">Freelancer Center</h3>
-        </div>
+        <h3 className="text-[10px] tracking-wider uppercase text-vgold font-bold mb-2.5 px-1">Freelancer</h3>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
-          <ProfileRow icon={Users} label="Join as Freelancer" sub="Reporter, Anchor, Writer, Editor, Producer" onClick={() => onBusinessItem('freelancer-career')} accent />
-          <ProfileRow icon={Briefcase} label="Freelancer Dashboard" onClick={() => onBusinessItem('freelancer-dashboard')} accent />
-          <ProfileRow icon={BarChart3} label="My Earnings" onClick={() => onBusinessItem('freelancer-earnings')} accent />
-          <ProfileRow icon={Bookmark} label="Magazine Reseller" onClick={() => onBusinessItem('magazine-reseller')} accent />
+          <ProfileRow icon={Briefcase} label="Join as Freelancer" sub="Reporter, Anchor, Writer, Editor, Producer" onClick={() => onBusinessItem('freelancer-career')} accent />
         </div>
       </section>
 
-      {/* Grow Your Brand promo */}
-      <section className="px-4 sm:px-6 lg:px-8 mt-4">
-        <div className="relative rounded-card overflow-hidden border border-vgold/30">
-          <div className="absolute inset-0 bg-gradient-to-r from-vgold/10 via-vblack to-vblack" />
-          <div className="relative p-4 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-vgold/20 flex items-center justify-center flex-shrink-0">
-              <Megaphone size={22} className="text-vgold" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-black text-white">Grow Your Brand</h3>
-              <p className="text-[11px] text-vmuted mt-0.5">Reach millions of Tamil viewers.</p>
-            </div>
-            <button
-              onClick={() => onBusinessItem('sponsor')}
-              className="px-3.5 py-2 rounded-full bg-vgold text-black text-xs font-black active:scale-95 transition"
-            >
-              Get Started
-            </button>
-          </div>
-        </div>
+      {/* Get the app */}
+      <section className="px-4 sm:px-6 lg:px-8 mt-5">
+        <GetAppBanner />
       </section>
 
       <Divider />
 
-      {/* Settings */}
+      {/* Support */}
       <section className="px-4 sm:px-6 lg:px-8">
-        <h3 className="text-[10px] tracking-wider uppercase text-vmuted font-bold mb-2.5 px-1">Settings</h3>
+        <h3 className="text-[10px] tracking-wider uppercase text-vmuted font-bold mb-2.5 px-1">Support</h3>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
-          <ProfileRow icon={Settings} label="App Settings" onClick={onAppSettings} />
-          <ProfileRow icon={HelpCircle} label="Help & Support" onClick={onHelp} />
+          <ProfileRow icon={Bot} label="AI Assistant" sub="Chat with our assistant 24/7" onClick={onHelp} />
           <ProfileRow icon={Info} label="About Vallavan" value="v2.1.0" onClick={onAbout} />
         </div>
       </section>
