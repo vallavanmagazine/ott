@@ -261,3 +261,8 @@ B1 pricing formula · B2 dual-channel billing · B3 viewer accounts (default cho
 ### Notes for the human
 - Nothing deployed, no live charges, no Meta calls, no push to main — all four hard boundaries respected.
 - To run against real data I need a Supabase project's URL + keys (B4), or your OK to run a local Supabase (Docker) instance.
+
+### Registration + OTP (2026-08-14)
+- **Sponsor + Freelancer registration** now exists (web `services/registration.ts` + `RegisterScreen`; Flutter `registration_service.dart` + `register_screen.dart`). Flow: form (name, mobile, email, district) → mobile OTP (Fast2SMS, if backend configured) → **email OTP (Supabase built-in) creates the account** → inserts `app_users` (role) + `sponsors`/`freelancers` rows → dashboard (mobile) / download-app (web).
+- **OTP fallback decision:** account creation always uses Supabase **email OTP** because Supabase phone-auth needs Twilio (not provisioned). Fast2SMS mobile OTP is an *additional* ownership check, used only when the NestJS backend is configured; when it isn't, registration falls back to email OTP only. This satisfies "Fast2SMS not configured → email OTP fallback."
+- Login modals/screens now link to "Register as Sponsor | Register as Freelancer".

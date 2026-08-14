@@ -28,6 +28,7 @@ import { BillingScreen } from '@/screens/business/BillingScreen';
 import { AIAssistantScreen } from '@/screens/business/AIAssistantScreen';
 import { SponsorPromoScreen } from '@/screens/business/SponsorPromoScreen';
 import { SponsorSignupScreen } from '@/screens/business/SponsorSignupScreen';
+import { RegisterScreen } from '@/screens/business/RegisterScreen';
 import { FreelancerCareerScreen } from '@/screens/business/FreelancerCareerScreen';
 import { DownloadAppScreen } from '@/screens/business/DownloadAppScreen';
 import { AIChatbot } from '@/components/AIChatbot';
@@ -109,11 +110,15 @@ function AppInner() {
     // the mobile app — any dashboard/management key lands on DownloadAppScreen.
     switch (overlay.key) {
       case 'sponsor-promo':
-        return <SponsorPromoScreen onBack={back} onStart={() => navigate('sponsor-signup')} />;
+        return <SponsorPromoScreen onBack={back} onStart={() => navigate('sponsor-register')} />;
+      case 'sponsor-register':
+        return <RegisterScreen role="sponsor" onBack={back} />;
+      case 'freelancer-register':
+        return <RegisterScreen role="freelancer" onBack={back} />;
       case 'sponsor-signup':
         return <SponsorSignupScreen onBack={back} />;
       case 'freelancer-career':
-        return <FreelancerCareerScreen onBack={back} />;
+        return <FreelancerCareerScreen onBack={back} onApply={() => navigate('freelancer-register')} />;
       case 'ai-assistant':
         return <AIChatbot onBack={back} />;
       default:
@@ -291,7 +296,7 @@ function AppInner() {
 
       <BottomNav active={tab} onChange={(t) => { setOverlay({ type: 'none' }); setTab(t); }} />
 
-      {showSponsorLogin && <SponsorLoginModal onClose={onSponsorLoginClose} />}
+      {showSponsorLogin && <SponsorLoginModal onClose={onSponsorLoginClose} onRegister={(role) => { setShowSponsorLogin(false); setOverlay({ type: 'business', key: `${role}-register` }); }} />}
     </ScreenShell>
   );
 }

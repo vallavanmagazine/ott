@@ -13,7 +13,7 @@ const ROLE_INFO: Record<string, { desc: string; pay: string }> = {
   'Program Producer': { desc: 'Project management', pay: '₹5,000–20,000 / project' },
 };
 
-export function FreelancerCareerScreen({ onBack }: { onBack: () => void }) {
+export function FreelancerCareerScreen({ onBack, onApply }: { onBack: () => void; onApply?: () => void }) {
   const [applying, setApplying] = useState(false);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -68,7 +68,7 @@ export function FreelancerCareerScreen({ onBack }: { onBack: () => void }) {
                 </div>
               ))}
             </div>
-            <button onClick={() => setApplying(true)} className="w-full mt-5 py-3.5 rounded-full bg-vred text-white font-bold text-sm active:scale-95 shadow-glow">Apply Now</button>
+            <button onClick={() => onApply ? onApply() : setApplying(true)} className="w-full mt-5 py-3.5 rounded-full bg-vred text-white font-bold text-sm active:scale-95 shadow-glow">Apply Now</button>
           </>
         ) : (
           <div className="mt-5 space-y-3">

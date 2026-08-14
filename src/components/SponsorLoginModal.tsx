@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, Mail, Building2, ArrowRight, Lock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-export function SponsorLoginModal({ onClose }: { onClose: () => void }) {
+export function SponsorLoginModal({ onClose, onRegister }: { onClose: () => void; onRegister?: (role: 'sponsor' | 'freelancer') => void }) {
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -80,6 +80,16 @@ export function SponsorLoginModal({ onClose }: { onClose: () => void }) {
             <p className="text-[10px] text-vmuted text-center">
               Viewing Vallavan is always free. Login is only needed for sponsor tools.
             </p>
+            {onRegister && (
+              <div className="pt-2 mt-1 border-t border-white/8 text-center">
+                <p className="text-[11px] text-vmuted mb-1.5">Don't have an account?</p>
+                <div className="flex items-center justify-center gap-2 text-xs font-bold">
+                  <button onClick={() => { onClose(); onRegister('sponsor'); }} className="text-vgold hover:underline">Register as Sponsor</button>
+                  <span className="text-vmuted">|</span>
+                  <button onClick={() => { onClose(); onRegister('freelancer'); }} className="text-vgold hover:underline">Register as Freelancer</button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
