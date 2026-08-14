@@ -1,6 +1,6 @@
 import {
   Camera, ChevronRight, History, Bookmark,
-  Star, Users, Settings, Info, Heart, Bot, Briefcase,
+  Star, Settings, Info, Heart, LifeBuoy, Briefcase,
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Divider } from '@/components/ui';
@@ -122,7 +122,7 @@ export function ProfileScreen({
       <section className="px-4 sm:px-6 lg:px-8">
         <h3 className="text-[10px] tracking-wider uppercase text-vmuted font-bold mb-2.5 px-1">Support</h3>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
-          <ProfileRow icon={Bot} label="AI Assistant" sub="Chat with our assistant 24/7" onClick={onHelp} />
+          <ProfileRow icon={LifeBuoy} label="Help & Support" sub="FAQs and email support" onClick={onHelp} />
           <ProfileRow icon={Info} label="About Vallavan" value="v2.1.0" onClick={onAbout} />
         </div>
       </section>

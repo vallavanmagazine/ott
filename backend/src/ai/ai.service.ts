@@ -13,14 +13,19 @@ export interface ChatMessage {
   content: string;
 }
 
-/** System prompt for the Vallavan AI support assistant. No phone/WhatsApp ever. */
-export const VALLAVAN_SYSTEM_PROMPT = `You are Vallavan AI Assistant. You help sponsors understand advertising options, help freelancers with task questions, and answer general viewer questions about the platform.
+export type AssistantVariant = 'sponsor' | 'freelancer' | 'general';
 
-Pricing: Display ads ₹99-799/day. Inspire video ₹9,999 or ₹25,000. Freelancer enrollment: ₹1,499.
+const COMMON = `Never share phone numbers or WhatsApp numbers. For escalated issues, say: Our team will review and contact you via email at support@vallavan.in. Be concise, warm, and practical. Answer in the user's language (Tamil or English).`;
 
-Never share phone numbers or WhatsApp numbers. Direct users to download the Vallavan app for dashboards. For escalated issues, say: Our team will contact you via email at support@vallavan.in.
+/** Role-specific system prompts for the in-dashboard AI assistants (FIX 2). */
+export const SYSTEM_PROMPTS: Record<AssistantVariant, string> = {
+  sponsor: `You are Vallavan Ad Assistant. You help sponsors create effective ads, plan campaigns, understand pricing (₹99-799/day display, ₹9,999/₹25,000 inspire), analyze campaign performance, and generate ad ideas for Tamil Nadu businesses. Be helpful, professional, and suggest creative ideas. You can draft ad headlines, body text, and CTA suggestions. ${COMMON}`,
+  freelancer: `You are Vallavan Freelancer Assistant. You help freelancers with task assignments, content submission guidelines, payment/earnings queries, and recruitment questions. You act as an initial recruiter — ask preliminary questions about experience and skills. Roles include Reporter, Anchor, Writer, Visual Editor, Program Producer, Telecaller and Field Executive (ad sales, 20% commission). ${COMMON}`,
+  general: `You are Vallavan AI Assistant. You answer general viewer questions about the platform (free ad-supported documentaries), advertising, and freelancing. Pricing: display ads ₹99-799/day; Inspire video ₹9,999 or ₹25,000; freelancer enrollment ₹1,499. Direct users to the app for dashboards. ${COMMON}`,
+};
 
-Be concise, warm, and practical. Answer in the user's language (Tamil or English).`;
+/** Back-compat export. */
+export const VALLAVAN_SYSTEM_PROMPT = SYSTEM_PROMPTS.general;
 
 /**
  * AI Studio ad-creative generation via Anthropic. The API key lives server-side
@@ -62,7 +67,7 @@ headline <= 8 words, body <= 20 words, cta <= 3 words.`;
    * Conversational support assistant. Takes the running chat history and
    * returns the assistant's next reply. Uses the Vallavan system prompt.
    */
-  async chat(messages: ChatMessage[]): Promise<{ reply: string }> {
+  async chat(messages: ChatMessage[], variant: AssistantVariant = 'general'): Promise<{ reply: string }> {
     const apiKey = await this.settings.require('ANTHROPIC_API_KEY');
     const client = new Anthropic({ apiKey });
 
@@ -76,7 +81,7 @@ headline <= 8 words, body <= 20 words, cta <= 3 words.`;
     const msg = await client.messages.create({
       model: 'claude-sonnet-5',
       max_tokens: 600,
-      system: VALLAVAN_SYSTEM_PROMPT,
+      system: SYSTEM_PROMPTS[variant] ?? SYSTEM_PROMPTS.general,
       messages: history,
     });
 

@@ -6,7 +6,9 @@ import { supabase } from '@/lib/supabase';
 import { logAudit } from '@/services/admin-writes';
 import { formatDate } from '@/lib/transforms';
 
-export const FREELANCER_ROLES = ['Reporter', 'Anchor', 'Writer', 'Visual Editor', 'Program Producer'];
+export const FREELANCER_ROLES = ['Reporter', 'Anchor', 'Writer', 'Visual Editor', 'Program Producer', 'Telecaller', 'Field Executive'];
+/** Ad-marketing roles (sell ads, create campaigns + payment links on behalf of sponsors). */
+export const AD_SALES_ROLES = ['Telecaller', 'Field Executive'];
 export const ENROLLMENT_FEE_RUPEES = 1499;
 
 export interface FreelancerApplicationInput {

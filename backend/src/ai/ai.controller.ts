@@ -11,7 +11,7 @@ export class AiController {
   }
 
   @Post('chat')
-  chat(@Body() body: { messages: ChatMessage[] }) {
-    return this.ai.chat(body.messages ?? []);
+  chat(@Body() body: { messages: ChatMessage[]; variant?: 'sponsor' | 'freelancer' | 'general' }) {
+    return this.ai.chat(body.messages ?? [], body.variant ?? 'general');
   }
 }

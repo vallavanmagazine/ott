@@ -11,6 +11,8 @@ const ROLE_INFO: Record<string, { desc: string; pay: string }> = {
   Writer: { desc: 'Script writing, research', pay: '₹1,000–4,000 / script' },
   'Visual Editor': { desc: 'Video editing, color grading', pay: '₹2,000–10,000 / project' },
   'Program Producer': { desc: 'Project management', pay: '₹5,000–20,000 / project' },
+  Telecaller: { desc: 'Ad sales via phone — 20% commission', pay: '₹200–500 per sale' },
+  'Field Executive': { desc: 'Ad sales in person — 20% commission', pay: '₹300–800 per sale + travel' },
 };
 
 export function FreelancerCareerScreen({ onBack, onApply }: { onBack: () => void; onApply?: () => void }) {

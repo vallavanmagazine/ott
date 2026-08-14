@@ -15,8 +15,22 @@ export class SmsService {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expires = new Date(Date.now() + 5 * 60 * 1000).toISOString();
     await this.supa.client.from('otp_verifications').insert({ phone, code_hash: this.hash(code), purpose, expires_at: expires });
-    await this.sendSms(phone, `Your Vallavan OTP is ${code}. Valid 5 minutes.`);
-    return { sent: true };
+    const channel = await this.sendOtpSms(phone, code);
+    // channel: 'sms' when Fast2SMS delivered, 'skipped' when key not configured
+    return { sent: true, channel };
+  }
+
+  /** Send an OTP via the Fast2SMS DLT OTP route. Returns 'sms' or 'skipped'. */
+  private async sendOtpSms(phone: string, code: string): Promise<'sms' | 'skipped'> {
+    const key = await this.settings.get('FAST2SMS_API_KEY');
+    if (!key) { this.log.warn(`[skip] FAST2SMS_API_KEY not set — would OTP ${phone}: ${code}`); return 'skipped'; }
+    const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+      method: 'POST',
+      headers: { authorization: key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ route: 'otp', variables_values: code, numbers: phone.replace(/\D/g, '').slice(-10) }),
+    });
+    if (!res.ok) throw new Error(`Fast2SMS failed: ${res.status}`);
+    return 'sms';
   }
 
   async verifyOtp(phone: string, code: string): Promise<boolean> {

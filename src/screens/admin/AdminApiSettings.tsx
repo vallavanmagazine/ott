@@ -8,6 +8,7 @@ const LABELS: Record<SettingKey, string> = {
   ANTHROPIC_API_KEY: 'Anthropic API Key (AI Studio)',
   RESEND_API_KEY: 'Resend API Key (email)',
   FAST2SMS_API_KEY: 'Fast2SMS API Key (OTP/SMS)',
+  DYNETUBE_API_KEY: 'DyneTube API Key (video)',
   WHATSAPP_API_KEY: 'WhatsApp Business API Key',
   FIREBASE_SERVER_KEY: 'Firebase Server Key (push)',
   FIREBASE_PROJECT_ID: 'Firebase Project ID',

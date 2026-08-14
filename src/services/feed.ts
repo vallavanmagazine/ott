@@ -43,7 +43,7 @@ export async function fetchFeedReels(): Promise<FeedReel[]> {
   const { data, error } = await supabase
     .from('feed_reels')
     .select('*, campaign:campaigns(name)')
-    .order('sort_order', { ascending: true });
+    .order('created_at', { ascending: false }); // FIX 3: latest first
 
   if (error || !data) {
     console.warn('fetchFeedReels fallback to mock:', error?.message);

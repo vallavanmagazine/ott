@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Heart, MessageCircle, Share2, Volume2, VolumeX,
-  ChevronUp, ChevronDown, Play, ArrowRight,
+  ChevronUp, ChevronDown, Play, ArrowRight, Search,
 } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
 import {
@@ -31,7 +31,8 @@ type Item = FeedItem | BannerItem;
 
 function buildFeedSequence(feedReels: FeedReel[], ads: AdContent[]): Item[] {
   const items: Item[] = [];
-  const sorted = [...feedReels].sort((a, b) => a.order - b.order);
+  // FIX 3: keep the incoming order (service returns latest-first).
+  const sorted = feedReels;
 
   sorted.forEach((reel, idx) => {
     // Strip ad between every 3 reels (or where admin flagged the reel).
@@ -49,8 +50,6 @@ function buildFeedSequence(feedReels: FeedReel[], ads: AdContent[]): Item[] {
   return items;
 }
 
-const FEED_CATEGORIES = ['All', 'News', 'Teaser', 'Short Story', 'Entertainment', 'Sports'];
-
 const formatCount = (n: number): string => {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
   if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
@@ -65,7 +64,7 @@ export function FeedScreen({
   const device = useDevice();
   const [rawReels, setRawReels] = useState<FeedReel[]>(mockFeedReels);
   const [allAds, setAllAds] = useState<AdContent[]>(mockAds);
-  const [category, setCategory] = useState<string>('All');
+  const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
@@ -75,7 +74,11 @@ export function FeedScreen({
     });
   }, []);
 
-  const filteredReels = category === 'All' ? rawReels : rawReels.filter((r) => r.contentType === category);
+  // FIX 3: no categories — latest first, optional text search by title.
+  const q = query.trim().toLowerCase();
+  const filteredReels = q
+    ? rawReels.filter((r) => r.title.toLowerCase().includes(q) || (r.titleTa ?? '').toLowerCase().includes(q))
+    : rawReels;
   const items = buildFeedSequence(filteredReels, allAds);
   const [muted, setMuted] = useState(true);
   const [liked, setLiked] = useState<Set<string>>(new Set());
@@ -149,8 +152,8 @@ export function FeedScreen({
       >
         {items.length === 0 && (
           <div className="h-full w-full flex flex-col items-center justify-center text-center px-6">
-            <p className="text-white font-bold">Nothing in {category} yet</p>
-            <p className="text-xs text-vmuted mt-1">Try another category.</p>
+            <p className="text-white font-bold">{q ? 'No matches' : 'Nothing here yet'}</p>
+            <p className="text-xs text-vmuted mt-1">{q ? 'Try a different search.' : 'Check back soon for new reels.'}</p>
           </div>
         )}
         {items.map((item, i) => (
@@ -214,17 +217,17 @@ export function FeedScreen({
             </button>
           )}
         </div>
-        {/* Category chips */}
-        <div className="pointer-events-auto hscroll flex gap-2 px-4 pb-2">
-          {FEED_CATEGORIES.map((c) => (
-            <button
-              key={c}
-              onClick={() => { setCategory(c); setActiveIdx(0); containerRef.current?.scrollTo({ top: 0 }); }}
-              className={`flex-shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition active:scale-95 ${category === c ? 'bg-vred text-white' : 'bg-black/40 text-white/70'}`}
-            >
-              {c}
-            </button>
-          ))}
+        {/* Search bar (no categories) */}
+        <div className="pointer-events-auto px-4 pb-2">
+          <div className="flex items-center gap-2 px-3 py-2 rounded-full glass-strong">
+            <Search size={15} className="text-white/60 flex-shrink-0" />
+            <input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); containerRef.current?.scrollTo({ top: 0 }); }}
+              placeholder="Search reels…"
+              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/50 outline-none"
+            />
+          </div>
         </div>
 
         {/* Progress bar */}

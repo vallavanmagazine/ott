@@ -120,7 +120,7 @@ function AppInner() {
       case 'freelancer-career':
         return <FreelancerCareerScreen onBack={back} onApply={() => navigate('freelancer-register')} />;
       case 'ai-assistant':
-        return <AIChatbot onBack={back} />;
+        return <HelpScreen onBack={back} />;
       default:
         return <DownloadAppScreen onBack={back} />;
     }
@@ -203,7 +203,7 @@ function AppInner() {
 
   // --- Profile sub-screens ---
   if (overlay.type === 'settings') return <SettingsScreen onBack={() => setOverlay({ type: 'none' })} />;
-  if (overlay.type === 'help') return <AIChatbot onBack={() => setOverlay({ type: 'none' })} />;
+  if (overlay.type === 'help') return <HelpScreen onBack={() => setOverlay({ type: 'none' })} />;
   if (overlay.type === 'about') return <AboutScreen onBack={() => setOverlay({ type: 'none' })} />;
   if (overlay.type === 'watch-history') {
     return <WatchHistoryScreen onBack={() => setOverlay({ type: 'none' })} onCardClick={(item) => setOverlay({ type: 'detail', item })} />;
