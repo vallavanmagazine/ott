@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../config/constants.dart';
 import '../../services/freelancer_service.dart';
+import '../../services/auth_service.dart';
+import '../register_screen.dart';
 
 /// C1 — Freelancer career / apply page. Fields identical to web (FIX 3).
 class FreelancerCareerScreen extends StatefulWidget {
@@ -100,7 +102,22 @@ class _FreelancerCareerScreenState extends State<FreelancerCareerScreen> {
         const Text('Apply to freelance with Vallavan', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
         const SizedBox(height: 4),
         const Text('Reporters, anchors, writers, editors and producers across Tamil Nadu.', style: TextStyle(color: AppColors.muted, fontSize: 12)),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        if (!AuthService.isLoggedIn)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.gold.withValues(alpha: 0.3))),
+            child: Row(children: [
+              const Expanded(child: Text('New here? Create your account first, then complete this application.', style: TextStyle(color: Colors.white, fontSize: 12))),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen(role: 'freelancer'))),
+                style: FilledButton.styleFrom(backgroundColor: AppColors.red, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8)),
+                child: const Text('Register'),
+              ),
+            ]),
+          ),
         _field(_name, 'Full Name *'),
         _field(_phone, 'Phone *', keyboard: TextInputType.phone),
         _field(_email, 'Email *', keyboard: TextInputType.emailAddress),

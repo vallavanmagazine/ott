@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../services/auth_service.dart';
+import '../register_screen.dart';
 import 'sponsor_dashboard_screen.dart';
 
 class SponsorLoginScreen extends StatefulWidget {
@@ -48,6 +49,16 @@ class _SponsorLoginScreenState extends State<SponsorLoginScreen> {
         ),
         const SizedBox(height: 12),
         const Center(child: Text('Viewing Vallavan is always free. Login is only for sponsor tools.', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.muted))),
+        const SizedBox(height: 20),
+        const Divider(color: Colors.white12),
+        const SizedBox(height: 8),
+        const Center(child: Text("Don't have an account?", style: TextStyle(fontSize: 12, color: AppColors.muted))),
+        const SizedBox(height: 8),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen(role: 'sponsor'))), child: const Text('Register as Sponsor', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold))),
+          const Text('|', style: TextStyle(color: AppColors.muted)),
+          TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen(role: 'freelancer'))), child: const Text('Register as Freelancer', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold))),
+        ]),
       ]),
     );
   }

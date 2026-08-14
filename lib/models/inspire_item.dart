@@ -11,6 +11,7 @@ class InspireItem {
   final String? attribution;
   final String? badge;
   final String? videoUrl;
+  final bool isSponsored;
 
   const InspireItem({
     required this.id,
@@ -23,6 +24,7 @@ class InspireItem {
     this.attribution,
     this.badge,
     this.videoUrl,
+    this.isSponsored = false,
   });
 
   String get duration => formatDuration(durationSec);
@@ -38,5 +40,6 @@ class InspireItem {
         attribution: r['attribution'],
         badge: r['badge'],
         videoUrl: r['video_url'],
+        isSponsored: r['is_sponsored'] == true,
       );
 }

@@ -6,6 +6,7 @@ import '../models/documentary.dart';
 import '../models/inspire_item.dart';
 import '../services/inspire_service.dart';
 import '../widgets/category_chips.dart';
+import '../widgets/vallavan_header.dart';
 import 'video_player_screen.dart';
 
 class InspireScreen extends StatefulWidget {
@@ -22,7 +23,12 @@ class _InspireScreenState extends State<InspireScreen> {
   @override
   void initState() {
     super.initState();
-    InspireService.fetchAll().then((v) { if (mounted) setState(() { _items = v; _loading = false; }); });
+    _load();
+  }
+
+  Future<void> _load() async {
+    final v = await InspireService.fetchAll();
+    if (mounted) setState(() { _items = v; _loading = false; });
   }
 
   Documentary _toDoc(InspireItem i) => Documentary(
@@ -36,47 +42,92 @@ class _InspireScreenState extends State<InspireScreen> {
   @override
   Widget build(BuildContext context) {
     final filtered = _cat == 'All' ? _items : _items.where((i) => i.category == _cat).toList();
+    final featured = _items.isNotEmpty ? _items.first : null;
+
     return Scaffold(
       backgroundColor: AppColors.black,
       body: SafeArea(
+        bottom: false,
         child: Column(children: [
-          const Padding(padding: EdgeInsets.fromLTRB(16, 12, 16, 8), child: Align(alignment: Alignment.centerLeft, child: Text('Inspire', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)))),
-          FilterChipsBar(options: K.inspireCategories, active: _cat, onSelected: (c) => setState(() => _cat = c)),
-          const SizedBox(height: 12),
+          const VallavanHeader(notificationCount: 3),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: AppColors.red))
-                : filtered.isEmpty
-                    ? const Center(child: Text('Nothing here yet', style: TextStyle(color: AppColors.muted)))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (_, i) => _card(filtered[i]),
-                      ),
+                : RefreshIndicator(
+                    color: AppColors.red,
+                    backgroundColor: AppColors.dark,
+                    onRefresh: _load,
+                    child: ListView(padding: EdgeInsets.zero, children: [
+                      if (featured != null) _hero(featured),
+                      FilterChipsBar(options: K.inspireCategories, active: _cat, onSelected: (c) => setState(() => _cat = c)),
+                      const SizedBox(height: 8),
+                      if (filtered.isEmpty)
+                        const Padding(padding: EdgeInsets.all(40), child: Center(child: Text('Nothing here yet', style: TextStyle(color: AppColors.muted))))
+                      else
+                        ...filtered.map((i) => Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), child: _card(i))),
+                      const SizedBox(height: 16),
+                    ]),
+                  ),
           ),
         ]),
       ),
     );
   }
 
-  Widget _card(InspireItem i) {
-    return GestureDetector(
-      onTap: () => _open(i),
-      child: Container(
-        decoration: BoxDecoration(color: AppColors.dark, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.glass)),
-        child: Row(children: [
-          ClipRRect(borderRadius: const BorderRadius.horizontal(left: Radius.circular(14)), child: CachedNetworkImage(imageUrl: pexelsUrl(i.poster, w: 300), width: 110, height: 96, fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(width: 110, height: 96, color: AppColors.dark))),
-          Expanded(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: genreColor(i.category), borderRadius: BorderRadius.circular(4)), child: Text(i.category.toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white))),
-            const SizedBox(height: 6),
-            Text(i.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
-            if (i.quote != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('"${i.quote}"', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppColors.gold))),
-            if (i.attribution != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('— ${i.attribution}', style: const TextStyle(fontSize: 10, color: AppColors.muted))),
-          ]))),
-          const Padding(padding: EdgeInsets.only(right: 12), child: Icon(Icons.play_circle_fill, color: AppColors.red, size: 32)),
-        ]),
-      ),
-    );
-  }
+  Widget _hero(InspireItem i) => GestureDetector(
+        onTap: () => _open(i),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          height: 210,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
+          child: Stack(fit: StackFit.expand, children: [
+            CachedNetworkImage(imageUrl: pexelsUrl(i.poster, w: 900), fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(color: AppColors.dark)),
+            const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.black26, Colors.black87]))),
+            Positioned(left: 16, right: 16, bottom: 16, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              if (i.isSponsored) _sponsoredBadge(),
+              if (i.quote != null) Text('"${i.quote}"', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic, fontWeight: FontWeight.w700, color: Colors.white)),
+              if (i.attribution != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text('— ${i.attribution}', style: const TextStyle(fontSize: 12, color: AppColors.gold, fontWeight: FontWeight.bold))),
+            ])),
+            const Positioned(right: 16, top: 16, child: Icon(Icons.play_circle_fill, color: Colors.white, size: 40)),
+          ]),
+        ),
+      );
+
+  Widget _card(InspireItem i) => GestureDetector(
+        onTap: () => _open(i),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(children: [
+            AspectRatio(
+              aspectRatio: 16 / 10,
+              child: CachedNetworkImage(imageUrl: pexelsUrl(i.poster, w: 800), fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(color: AppColors.dark)),
+            ),
+            const Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black, Colors.black])))),
+            Positioned(left: 14, right: 14, top: 12, child: Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: genreColor(i.category), borderRadius: BorderRadius.circular(4)),
+                child: Text(i.category.toUpperCase(), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white)),
+              ),
+              const Spacer(),
+              if (i.isSponsored) _sponsoredBadge(),
+            ])),
+            Positioned(left: 14, right: 14, bottom: 12, child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              if (i.quote != null) Text('"${i.quote}"', maxLines: 3, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic, fontWeight: FontWeight.w600, color: Colors.white, height: 1.3)),
+              const SizedBox(height: 6),
+              Row(children: [
+                if (i.attribution != null) Expanded(child: Text('— ${i.attribution}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppColors.gold, fontWeight: FontWeight.bold))),
+                Text('${i.category} • ${i.duration}', style: const TextStyle(fontSize: 10, color: Colors.white70)),
+              ]),
+            ])),
+          ]),
+        ),
+      );
+
+  Widget _sponsoredBadge() => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(4)),
+        child: const Text('SPONSORED', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: 0.5, color: Colors.black)),
+      );
 }

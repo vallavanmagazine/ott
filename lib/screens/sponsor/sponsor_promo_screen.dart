@@ -3,8 +3,8 @@ import '../../config/theme.dart';
 import '../../services/auth_service.dart';
 import '../../services/sponsor_service.dart';
 import '../../services/pricing_service.dart';
+import '../register_screen.dart';
 import 'sponsor_dashboard_screen.dart';
-import 'sponsor_signup_screen.dart';
 
 /// B1 — Sponsor promo / pricing page. Mirrors web SponsorPromoScreen.
 class SponsorPromoScreen extends StatefulWidget {
@@ -42,7 +42,7 @@ class _SponsorPromoScreenState extends State<SponsorPromoScreen> {
       }
     }
     if (!mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const SponsorSignupScreen()));
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen(role: 'sponsor')));
   }
 
   @override
