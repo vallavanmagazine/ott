@@ -26,6 +26,9 @@ import { GeoTargetingScreen } from '@/screens/business/GeoTargetingScreen';
 import { CampaignAnalyticsScreen } from '@/screens/business/CampaignAnalyticsScreen';
 import { BillingScreen } from '@/screens/business/BillingScreen';
 import { AIAssistantScreen } from '@/screens/business/AIAssistantScreen';
+import { SponsorPromoScreen } from '@/screens/business/SponsorPromoScreen';
+import { FreelancerCareerScreen } from '@/screens/business/FreelancerCareerScreen';
+import { FreelancerDashboardScreen } from '@/screens/business/FreelancerDashboardScreen';
 import { AdminApp } from '@/screens/admin/AdminApp';
 import { SponsorLoginModal } from '@/components/SponsorLoginModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -112,6 +115,12 @@ function AppInner() {
         return <BillingScreen onBack={back} />;
       case 'ai-assistant':
         return <AIAssistantScreen onBack={back} />;
+      case 'sponsor-promo':
+        return <SponsorPromoScreen onBack={back} onStart={() => navigate('sponsor')} />;
+      case 'freelancer-career':
+        return <FreelancerCareerScreen onBack={back} />;
+      case 'freelancer-dashboard':
+        return <FreelancerDashboardScreen onBack={back} />;
       default:
         return <SponsorDashboard onBack={back} onNavigate={navigate} />;
     }

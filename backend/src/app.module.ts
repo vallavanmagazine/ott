@@ -7,6 +7,7 @@ import { AiModule } from './ai/ai.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { SocialModule } from './social/social.module';
 import { DyneTubeModule } from './dynetube/dynetube.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { DyneTubeModule } from './dynetube/dynetube.module';
     MessagingModule,
     SocialModule,
     DyneTubeModule,
+    PaymentsModule,
   ],
 })
 export class AppModule {}

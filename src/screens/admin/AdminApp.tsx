@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard, Users, Film, Tv, Building2, CheckSquare,
   Megaphone, BarChart3, FileText, Settings, ScrollText, LogOut,
-  ChevronLeft, Lock, Clapperboard, Radio, KeyRound, Sparkles,
+  ChevronLeft, Lock, Clapperboard, Radio, KeyRound, Sparkles, Briefcase, Share2, ReceiptText,
 } from 'lucide-react';
 import { AdminLogin } from './AdminLogin';
 import { AdminDashboard } from './AdminDashboard';
@@ -20,6 +20,9 @@ import { AdminAuditLogs } from './AdminAuditLogs';
 import { AdminBroadcast } from './AdminBroadcast';
 import { AdminApiSettings } from './AdminApiSettings';
 import { AdminInspireContent } from './AdminInspireContent';
+import { AdminFreelancers } from './AdminFreelancers';
+import { AdminSocial } from './AdminSocial';
+import { AdminInvoices } from './AdminInvoices';
 import { useAuth } from '@/context/AuthContext';
 
 export type AdminPage =
@@ -32,6 +35,9 @@ export type AdminPage =
   | 'sponsors'
   | 'approvals'
   | 'ads'
+  | 'freelancers'
+  | 'social'
+  | 'invoices'
   | 'revenue'
   | 'cms'
   | 'broadcast'
@@ -49,6 +55,9 @@ const navItems: { key: AdminPage; label: string; icon: typeof LayoutDashboard }[
   { key: 'sponsors', label: 'Sponsors', icon: Building2 },
   { key: 'approvals', label: 'Campaign Approvals', icon: CheckSquare },
   { key: 'ads', label: 'Ad Management', icon: Megaphone },
+  { key: 'freelancers', label: 'Freelancers', icon: Briefcase },
+  { key: 'social', label: 'Social Media', icon: Share2 },
+  { key: 'invoices', label: 'Invoices', icon: ReceiptText },
   { key: 'broadcast', label: 'Broadcast Control', icon: Radio },
   { key: 'revenue', label: 'Revenue Reports', icon: BarChart3 },
   { key: 'cms', label: 'CMS', icon: FileText },
@@ -77,6 +86,9 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
       case 'sponsors': return <AdminSponsors />;
       case 'approvals': return <AdminCampaignApprovals />;
       case 'ads': return <AdminAdManagement />;
+      case 'freelancers': return <AdminFreelancers />;
+      case 'social': return <AdminSocial />;
+      case 'invoices': return <AdminInvoices />;
       case 'revenue': return <AdminRevenueReports />;
       case 'cms': return <AdminCMS />;
       case 'broadcast': return <AdminBroadcast />;

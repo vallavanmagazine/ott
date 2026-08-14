@@ -1,7 +1,7 @@
 import {
   Camera, ChevronRight, History, Bookmark,
   Star, Megaphone, BarChart3, CreditCard, LifeBuoy,
-  Bot, MessageCircle, Settings, HelpCircle, Info, Heart,
+  Bot, MessageCircle, Settings, HelpCircle, Info, Heart, Briefcase, Users,
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Divider } from '@/components/ui';
@@ -103,7 +103,7 @@ export function ProfileScreen({
           <ChevronRight size={12} className="text-vgold" />
         </button>
         <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
-          <ProfileRow icon={Star} label="Become a Sponsor" onClick={() => onBusinessItem('sponsor')} accent />
+          <ProfileRow icon={Star} label="Become a Sponsor" onClick={() => onBusinessItem('sponsor-promo')} accent />
           <ProfileRow icon={Megaphone} label="Create Campaign" onClick={() => onBusinessItem('create-campaign')} accent />
           <ProfileRow icon={BarChart3} label="My Campaigns" value="4 campaigns" onClick={() => onBusinessItem('my-campaigns')} accent />
           <ProfileRow icon={BarChart3} label="Campaign Reports" value="Analytics" onClick={() => onBusinessItem('campaign-analytics')} accent />
@@ -111,6 +111,18 @@ export function ProfileScreen({
           <ProfileRow icon={LifeBuoy} label="Support" onClick={() => onBusinessItem('support')} accent />
           <ProfileRow icon={Bot} label="AI Studio" sub="Generate ads, banners & captions with AI" onClick={() => onBusinessItem('ai-studio')} accent />
           <ProfileRow icon={MessageCircle} label="AI Assistant" sub="Tamil voice & text campaign help" onClick={() => onBusinessItem('ai-assistant')} accent />
+        </div>
+      </section>
+
+      {/* Freelancer Center */}
+      <section className="px-4 sm:px-6 lg:px-8 mt-5">
+        <div className="flex items-center gap-2 mb-2.5 px-1">
+          <Briefcase size={14} className="text-vgold" />
+          <h3 className="text-[10px] tracking-wider uppercase text-vgold font-bold">Freelancer Center</h3>
+        </div>
+        <div className="rounded-card glass overflow-hidden divide-y divide-white/5">
+          <ProfileRow icon={Users} label="Join as Freelancer" sub="Reporter, Anchor, Writer, Editor, Producer" onClick={() => onBusinessItem('freelancer-career')} accent />
+          <ProfileRow icon={Briefcase} label="Freelancer Dashboard" onClick={() => onBusinessItem('freelancer-dashboard')} accent />
         </div>
       </section>
 
