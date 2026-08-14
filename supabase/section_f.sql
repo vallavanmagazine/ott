@@ -234,6 +234,23 @@ DROP POLICY IF EXISTS auth_read_own_freelancer ON freelancers;
 CREATE POLICY auth_read_own_freelancer ON freelancers FOR SELECT TO authenticated
   USING (public.is_admin() OR user_id IN (select id from app_users where lower(email) = lower(auth.jwt() ->> 'email')));
 
+-- Self-service registration (sponsor/freelancer signup). A user who just
+-- verified their email OTP is authenticated and must be able to create their
+-- own app_users + sponsors rows. (freelancers self-insert already allowed above.)
+DROP POLICY IF EXISTS auth_insert_own_appuser ON app_users;
+CREATE POLICY auth_insert_own_appuser ON app_users FOR INSERT TO authenticated
+  WITH CHECK (lower(email) = lower(auth.jwt() ->> 'email') OR public.is_admin());
+DROP POLICY IF EXISTS auth_update_own_appuser ON app_users;
+CREATE POLICY auth_update_own_appuser ON app_users FOR UPDATE TO authenticated
+  USING (lower(email) = lower(auth.jwt() ->> 'email') OR public.is_admin());
+
+DROP POLICY IF EXISTS auth_insert_own_sponsor ON sponsors;
+CREATE POLICY auth_insert_own_sponsor ON sponsors FOR INSERT TO authenticated
+  WITH CHECK (owner_id = auth.uid() OR lower(email) = lower(auth.jwt() ->> 'email') OR public.is_admin());
+DROP POLICY IF EXISTS auth_update_own_sponsor ON sponsors;
+CREATE POLICY auth_update_own_sponsor ON sponsors FOR UPDATE TO authenticated
+  USING (owner_id = auth.uid() OR lower(email) = lower(auth.jwt() ->> 'email') OR public.is_admin());
+
 -- Admin full access on all new tables
 DO $$ DECLARE t text; BEGIN
   FOREACH t IN ARRAY ARRAY['payment_links','invoices','social_posts',
