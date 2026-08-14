@@ -14,9 +14,11 @@ const SECTIONS: { key: CategorySection; label: string }[] = [
 export function AdminCategories() {
   const [section, setSection] = useState<CategorySection>('explore');
   const [cats, setCats] = useState<ContentCategory[]>([]);
-  const [adding, setAdding] = useState('');
+  const [addEn, setAddEn] = useState('');
+  const [addTa, setAddTa] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
-  const [editVal, setEditVal] = useState('');
+  const [editEn, setEditEn] = useState('');
+  const [editTa, setEditTa] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = () => fetchAllCategories(section).then(setCats);
@@ -29,52 +31,88 @@ export function AdminCategories() {
     finally { setBusy(false); }
   };
 
-  const add = () => { if (adding.trim()) run(async () => { await addCategory(section, adding); setAdding(''); }); };
+  const add = () => { if (addEn.trim()) run(async () => { await addCategory(section, addEn, addTa); setAddEn(''); setAddTa(''); }); };
+  const startEdit = (c: ContentCategory) => { setEditId(c.id); setEditEn(c.displayName); setEditTa(c.displayNameTa); };
   const swap = (i: number, j: number) => {
     if (j < 0 || j >= cats.length) return;
     run(async () => { await moveCategory(cats[i].id, cats[j].sortOrder); await moveCategory(cats[j].id, cats[i].sortOrder); });
   };
-  const remove = (c: ContentCategory) => { if (confirm(`Delete "${c.displayName}"? Content in this category keeps its label but the chip disappears. Consider hiding instead.`)) run(() => deleteCategory(c.id)); };
+  const remove = (c: ContentCategory) => {
+    const msg = c.contentCount ? `"${c.displayName}" has ${c.contentCount} item(s). Delete anyway? Those items keep their label but the chip disappears — consider hiding instead.` : `Delete "${c.displayName}"?`;
+    if (confirm(msg)) run(() => deleteCategory(c.id));
+  };
 
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-3xl">
       <div className="flex gap-2">
         {SECTIONS.map((s) => (
           <button key={s.key} onClick={() => setSection(s.key)} className={`px-3.5 py-1.5 rounded-full text-xs font-bold ${section === s.key ? 'bg-vred text-white' : 'glass text-vmuted'}`}>{s.label}</button>
         ))}
       </div>
 
-      <div className="flex gap-2">
-        <input value={adding} onChange={(e) => setAdding(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder={`New ${section} category…`} className="flex-1 px-3 py-2.5 rounded-lg glass text-sm text-white outline-none" />
-        <button onClick={add} disabled={busy || !adding.trim()} className="px-3 py-2.5 rounded-lg bg-vred text-white text-xs font-bold flex items-center gap-1.5 disabled:opacity-40"><Plus size={14} /> Add</button>
+      {/* Add form */}
+      <div className="p-3 rounded-xl glass grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+        <input value={addEn} onChange={(e) => setAddEn(e.target.value)} placeholder="English name" className="px-3 py-2.5 rounded-lg glass text-sm text-white outline-none" />
+        <input value={addTa} onChange={(e) => setAddTa(e.target.value)} placeholder="Tamil name (பெயர்)" className="px-3 py-2.5 rounded-lg glass text-sm text-white outline-none font-tamil" />
+        <button onClick={add} disabled={busy || !addEn.trim()} className="px-4 py-2.5 rounded-lg bg-vred text-white text-xs font-bold flex items-center justify-center gap-1.5 disabled:opacity-40"><Plus size={14} /> Add Category</button>
       </div>
 
-      <div className="rounded-xl glass overflow-hidden divide-y divide-white/5">
-        {cats.map((c, i) => (
-          <div key={c.id} className={`flex items-center gap-2 px-3 py-2.5 ${c.isActive ? '' : 'opacity-50'}`}>
-            <div className="flex flex-col">
-              <button onClick={() => swap(i, i - 1)} disabled={i === 0} className="text-vmuted disabled:opacity-30"><ArrowUp size={13} /></button>
-              <button onClick={() => swap(i, i + 1)} disabled={i === cats.length - 1} className="text-vmuted disabled:opacity-30"><ArrowDown size={13} /></button>
-            </div>
-            {editId === c.id ? (
-              <>
-                <input value={editVal} onChange={(e) => setEditVal(e.target.value)} className="flex-1 px-2 py-1.5 rounded-lg glass text-sm text-white outline-none" />
-                <button onClick={() => run(async () => { await renameCategory(c.id, editVal); setEditId(null); })} className="w-7 h-7 flex items-center justify-center rounded-lg bg-green-500/15 text-green-400"><Check size={14} /></button>
-                <button onClick={() => setEditId(null)} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted"><X size={14} /></button>
-              </>
-            ) : (
-              <>
-                <span className="flex-1 text-sm font-semibold text-white">{c.displayName}</span>
-                <button onClick={() => { setEditId(c.id); setEditVal(c.displayName); }} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted" title="Rename"><Pencil size={13} /></button>
-                <button onClick={() => run(() => setCategoryActive(c.id, !c.isActive))} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted" title={c.isActive ? 'Hide' : 'Show'}>{c.isActive ? <Eye size={14} /> : <EyeOff size={14} />}</button>
-                <button onClick={() => remove(c)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/15 text-red-400" title="Delete"><Trash2 size={13} /></button>
-              </>
-            )}
-          </div>
-        ))}
-        {cats.length === 0 && <div className="px-4 py-8 text-center text-sm text-vmuted">No categories — add one above.</div>}
+      {/* Table */}
+      <div className="rounded-xl glass overflow-hidden overflow-x-auto">
+        <table className="w-full text-sm min-w-[620px]">
+          <thead><tr className="border-b border-white/8 text-[10px] uppercase tracking-wider text-vmuted">
+            <th className="px-3 py-3 w-10"></th>
+            <th className="text-left px-3 py-3 font-bold">English</th>
+            <th className="text-left px-3 py-3 font-bold">Tamil</th>
+            <th className="text-left px-3 py-3 font-bold">Content</th>
+            <th className="text-left px-3 py-3 font-bold">Status</th>
+            <th className="text-left px-3 py-3 font-bold">Actions</th>
+          </tr></thead>
+          <tbody className="divide-y divide-white/5">
+            {cats.map((c, i) => (
+              <tr key={c.id} className={`hover:bg-white/5 ${c.isActive ? '' : 'opacity-50'}`}>
+                <td className="px-2 py-2">
+                  <div className="flex flex-col">
+                    <button onClick={() => swap(i, i - 1)} disabled={i === 0} className="text-vmuted disabled:opacity-30"><ArrowUp size={13} /></button>
+                    <button onClick={() => swap(i, i + 1)} disabled={i === cats.length - 1} className="text-vmuted disabled:opacity-30"><ArrowDown size={13} /></button>
+                  </div>
+                </td>
+                {editId === c.id ? (
+                  <>
+                    <td className="px-3 py-2"><input value={editEn} onChange={(e) => setEditEn(e.target.value)} className="w-full px-2 py-1.5 rounded-lg glass text-sm text-white outline-none" /></td>
+                    <td className="px-3 py-2"><input value={editTa} onChange={(e) => setEditTa(e.target.value)} className="w-full px-2 py-1.5 rounded-lg glass text-sm text-white outline-none font-tamil" /></td>
+                    <td className="px-3 py-2 text-vmuted">{c.contentCount ?? 0}</td>
+                    <td className="px-3 py-2" colSpan={2}>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => run(async () => { await renameCategory(c.id, editEn, editTa); setEditId(null); })} className="w-7 h-7 flex items-center justify-center rounded-lg bg-green-500/15 text-green-400"><Check size={14} /></button>
+                        <button onClick={() => setEditId(null)} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted"><X size={14} /></button>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-3 py-2 font-semibold text-white">{c.displayName}</td>
+                    <td className="px-3 py-2 text-white/90 font-tamil">{c.displayNameTa || <span className="text-vmuted text-xs">—</span>}</td>
+                    <td className="px-3 py-2 text-vmuted">{c.contentCount ?? 0}</td>
+                    <td className="px-3 py-2">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.isActive ? 'bg-green-500/15 text-green-400' : 'bg-white/10 text-vmuted'}`}>{c.isActive ? 'Active' : 'Hidden'}</span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1.5">
+                        <button onClick={() => startEdit(c)} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted" title="Edit"><Pencil size={13} /></button>
+                        <button onClick={() => run(() => setCategoryActive(c.id, !c.isActive))} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted" title={c.isActive ? 'Hide' : 'Show'}>{c.isActive ? <Eye size={14} /> : <EyeOff size={14} />}</button>
+                        <button onClick={() => remove(c)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/15 text-red-400" title="Delete"><Trash2 size={13} /></button>
+                      </div>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+            {cats.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-vmuted">No categories — add one above.</td></tr>}
+          </tbody>
+        </table>
       </div>
-      <p className="text-[10px] text-vmuted">Run <span className="font-mono">supabase/fix_categories_roles.sql</span> to create the content_categories table.</p>
+      <p className="text-[10px] text-vmuted">Run <span className="font-mono">supabase/fix_categories_roles.sql</span> then <span className="font-mono">fix_categories_bilingual.sql</span>.</p>
     </div>
   );
 }

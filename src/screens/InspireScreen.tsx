@@ -15,6 +15,7 @@ import { fetchInspireItems } from '@/services/inspire';
 import { fetchAds } from '@/services/ads';
 import { Play } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
+import { useCategoryNames } from '@/hooks/useCategories';
 
 export function InspireScreen({
   onNotifications,
@@ -26,6 +27,8 @@ export function InspireScreen({
   onLive: () => void;
 }) {
   const [activeCat, setActiveCat] = useState('All');
+  const dbCats = useCategoryNames('inspire', []);
+  const categoryList = dbCats.length ? ['All', ...dbCats] : inspireCategories;
   const [heroIdx, setHeroIdx] = useState(0);
   const [items, setItems] = useState(mockInspire);
   const [allAds, setAllAds] = useState(mockAds);
@@ -50,7 +53,7 @@ export function InspireScreen({
       {/* Category chips */}
       <section className="mt-4">
         <div className="hscroll flex gap-2 px-4 sm:px-6 lg:px-8 pb-1">
-          {inspireCategories.map((c) => (<Chip key={c} label={c} active={activeCat === c} onClick={() => setActiveCat(c)} />))}
+          {categoryList.map((c) => (<Chip key={c} label={c} active={activeCat === c} onClick={() => setActiveCat(c)} />))}
         </div>
       </section>
 
@@ -123,8 +126,8 @@ function InspireCard({ item, onClick }: { item: InspireItem; onClick: () => void
         {item.badge && <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-vgold rounded text-[8px] font-black uppercase text-black">{item.badge}</div>}
       </div>
       <div className="mt-2 px-0.5">
-        <div className="text-[13px] font-bold text-white leading-tight line-clamp-1">{item.title}</div>
-        <div className="text-[11px] text-vmuted font-tamil leading-tight line-clamp-1">{item.titleTa}</div>
+        <div className="text-[14px] font-bold text-white font-tamil leading-tight line-clamp-1">{item.titleTa || item.title}</div>
+        <div className="text-[11px] text-vmuted leading-tight line-clamp-1">{item.title}</div>
       </div>
     </button>
   );

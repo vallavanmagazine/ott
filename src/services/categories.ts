@@ -12,12 +12,33 @@ export interface ContentCategory {
   section: CategorySection;
   name: string;
   displayName: string;
+  displayNameTa: string;
   sortOrder: number;
   isActive: boolean;
+  contentCount?: number;
 }
 
 function rowTo(r: any): ContentCategory {
-  return { id: r.id, section: r.section, name: r.name, displayName: r.display_name, sortOrder: r.sort_order ?? 0, isActive: r.is_active !== false };
+  return { id: r.id, section: r.section, name: r.name, displayName: r.display_name, displayNameTa: r.display_name_ta ?? '', sortOrder: r.sort_order ?? 0, isActive: r.is_active !== false };
+}
+
+/** Count published content per category name for a section. */
+async function fetchContentCounts(section: CategorySection): Promise<Record<string, number>> {
+  if (!supabase) return {};
+  const counts: Record<string, number> = {};
+  try {
+    if (section === 'explore') {
+      const { data } = await supabase.from('documentaries').select('genre');
+      (data ?? []).forEach((r: any) => { counts[r.genre] = (counts[r.genre] ?? 0) + 1; });
+    } else if (section === 'inspire') {
+      const { data } = await supabase.from('inspire_items').select('category');
+      (data ?? []).forEach((r: any) => { counts[r.category] = (counts[r.category] ?? 0) + 1; });
+    } else {
+      const { data } = await supabase.from('feed_reels').select('content_type');
+      (data ?? []).forEach((r: any) => { counts[r.content_type] = (counts[r.content_type] ?? 0) + 1; });
+    }
+  } catch { /* ignore */ }
+  return counts;
 }
 
 /** Active category display-names for a section (for chips). Falls back to []. */
@@ -27,27 +48,32 @@ export async function fetchCategoryNames(section: CategorySection): Promise<stri
   return (data ?? []).filter((r: any) => r.is_active !== false).map((r: any) => r.display_name as string);
 }
 
-/** All categories (admin view — includes inactive). */
+/** All categories for a section (admin view — includes inactive + content counts). */
 export async function fetchAllCategories(section: CategorySection): Promise<ContentCategory[]> {
   if (!supabase) return [];
-  const { data } = await supabase.from('content_categories').select('*').eq('section', section).order('sort_order');
-  return (data ?? []).map(rowTo);
+  const [{ data }, counts] = await Promise.all([
+    supabase.from('content_categories').select('*').eq('section', section).order('sort_order'),
+    fetchContentCounts(section),
+  ]);
+  return (data ?? []).map(rowTo).map((c) => ({ ...c, contentCount: counts[c.name] ?? 0 }));
 }
 
-export async function addCategory(section: CategorySection, displayName: string): Promise<void> {
+export async function addCategory(section: CategorySection, displayName: string, displayNameTa = ''): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured');
   const name = displayName.trim();
   if (!name) throw new Error('Name required');
   const { data: max } = await supabase.from('content_categories').select('sort_order').eq('section', section).order('sort_order', { ascending: false }).limit(1).maybeSingle();
   const nextOrder = (max?.sort_order ?? -1) + 1;
-  const { error } = await supabase.from('content_categories').insert({ section, name, display_name: name, sort_order: nextOrder });
+  const { error } = await supabase.from('content_categories').insert({ section, name, display_name: name, display_name_ta: displayNameTa.trim() || null, sort_order: nextOrder });
   if (error) throw error;
   await logAudit(`Added ${section} category "${name}"`);
 }
 
-export async function renameCategory(id: string, displayName: string): Promise<void> {
+export async function renameCategory(id: string, displayName: string, displayNameTa?: string): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured');
-  const { error } = await supabase.from('content_categories').update({ display_name: displayName.trim() }).eq('id', id);
+  const patch: Record<string, unknown> = { display_name: displayName.trim() };
+  if (displayNameTa !== undefined) patch.display_name_ta = displayNameTa.trim() || null;
+  const { error } = await supabase.from('content_categories').update(patch).eq('id', id);
   if (error) throw error;
   await logAudit(`Renamed category → "${displayName}"`);
 }

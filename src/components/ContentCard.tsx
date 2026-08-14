@@ -107,10 +107,10 @@ export function ContentCard({ item, onClick, variant = 'landscape', showProgress
         )}
       </div>
 
-      {/* meta */}
+      {/* meta — Tamil primary (bold, larger), English secondary (grey) */}
       <div className="mt-2 px-0.5">
-        <div className="text-[13px] font-bold text-white leading-tight line-clamp-1">{item.title}</div>
-        <div className="text-[11px] text-vmuted font-tamil leading-tight line-clamp-1">{item.titleTa}</div>
+        <div className="text-[14px] font-bold text-white font-tamil leading-tight line-clamp-1">{item.titleTa || item.title}</div>
+        <div className="text-[11px] text-vmuted leading-tight line-clamp-1">{item.title}</div>
         <div className="mt-1 flex items-center gap-1.5">
           <span
             className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide text-white"

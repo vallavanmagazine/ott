@@ -345,8 +345,8 @@ function ReelCard({
             </span>
             <span className="text-[10px] text-white/60">{reel.duration}</span>
           </div>
-          <h3 className={`text-white font-bold drop-shadow leading-tight ${device.isMobile ? 'text-base' : 'text-lg'}`}>{reel.title}</h3>
-          <p className="text-vgold font-tamil text-sm drop-shadow leading-tight mt-0.5">{reel.titleTa}</p>
+          <h3 className={`text-white font-bold font-tamil drop-shadow leading-tight ${device.isMobile ? 'text-lg' : 'text-xl'}`}>{reel.titleTa || reel.title}</h3>
+          <p className="text-white/70 text-xs drop-shadow leading-tight mt-0.5">{reel.title}</p>
         </div>
       </div>
     </div>

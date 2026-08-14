@@ -14,6 +14,7 @@ import {
 } from '@/data/mockData';
 import { fetchDocumentaries } from '@/services/documentaries';
 import { fetchAds } from '@/services/ads';
+import { useCategoryNames } from '@/hooks/useCategories';
 
 export function ExploreScreen({
   onSearch,
@@ -46,7 +47,8 @@ export function ExploreScreen({
   const editors = filtered.filter((d) => d.exclusive);
   const investigation = filtered.filter((d) => d.genre === 'Investigation');
   const education = filtered.filter((d) => d.genre === 'Education');
-  const allChips = ['All', ...genres];
+  const categoryNames = useCategoryNames('explore', genres);
+  const allChips = ['All', ...categoryNames];
 
   const heroDoc = allDocs[2];
 
