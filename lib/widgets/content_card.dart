@@ -63,8 +63,9 @@ class _ContentCardState extends State<ContentCard> {
             ]),
           ),
           const SizedBox(height: 8),
-          Text(d.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
-          Text(d.titleTa, maxLines: 1, overflow: TextOverflow.ellipsis, style: tamilStyle(size: 11)),
+          // Tamil primary (bold, larger, white); English secondary (grey).
+          Text(d.titleTa.isNotEmpty ? d.titleTa : d.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: tamilStyle(size: 14, color: Colors.white, weight: FontWeight.bold)),
+          Text(d.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
           const SizedBox(height: 4),
           Row(children: [
             _pill(d.genre, genreColor(d.genre), Colors.white, small: true),

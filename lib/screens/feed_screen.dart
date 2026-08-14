@@ -212,8 +212,9 @@ class _ReelViewState extends State<_ReelView> {
           ]),
           const SizedBox(height: 6),
           Text(r.creator, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.gold)),
-          Text(r.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-          Text(r.caption, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          // Tamil title primary (bold, larger); English secondary (grey).
+          Text(r.titleTa.isNotEmpty ? r.titleTa : r.title, style: tamilStyle(size: 17, color: Colors.white, weight: FontWeight.bold)),
+          Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, color: Colors.white70)),
         ])),
       ]),
     );
