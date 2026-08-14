@@ -13,10 +13,18 @@ jobs:
         with:
           ref: flutter-app
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          # Must ship Dart >= 3.6.0 — pubspec.lock resolves against Dart >=3.6.0
+          # (Flutter 3.24.0 bundles Dart 3.5.x and fails `flutter pub get`).
+          flutter-version: '3.27.3'
           channel: 'stable'
+          cache: true
 
       # On the flutter-app branch the Flutter project is at the repo root
       # (no flutter_app/ subdirectory), so no working-directory is set here.
