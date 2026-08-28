@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { KeyRound, Check, Save, ShieldCheck } from 'lucide-react';
 import { SETTING_KEYS, fetchConfiguredKeys, saveSetting, type SettingKey } from '@/services/settings';
+import { useToast } from '@/components/admin/Toast';
 
 const LABELS: Record<SettingKey, string> = {
   RAZORPAY_KEY_ID: 'Razorpay Key ID (public)',
   RAZORPAY_KEY_SECRET: 'Razorpay Key Secret',
   ANTHROPIC_API_KEY: 'Anthropic API Key (AI Studio)',
+  OPENAI_API_KEY: 'OpenAI API Key (optional AI fallback)',
   RESEND_API_KEY: 'Resend API Key (email)',
   FAST2SMS_API_KEY: 'Fast2SMS API Key (OTP/SMS)',
   DYNETUBE_API_KEY: 'DyneTube API Key (video)',
@@ -16,6 +18,7 @@ const LABELS: Record<SettingKey, string> = {
 };
 
 export function AdminApiSettings() {
+  const toast = useToast();
   const [configured, setConfigured] = useState<string[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -27,8 +30,14 @@ export function AdminApiSettings() {
     const val = values[key]?.trim();
     if (!val) return;
     setSavingKey(key);
-    try { await saveSetting(key, val); setValues((v) => ({ ...v, [key]: '' })); await load(); }
-    catch (e) { alert(`Save failed: ${(e as Error).message}`); }
+    try {
+      await saveSetting(key, val);
+      setValues((v) => ({ ...v, [key]: '' }));
+      await load();
+      toast.success(`${LABELS[key]} saved`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
     finally { setSavingKey(null); }
   };
 

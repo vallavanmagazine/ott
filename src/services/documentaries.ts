@@ -4,7 +4,7 @@
  * Falls back to mock data if Supabase is not configured
  */
 import { supabase } from '@/lib/supabase';
-import { formatDuration } from '@/lib/transforms';
+import { formatDuration, formatDate } from '@/lib/transforms';
 import {
   documentaries as mockDocumentaries,
   type Documentary,
@@ -118,4 +118,39 @@ export async function fetchRelatedDocumentaries(
       .slice(0, limit);
   }
   return data.map(rowToDocumentary);
+}
+
+/**
+ * Admin view of the documentary library: the viewer shape plus publish status,
+ * view count and upload date, so one query drives the whole admin table and its
+ * edit form (the viewer fetch drops those fields).
+ */
+export interface AdminDocumentary extends Documentary {
+  status: 'Published' | 'Draft';
+  views: number;
+  uploaded: string;
+  sortOrder: number;
+}
+
+export async function fetchAdminDocumentaryRows(): Promise<AdminDocumentary[]> {
+  if (!supabase) {
+    return mockDocumentaries.map((d, i) => ({
+      ...d, status: 'Published' as const, views: 0, uploaded: '—', sortOrder: i,
+    }));
+  }
+
+  const { data, error } = await supabase
+    .from('documentaries')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error || !data) return [];
+
+  return (data as any[]).map((row) => ({
+    ...rowToDocumentary(row),
+    status: row.status === 'Draft' ? 'Draft' : 'Published',
+    views: row.views ?? 0,
+    uploaded: row.created_at ? formatDate(row.created_at) : '—',
+    sortOrder: row.sort_order ?? 0,
+  }));
 }

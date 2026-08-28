@@ -52,3 +52,32 @@ export async function fetchFeedReels(): Promise<FeedReel[]> {
 
   return data.map(rowToFeedReel);
 }
+
+/**
+ * Admin view of the feed. Same shape as the viewer's FeedReel plus the raw
+ * campaign FK (the viewer shape only carries the campaign NAME, which is not
+ * enough to prefill an edit form) and the source video URL.
+ * Ordered by sort_order — that is the order viewers scroll through.
+ */
+export type AdminFeedReel = FeedReel & { attachedCampaignId: string | null };
+
+export async function fetchAdminFeedReels(): Promise<AdminFeedReel[]> {
+  if (!supabase) {
+    return mockFeedReels.map((r) => ({ ...r, attachedCampaignId: null }));
+  }
+
+  const { data, error } = await supabase
+    .from('feed_reels')
+    .select('*, campaign:campaigns(name)')
+    .order('sort_order', { ascending: true });
+
+  if (error || !data) {
+    console.warn('fetchAdminFeedReels fallback to mock:', error?.message);
+    return mockFeedReels.map((r) => ({ ...r, attachedCampaignId: null }));
+  }
+
+  return data.map((row: any) => ({
+    ...rowToFeedReel(row),
+    attachedCampaignId: row.attached_campaign ?? null,
+  }));
+}

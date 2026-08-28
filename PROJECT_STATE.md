@@ -266,3 +266,72 @@ B1 pricing formula · B2 dual-channel billing · B3 viewer accounts (default cho
 - **Sponsor + Freelancer registration** now exists (web `services/registration.ts` + `RegisterScreen`; Flutter `registration_service.dart` + `register_screen.dart`). Flow: form (name, mobile, email, district) → mobile OTP (Fast2SMS, if backend configured) → **email OTP (Supabase built-in) creates the account** → inserts `app_users` (role) + `sponsors`/`freelancers` rows → dashboard (mobile) / download-app (web).
 - **OTP fallback decision:** account creation always uses Supabase **email OTP** because Supabase phone-auth needs Twilio (not provisioned). Fast2SMS mobile OTP is an *additional* ownership check, used only when the NestJS backend is configured; when it isn't, registration falls back to email OTP only. This satisfies "Fast2SMS not configured → email OTP fallback."
 - Login modals/screens now link to "Register as Sponsor | Register as Freelancer".
+
+### Admin dashboard overhaul (2026-08-29)
+
+Every admin screen is now backed by live Supabase reads and writes — no static
+prototype screens remain. Priority order followed the current viewer app, which
+exposes only **Search | Feed | Profile** plus Live TV from the header.
+
+**New shared layer**
+- `src/components/admin/Toast.tsx` — toast provider; replaces `window.alert()`
+  across the CMS (blocking dialogs also break browser automation).
+- `src/components/admin/ui.tsx` — `AdminModal` (scrollable body + **sticky
+  footer**, so Save is always visible on long forms), `SaveBar`, `ConfirmDialog`,
+  form fields, toggles, tabs, status pills, loading skeletons, `useBusy`.
+- `src/lib/video.ts` — YouTube id extraction + `autoThumbnail()`; only YouTube
+  exposes a derivable thumbnail, so that is the one source that auto-fills.
+- `src/lib/csv.ts` — client-side CSV export (UTF-8 BOM so Excel renders Tamil).
+- `src/lib/admin-options.ts`, `src/hooks/useCategoryOptions.ts` — dropdown
+  options; genre options stay constrained to the `genre_type` enum, since the DB
+  rejects anything else.
+
+**New services**: `admin-sponsors`, `admin-campaigns`, `admin-ads`,
+`admin-payments`, `admin-freelancers`, `admin-pricing`, `admin-social`,
+`site-settings`, plus admin-shaped fetches in `feed`/`live`/`documentaries`/
+`inspire` and ~20 new mutations in `admin-writes`.
+
+**New screens**: `AdminPricing` (rate tiers + Inspire packages),
+`AdminPayments` (wallet ledger, invoices, payment links — replaces the old
+`AdminInvoices`). Nav is now grouped by what is live today.
+
+**Bugs found and fixed while verifying**
+1. `ad-engine.candidatesForDistrict` used a *fallback chain*: statewide
+   campaigns were only considered when no district-targeted campaign existed, so
+   an "All Tamil Nadu" campaign went dark in every district that had a targeted
+   campaign running — contradicting the product rule. Eligibility is now a
+   **union** (district-matched OR statewide), with unattached house inventory as
+   the only fallback.
+2. `AdminCategories` reordering swapped the two rows' `sort_order` *values*,
+   which is a no-op whenever both rows share a value (true for every section
+   seeded before `sort_order` was populated). Now writes absolute indices via
+   `reorderCategories()`.
+3. Feed inline toggles (status / strip-ad / banner-after) were local React state
+   only and were lost on reload. They now persist and log to `audit_logs`.
+4. `AdminDocumentaries` inferred publish status from whether a badge was set.
+   It now reads the real `status` column.
+5. Freelancer roster "Suspend" wrote `rejected`, mixing suspension in with
+   rejected applications. It now writes `suspended`, and the roster has a status
+   filter so suspended people stay findable.
+6. Releasing a freelancer payment matched the earning row by
+   (freelancer, amount, pending) — ambiguous with two equal-value payouts. Added
+   `freelancer_earnings.assignment_id` and match on that.
+7. Admin had **no RLS policy on `wallets` / `wallet_transactions`** (only
+   sponsor-scoped policies existed), so admin money screens would have returned
+   zero rows. Added in the migration.
+
+**Migration**: `supabase/admin_dashboard.sql` (idempotent, re-runnable) — adds
+`site_settings` (public-readable CMS copy; `platform_settings` is write-only by
+design and cannot be read back), admin RLS on the wallet tables,
+`inspire_items.status`, lower-third config columns, `earnings.assignment_id`,
+and analytics indexes. **Run this in the Supabase SQL editor before use.**
+
+**Hard boundaries respected**: no deploy, no live Razorpay charge (payment links
+are minted by the backend when configured, otherwise recorded manually — this
+client never holds a Razorpay secret), no Meta/Instagram publish (social posts
+are only queued in `social_posts`), no push to `main`.
+
+**Gates**: `npm run typecheck` clean; `npm run build` succeeds. `npm run lint`
+was already failing at baseline (275 problems); the new files add only
+`no-explicit-any` on Supabase row mappers, matching the existing convention in
+every other service.

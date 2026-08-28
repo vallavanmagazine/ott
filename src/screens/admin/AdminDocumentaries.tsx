@@ -1,217 +1,385 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, Trash2, Pencil, X } from 'lucide-react';
-import { adminDocumentaries as mockAdminDocs } from '@/data/mockData';
-import { fetchAdminDocumentaries } from '@/services/admin';
-import { fetchDocumentaryById } from '@/services/documentaries';
-import { DyneTubeUpload } from '@/components/DyneTubeUpload';
+/**
+ * Documentaries — long-form library management.
+ *
+ * The Explore tab is hidden from viewers right now, so nothing here reaches the
+ * app yet; the screen stays fully functional so the library can be built up and
+ * switched on later without a second pass.
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, Film, Trash2, Pencil, Eye } from 'lucide-react';
+import { fetchAdminDocumentaryRows, type AdminDocumentary } from '@/services/documentaries';
 import {
   createDocumentary, updateDocumentary, deleteDocumentary,
-  publishDocumentary, unpublishDocumentary, type DocumentaryInput,
+  publishDocumentary, unpublishDocumentary,
 } from '@/services/admin-writes';
-
-const GENRES = [
-  'Environment', 'Wildlife', 'History', 'Science', 'Society', 'Investigation',
-  'Education', 'Culture', 'Motivation', 'Success Stories', 'Life Lessons',
-  'Changemakers', 'Youth Voices',
-];
-
-const EMPTY: DocForm = {
-  title: '', titleTa: '', genre: 'Environment', durationSec: 0, poster: '', backdrop: '',
-  videoUrl: '', year: new Date().getFullYear(), language: 'Tamil', synopsis: '', synopsisTa: '',
-  badge: '', director: '', cast: '', status: 'Draft',
-};
+import { DyneTubeUpload } from '@/components/DyneTubeUpload';
+import { pexelsUrl } from '@/data/mockData';
+import { useToast } from '@/components/admin/Toast';
+import { useCategoryOptions } from '@/hooks/useCategoryOptions';
+import { ALL_GENRES, BADGES, LANGUAGES, compactCount } from '@/lib/admin-options';
+import { autoThumbnail, videoKindLabel } from '@/lib/video';
+import { formatDuration } from '@/lib/transforms';
+import {
+  AdminModal, SaveBar, ConfirmDialog, Field, TextInput, TextArea, SelectInput,
+  ToggleRow, SearchInput, StatusPill, StatCard, SkeletonTable, EmptyState,
+  IconButton, useBusy,
+} from '@/components/admin/ui';
 
 interface DocForm {
-  title: string; titleTa: string; genre: string; durationSec: number;
-  poster: string; backdrop: string; videoUrl: string; year: number; language: string;
-  synopsis: string; synopsisTa: string; badge: string; director: string; cast: string;
+  title: string;
+  titleTa: string;
+  genre: string;
+  durationSec: number;
+  poster: string;
+  backdrop: string;
+  videoUrl: string;
+  year: number;
+  language: string;
+  synopsis: string;
+  synopsisTa: string;
+  badge: string;
+  exclusive: boolean;
+  director: string;
+  cast: string;
   status: 'Published' | 'Draft';
 }
 
+const BLANK: DocForm = {
+  title: '', titleTa: '', genre: 'Environment', durationSec: 1500, poster: '', backdrop: '',
+  videoUrl: '', year: new Date().getFullYear(), language: 'Tamil', synopsis: '', synopsisTa: '',
+  badge: '', exclusive: false, director: '', cast: '', status: 'Draft',
+};
+
+function formFromDoc(d: AdminDocumentary): DocForm {
+  return {
+    title: d.title,
+    titleTa: d.titleTa,
+    genre: d.genre,
+    durationSec: d.durationSec,
+    poster: d.poster,
+    backdrop: d.backdrop,
+    videoUrl: d.videoUrl ?? '',
+    year: d.year,
+    language: d.language,
+    synopsis: d.synopsis,
+    synopsisTa: d.synopsisTa,
+    badge: d.badge ?? '',
+    exclusive: !!d.exclusive,
+    director: d.director ?? '',
+    cast: (d.cast ?? []).join(', '),
+    status: d.status,
+  };
+}
+
 export function AdminDocumentaries() {
+  const toast = useToast();
+  const { isBusy, withBusy } = useBusy();
+
+  const [rows, setRows] = useState<AdminDocumentary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [rows, setRows] = useState(mockAdminDocs);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ id: string | null; form: DocForm } | null>(null);
+  const [genreFilter, setGenreFilter] = useState('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Published' | 'Draft'>('All');
+  const [editing, setEditing] = useState<AdminDocumentary | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<AdminDocumentary | null>(null);
 
-  const load = () => fetchAdminDocumentaries().then(setRows);
-  useEffect(() => { load(); }, []);
+  const load = useCallback(async () => {
+    setRows(await fetchAdminDocumentaryRows());
+    setLoading(false);
+  }, []);
 
-  const statusColors: Record<string, string> = { Published: 'text-green-400 bg-green-500/15', Draft: 'text-vgold bg-vgold/15' };
-  const filtered = rows.filter((d) => d.title.toLowerCase().includes(query.toLowerCase()));
+  useEffect(() => { load(); }, [load]);
 
-  const openAdd = () => setEditing({ id: null, form: { ...EMPTY } });
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((d) => {
+      const matchesQuery = !q || d.title.toLowerCase().includes(q) || d.titleTa.includes(query.trim())
+        || (d.director ?? '').toLowerCase().includes(q);
+      const matchesGenre = genreFilter === 'All' || d.genre === genreFilter;
+      const matchesStatus = statusFilter === 'All' || d.status === statusFilter;
+      return matchesQuery && matchesGenre && matchesStatus;
+    });
+  }, [rows, query, genreFilter, statusFilter]);
 
-  const openEdit = async (id: string) => {
-    setBusy(id);
-    const doc = await fetchDocumentaryById(id);
-    setBusy(null);
-    if (!doc) { alert('Could not load this documentary.'); return; }
-    setEditing({
-      id,
-      form: {
-        title: doc.title, titleTa: doc.titleTa, genre: doc.genre, durationSec: doc.durationSec,
-        poster: doc.poster, backdrop: doc.backdrop, videoUrl: doc.videoUrl ?? '', year: doc.year,
-        language: doc.language, synopsis: doc.synopsis, synopsisTa: doc.synopsisTa,
-        badge: doc.badge ?? '', director: doc.director ?? '', cast: (doc.cast ?? []).join(', '),
-        status: (doc.badge === undefined ? 'Draft' : 'Published') as 'Published' | 'Draft',
-      },
+  const toggleStatus = (d: AdminDocumentary) => withBusy(d.id, async () => {
+    try {
+      if (d.status === 'Published') { await unpublishDocumentary(d.id, d.title); toast.success(`"${d.title}" moved to Draft`); }
+      else { await publishDocumentary(d.id, d.title); toast.success(`"${d.title}" published`); }
+      await load();
+    } catch (e) { toast.error((e as Error).message); }
+  });
+
+  const save = async (form: DocForm) => {
+    const payload = {
+      title: form.title.trim(),
+      titleTa: form.titleTa.trim() || form.title.trim(),
+      genre: form.genre,
+      durationSec: Number(form.durationSec) || 0,
+      poster: form.poster.trim() || autoThumbnail(form.videoUrl) || '20212135',
+      backdrop: form.backdrop.trim() || form.poster.trim() || autoThumbnail(form.videoUrl) || '20212135',
+      year: Number(form.year) || new Date().getFullYear(),
+      language: form.language,
+      synopsis: form.synopsis.trim(),
+      synopsisTa: form.synopsisTa.trim(),
+      badge: form.badge || null,
+      exclusive: form.exclusive,
+      director: form.director.trim() || null,
+      cast: form.cast.split(',').map((c) => c.trim()).filter(Boolean),
+      videoUrl: form.videoUrl.trim() || null,
+      status: form.status,
+    };
+    if (editing === 'new') {
+      await createDocumentary(payload);
+      toast.success(`"${payload.title}" saved as ${form.status}`);
+    } else if (editing) {
+      await updateDocumentary(editing.id, payload);
+      toast.success(`"${payload.title}" updated`);
+    }
+    setEditing(null);
+    await load();
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    await withBusy(deleting.id, async () => {
+      try {
+        await deleteDocumentary(deleting.id, deleting.title);
+        toast.success(`Deleted "${deleting.title}"`);
+        setDeleting(null);
+        await load();
+      } catch (e) { toast.error((e as Error).message); }
     });
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    if (!window.confirm(`Delete "${title}"? This cannot be undone.`)) return;
-    setBusy(id);
-    try { await deleteDocumentary(id, title); await load(); }
-    catch (e) { alert(`Delete failed: ${(e as Error).message}`); }
-    finally { setBusy(null); }
-  };
-
-  const togglePublish = async (id: string, title: string, status: string) => {
-    setBusy(id);
-    try { status === 'Published' ? await unpublishDocumentary(id, title) : await publishDocumentary(id, title); await load(); }
-    catch (e) { alert(`Action failed: ${(e as Error).message}`); }
-    finally { setBusy(null); }
-  };
-
-  const save = async () => {
-    if (!editing) return;
-    const f = editing.form;
-    if (!f.title.trim()) { alert('Title is required'); return; }
-    const input: DocumentaryInput = {
-      title: f.title.trim(), titleTa: f.titleTa.trim() || f.title.trim(), genre: f.genre,
-      durationSec: Number(f.durationSec) || 0, poster: f.poster.trim() || '30004134',
-      backdrop: f.backdrop.trim() || f.poster.trim() || '30004134',
-      videoUrl: f.videoUrl.trim() || null, year: Number(f.year) || new Date().getFullYear(),
-      language: f.language.trim() || 'Tamil', synopsis: f.synopsis.trim(), synopsisTa: f.synopsisTa.trim(),
-      badge: f.badge.trim() || null, director: f.director.trim() || null,
-      cast: f.cast.trim() ? f.cast.split(',').map((c) => c.trim()).filter(Boolean) : null,
-      status: f.status,
-    };
-    setBusy('save');
-    try {
-      if (editing.id) await updateDocumentary(editing.id, input);
-      else await createDocumentary(input);
-      setEditing(null);
-      await load();
-    } catch (e) { alert(`Save failed: ${(e as Error).message}`); }
-    finally { setBusy(null); }
-  };
+  const published = rows.filter((d) => d.status === 'Published').length;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-xl glass">
-          <Search size={16} className="text-vmuted" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search documentaries..." className="flex-1 bg-transparent text-sm text-white placeholder:text-vmuted outline-none" />
-        </div>
-        <button onClick={openAdd} className="px-4 py-2.5 rounded-xl bg-vred text-white text-sm font-bold flex items-center gap-2 active:scale-95"><Plus size={16} /> Add New</button>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard label="Documentaries" value={rows.length} icon={<Film size={13} />} />
+        <StatCard label="Published" value={published} accent="text-green-400" />
+        <StatCard label="Drafts" value={rows.length - published} accent="text-vgold" />
+        <StatCard label="Total Views" value={compactCount(rows.reduce((s, d) => s + d.views, 0))} accent="text-blue-400" />
       </div>
 
-      <div className="rounded-xl glass overflow-hidden overflow-x-auto">
-        <table className="w-full text-sm min-w-[640px]">
-          <thead>
-            <tr className="border-b border-white/8 text-[10px] uppercase tracking-wider text-vmuted">
-              <th className="text-left px-4 py-3 font-bold">Title</th>
-              <th className="text-left px-4 py-3 font-bold">Genre</th>
-              <th className="text-left px-4 py-3 font-bold hidden sm:table-cell">Views</th>
-              <th className="text-left px-4 py-3 font-bold hidden md:table-cell">Uploaded</th>
-              <th className="text-left px-4 py-3 font-bold">Status</th>
-              <th className="text-left px-4 py-3 font-bold">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {filtered.map((d) => (
-              <tr key={d.id} className="hover:bg-white/5 transition">
-                <td className="px-4 py-3 font-semibold text-white">{d.title}</td>
-                <td className="px-4 py-3 text-vmuted">{d.genre}</td>
-                <td className="px-4 py-3 text-vmuted hidden sm:table-cell">{d.views.toLocaleString('en-IN')}</td>
-                <td className="px-4 py-3 text-vmuted hidden md:table-cell">{d.uploaded}</td>
-                <td className="px-4 py-3">
-                  <button onClick={() => togglePublish(d.id, d.title, d.status)} disabled={busy === d.id} className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusColors[d.status]} disabled:opacity-50`}>{d.status}</button>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => openEdit(d.id)} disabled={busy === d.id} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/10 text-vmuted hover:text-white disabled:opacity-50"><Pencil size={14} /></button>
-                    <button onClick={() => handleDelete(d.id, d.title)} disabled={busy === d.id} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/15 text-vmuted hover:text-red-400 disabled:opacity-50"><Trash2 size={14} /></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20">
+        <p className="text-[11px] text-white/80">
+          The Explore tab is currently hidden from viewers. Documentaries published here are stored and ready, and will
+          appear as soon as the tab is re-enabled.
+        </p>
       </div>
+
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <SearchInput value={query} onChange={setQuery} placeholder="Search title or director..." />
+        <select value={genreFilter} onChange={(e) => setGenreFilter(e.target.value)} className="px-4 py-2.5 rounded-xl glass text-sm text-white outline-none">
+          <option value="All">All Genres</option>
+          {ALL_GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
+        </select>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)} className="px-4 py-2.5 rounded-xl glass text-sm text-white outline-none">
+          <option value="All">All Status</option>
+          <option value="Published">Published</option>
+          <option value="Draft">Draft</option>
+        </select>
+        <button onClick={() => setEditing('new')} className="px-4 py-2.5 rounded-xl bg-vred text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-95">
+          <Plus size={16} /> Add New
+        </button>
+      </div>
+
+      {loading ? <SkeletonTable rows={6} cols={6} /> : filtered.length === 0 ? (
+        <EmptyState title={rows.length === 0 ? 'No documentaries yet' : 'Nothing matches those filters'} />
+      ) : (
+        <div className="rounded-xl glass overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm min-w-[800px]">
+            <thead>
+              <tr className="border-b border-white/8 text-[10px] uppercase tracking-wider text-vmuted">
+                <th className="text-left px-3 py-3 font-bold">Poster</th>
+                <th className="text-left px-4 py-3 font-bold">Title</th>
+                <th className="text-left px-4 py-3 font-bold">Genre</th>
+                <th className="text-left px-4 py-3 font-bold hidden md:table-cell">Year</th>
+                <th className="text-left px-4 py-3 font-bold hidden md:table-cell">Duration</th>
+                <th className="text-left px-4 py-3 font-bold">Status</th>
+                <th className="text-left px-4 py-3 font-bold hidden lg:table-cell">Views</th>
+                <th className="text-left px-4 py-3 font-bold hidden lg:table-cell">Uploaded</th>
+                <th className="text-right px-4 py-3 font-bold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {filtered.map((d) => (
+                <tr key={d.id} className="hover:bg-white/5 transition">
+                  <td className="px-3 py-3">
+                    <div className="w-10 h-14 rounded-lg overflow-hidden bg-white/5">
+                      <img src={pexelsUrl(d.poster, 120)} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 max-w-[240px]">
+                    <div className="font-semibold text-white text-[13px] truncate">{d.title}</div>
+                    <div className="text-[11px] font-tamil text-vmuted truncate">{d.titleTa}</div>
+                    {d.director && <div className="text-[10px] text-vmuted mt-0.5">dir. {d.director}</div>}
+                  </td>
+                  <td className="px-4 py-3 text-vmuted">{d.genre}</td>
+                  <td className="px-4 py-3 text-vmuted hidden md:table-cell">{d.year}</td>
+                  <td className="px-4 py-3 text-vmuted hidden md:table-cell tabular-nums">{d.duration}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => toggleStatus(d)} disabled={isBusy(d.id)} title="Click to toggle Published / Draft">
+                      <StatusPill status={d.status} />
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-vmuted hidden lg:table-cell tabular-nums">{d.views.toLocaleString('en-IN')}</td>
+                  <td className="px-4 py-3 text-vmuted hidden lg:table-cell">{d.uploaded}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      {d.videoUrl && (
+                        <a href={d.videoUrl} target="_blank" rel="noreferrer" title="Open source video" className="w-7 h-7 flex items-center justify-center rounded-lg text-vmuted hover:bg-white/10 hover:text-white">
+                          <Eye size={14} />
+                        </a>
+                      )}
+                      <IconButton onClick={() => setEditing(d)} title="Edit"><Pencil size={14} /></IconButton>
+                      <IconButton onClick={() => setDeleting(d)} title="Delete" danger><Trash2 size={14} /></IconButton>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {editing && (
         <DocFormModal
-          form={editing.form}
-          isEdit={!!editing.id}
-          saving={busy === 'save'}
-          onChange={(patch) => setEditing((e) => e && ({ ...e, form: { ...e.form, ...patch } }))}
+          initial={editing === 'new' ? BLANK : formFromDoc(editing)}
+          isNew={editing === 'new'}
           onClose={() => setEditing(null)}
           onSave={save}
+        />
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete documentary?"
+          message={`"${deleting.title}" will be permanently removed from the library.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleting(null)}
+          busy={isBusy(deleting.id)}
         />
       )}
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="text-[10px] uppercase tracking-wider text-vmuted font-bold">{label}</label>
-      <div className="mt-1">{children}</div>
-    </div>
-  );
-}
+function DocFormModal({
+  initial, isNew, onClose, onSave,
+}: { initial: DocForm; isNew: boolean; onClose: () => void; onSave: (f: DocForm) => Promise<void> }) {
+  const toast = useToast();
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [posterTouched, setPosterTouched] = useState(!!initial.poster);
+  const genreOptions = useCategoryOptions('explore', ALL_GENRES);
 
-function DocFormModal({ form, isEdit, saving, onChange, onClose, onSave }: {
-  form: DocForm; isEdit: boolean; saving: boolean;
-  onChange: (patch: Partial<DocForm>) => void; onClose: () => void; onSave: () => void;
-}) {
-  const inp = 'w-full px-3 py-2.5 rounded-lg glass text-sm text-white placeholder:text-vmuted outline-none focus:border-vred';
+  const set = <K extends keyof DocForm>(k: K, v: DocForm[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  const onVideoUrl = (url: string) => {
+    setForm((f) => {
+      const auto = autoThumbnail(url);
+      return { ...f, videoUrl: url, poster: !posterTouched && auto ? auto : f.poster };
+    });
+  };
+
+  const submit = async () => {
+    if (!form.title.trim()) { toast.error('Title (English) is required'); return; }
+    setSaving(true);
+    try { await onSave(form); } catch (e) { toast.error((e as Error).message); } finally { setSaving(false); }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="w-full max-w-2xl bg-vblack rounded-2xl border border-white/10 p-5 animate-slide-up my-8">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-black text-white">{isEdit ? 'Edit Documentary' : 'Add New Documentary'}</h3>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full glass"><X size={16} className="text-white" /></button>
-        </div>
-        <div className="space-y-3 max-h-[72vh] overflow-y-auto pr-1">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Title (English)"><input value={form.title} onChange={(e) => onChange({ title: e.target.value })} className={inp} /></Field>
-            <Field label="தலைப்பு (Tamil)"><input value={form.titleTa} onChange={(e) => onChange({ titleTa: e.target.value })} className={`${inp} font-tamil`} /></Field>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <Field label="Genre"><select value={form.genre} onChange={(e) => onChange({ genre: e.target.value })} className={inp}>{GENRES.map((g) => <option key={g} value={g}>{g}</option>)}</select></Field>
-            <Field label="Duration (sec)"><input type="number" value={form.durationSec} onChange={(e) => onChange({ durationSec: Number(e.target.value) })} className={inp} /></Field>
-            <Field label="Year"><input type="number" value={form.year} onChange={(e) => onChange({ year: Number(e.target.value) })} className={inp} /></Field>
-          </div>
-          <Field label="Video URL (YouTube / HLS .m3u8 / MP4) — paste, or upload below">
-            <input value={form.videoUrl} onChange={(e) => onChange({ videoUrl: e.target.value })} placeholder="https://www.youtube.com/embed/…" className={inp} />
-            <div className="mt-2"><DyneTubeUpload onUploaded={(url) => onChange({ videoUrl: url })} /></div>
-          </Field>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Poster URL / Pexels id"><input value={form.poster} onChange={(e) => onChange({ poster: e.target.value })} className={inp} /></Field>
-            <Field label="Backdrop URL / Pexels id"><input value={form.backdrop} onChange={(e) => onChange({ backdrop: e.target.value })} className={inp} /></Field>
-          </div>
-          <Field label="Synopsis (English)"><textarea value={form.synopsis} onChange={(e) => onChange({ synopsis: e.target.value })} rows={2} className={`${inp} resize-none`} /></Field>
-          <Field label="சுருக்கம் (Tamil)"><textarea value={form.synopsisTa} onChange={(e) => onChange({ synopsisTa: e.target.value })} rows={2} className={`${inp} resize-none font-tamil`} /></Field>
-          <div className="grid sm:grid-cols-3 gap-3">
-            <Field label="Language"><input value={form.language} onChange={(e) => onChange({ language: e.target.value })} className={inp} /></Field>
-            <Field label="Badge"><select value={form.badge} onChange={(e) => onChange({ badge: e.target.value })} className={inp}><option value="">None</option><option value="FEATURED">FEATURED</option><option value="NEW">NEW</option></select></Field>
-            <Field label="Status"><select value={form.status} onChange={(e) => onChange({ status: e.target.value as 'Published' | 'Draft' })} className={inp}><option>Draft</option><option>Published</option></select></Field>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="Director"><input value={form.director} onChange={(e) => onChange({ director: e.target.value })} className={inp} /></Field>
-            <Field label="Cast (comma-separated)"><input value={form.cast} onChange={(e) => onChange({ cast: e.target.value })} className={inp} /></Field>
-          </div>
-        </div>
-        <div className="flex gap-2 pt-4">
-          <button onClick={onClose} className="flex-1 py-3 rounded-full glass text-white font-bold text-sm active:scale-95">Cancel</button>
-          <button onClick={onSave} disabled={saving} className="flex-1 py-3 rounded-full bg-vred text-white font-bold text-sm active:scale-95 disabled:opacity-50">{saving ? 'Saving…' : isEdit ? 'Update' : 'Create'}</button>
-        </div>
+    <AdminModal
+      title={isNew ? 'Add Documentary' : 'Edit Documentary'}
+      subtitle={isNew ? undefined : form.title}
+      onClose={onClose}
+      footer={<SaveBar onCancel={onClose} onSave={submit} saving={saving} label={form.status === 'Published' ? 'Save & Publish' : 'Save Draft'} />}
+    >
+      <Field label="Video URL" hint="YouTube, DyneTube, HLS or MP4">
+        <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://..." />
+        {form.videoUrl && <p className="text-[10px] text-vgold mt-1">Detected: {videoKindLabel(form.videoUrl)}</p>}
+      </Field>
+
+      <DyneTubeUpload onUploaded={onVideoUrl} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Poster image" hint="Portrait 2:3">
+          <TextInput value={form.poster} onChange={(e) => { setPosterTouched(true); set('poster', e.target.value); }} placeholder="URL or Pexels id" />
+        </Field>
+        <Field label="Backdrop image" hint="Landscape 16:9">
+          <TextInput value={form.backdrop} onChange={(e) => set('backdrop', e.target.value)} placeholder="URL or Pexels id" />
+        </Field>
       </div>
-    </div>
+
+      <Field label="Title (English)" required>
+        <TextInput value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="The Last Mangroves" />
+      </Field>
+      <Field label="Title (Tamil)">
+        <TextInput className="font-tamil" value={form.titleTa} onChange={(e) => set('titleTa', e.target.value)} placeholder="தலைப்பு" />
+      </Field>
+
+      <Field label="Synopsis (English)">
+        <TextArea rows={3} value={form.synopsis} onChange={(e) => set('synopsis', e.target.value)} />
+      </Field>
+      <Field label="Synopsis (Tamil)">
+        <TextArea rows={3} className="font-tamil" value={form.synopsisTa} onChange={(e) => set('synopsisTa', e.target.value)} />
+      </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Genre">
+          <SelectInput value={form.genre} onChange={(e) => set('genre', e.target.value)}>
+            {genreOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </SelectInput>
+        </Field>
+        <Field label="Year">
+          <TextInput type="number" value={form.year} onChange={(e) => set('year', Number(e.target.value))} />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Language">
+          <SelectInput value={form.language} onChange={(e) => set('language', e.target.value)}>
+            {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
+          </SelectInput>
+        </Field>
+        <Field label="Duration (seconds)" hint={`Shows as ${formatDuration(Number(form.durationSec) || 0)}`}>
+          <TextInput type="number" min={0} value={form.durationSec} onChange={(e) => set('durationSec', Number(e.target.value))} />
+        </Field>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Director">
+          <TextInput value={form.director} onChange={(e) => set('director', e.target.value)} />
+        </Field>
+        <Field label="Badge">
+          <SelectInput value={form.badge} onChange={(e) => set('badge', e.target.value)}>
+            {BADGES.map((b) => <option key={b || 'none'} value={b}>{b || 'None'}</option>)}
+          </SelectInput>
+        </Field>
+      </div>
+
+      <Field label="Cast" hint="Comma-separated — stored as a list.">
+        <TextInput value={form.cast} onChange={(e) => set('cast', e.target.value)} placeholder="Name One, Name Two" />
+      </Field>
+
+      <ToggleRow on={form.exclusive} onChange={(v) => set('exclusive', v)} label="Vallavan Exclusive" sub="Shows the exclusive ribbon on the card" />
+
+      <Field label="Status">
+        <div className="grid grid-cols-2 gap-2">
+          {(['Draft', 'Published'] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => set('status', s)}
+              className={`py-2.5 rounded-xl text-xs font-bold transition active:scale-95 ${form.status === s ? 'bg-vred text-white' : 'glass text-vmuted'}`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </Field>
+    </AdminModal>
   );
 }

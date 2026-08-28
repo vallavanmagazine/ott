@@ -144,6 +144,8 @@ export interface FeedReelInput {
   bannerAfter?: boolean;
   sortOrder?: number;
   videoUrl?: string | null;
+  /** campaigns.id — the DB stores an FK; the viewer shape shows the name. */
+  attachedCampaignId?: string | null;
 }
 
 function reelToRow(input: Partial<FeedReelInput>): Record<string, unknown> {
@@ -163,6 +165,7 @@ function reelToRow(input: Partial<FeedReelInput>): Record<string, unknown> {
   if (input.bannerAfter !== undefined) row.banner_after = input.bannerAfter;
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
   if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
+  if (input.attachedCampaignId !== undefined) row.attached_campaign = input.attachedCampaignId;
   return row;
 }
 
@@ -195,6 +198,42 @@ export async function deleteFeedReel(id: string, title?: string) {
   const { error } = await client().from('feed_reels').delete().eq('id', id);
   if (error) throw error;
   await logAudit(`Deleted feed reel "${title ?? id}"`);
+}
+
+/** Inline Published/Draft switch from the feed list. */
+export async function setFeedReelStatus(id: string, status: 'Published' | 'Draft' | 'Scheduled', title?: string) {
+  const { error } = await client().from('feed_reels').update({ status }).eq('id', id);
+  if (error) throw error;
+  await logAudit(`Feed reel "${title ?? id}" → ${status}`);
+}
+
+/** Inline ad-placement flags (strip ad host / banner after) from the feed list. */
+export async function setFeedReelAdFlags(
+  id: string,
+  flags: { stripAdHost?: boolean; bannerAfter?: boolean },
+  title?: string,
+) {
+  const row: Record<string, unknown> = {};
+  if (flags.stripAdHost !== undefined) row.strip_ad_host = flags.stripAdHost;
+  if (flags.bannerAfter !== undefined) row.banner_after = flags.bannerAfter;
+  const { error } = await client().from('feed_reels').update(row).eq('id', id);
+  if (error) throw error;
+  await logAudit(`Feed reel "${title ?? id}" ad flags updated`);
+}
+
+/**
+ * Persist a new feed order. Callers pass the ids in their final display order;
+ * sort_order becomes the array index. Runs the updates in parallel — the rows
+ * are independent, so a partial failure only leaves that one row stale.
+ */
+export async function reorderFeedReels(orderedIds: string[]) {
+  const db = client();
+  const results = await Promise.all(
+    orderedIds.map((id, index) => db.from('feed_reels').update({ sort_order: index }).eq('id', id)),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
+  await logAudit(`Reordered feed (${orderedIds.length} items)`);
 }
 
 // ===========================================================================
@@ -263,6 +302,11 @@ export interface InspireItemInput {
   attribution?: string | null;
   badge?: string | null;
   videoUrl?: string | null;
+  isSponsored?: boolean;
+  sponsorId?: string | null;
+  sponsorLogoUrl?: string | null;
+  sortOrder?: number;
+  status?: 'Published' | 'Draft';
 }
 
 function inspireToRow(input: Partial<InspireItemInput>): Record<string, unknown> {
@@ -276,7 +320,19 @@ function inspireToRow(input: Partial<InspireItemInput>): Record<string, unknown>
   if (input.attribution !== undefined) row.attribution = input.attribution;
   if (input.badge !== undefined) row.badge = input.badge;
   if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
+  if (input.isSponsored !== undefined) row.is_sponsored = input.isSponsored;
+  if (input.sponsorId !== undefined) row.sponsor_id = input.sponsorId;
+  if (input.sponsorLogoUrl !== undefined) row.sponsor_logo_url = input.sponsorLogoUrl;
+  if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
+  if (input.status !== undefined) row.status = input.status;
   return row;
+}
+
+/** Inline Published/Draft switch from the Inspire list. */
+export async function setInspireStatus(id: string, status: 'Published' | 'Draft', title?: string) {
+  const { error } = await client().from('inspire_items').update({ status }).eq('id', id);
+  if (error) throw error;
+  await logAudit(`Inspire item "${title ?? id}" → ${status}`);
 }
 
 export async function createInspireItem(input: InspireItemInput) {
@@ -342,4 +398,138 @@ export async function resumeAdPlacement(id: string, placement?: string) {
   const { error } = await client().from('ad_placements').update({ status: 'Live' }).eq('id', id);
   if (error) throw error;
   await logAudit(`Resumed ad placement ${placement ?? id}`);
+}
+
+// ===========================================================================
+// USERS — role changes
+// ===========================================================================
+export type UserRole = 'Viewer' | 'Sponsor' | 'Creator' | 'Admin';
+
+export async function setUserRole(id: string, role: UserRole, name?: string) {
+  const { error } = await client().from('app_users').update({ role }).eq('id', id);
+  if (error) throw error;
+  await logAudit(`User ${name ?? id} role → ${role}`);
+}
+
+// ===========================================================================
+// SPONSORS — profile create / update
+// ===========================================================================
+export interface SponsorInput {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  ownerName?: string | null;
+  businessType?: string | null;
+  gstNumber?: string | null;
+  district?: string | null;
+  status?: string;
+}
+
+function sponsorToRow(input: Partial<SponsorInput>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (input.name !== undefined) row.name = input.name;
+  if (input.email !== undefined) row.email = input.email;
+  if (input.phone !== undefined) row.phone = input.phone;
+  if (input.ownerName !== undefined) row.owner_name = input.ownerName;
+  if (input.businessType !== undefined) row.business_type = input.businessType;
+  if (input.gstNumber !== undefined) row.gst_number = input.gstNumber;
+  if (input.district !== undefined) row.district = input.district;
+  if (input.status !== undefined) row.status = input.status;
+  return row;
+}
+
+export async function createSponsor(input: SponsorInput) {
+  const { data, error } = await client()
+    .from('sponsors')
+    .insert({ status: 'Active', ...sponsorToRow(input) })
+    .select()
+    .single();
+  if (error) throw error;
+  await logAudit(`Created sponsor "${input.name}"`);
+  return data;
+}
+
+export async function updateSponsor(id: string, input: Partial<SponsorInput>) {
+  const { error } = await client().from('sponsors').update(sponsorToRow(input)).eq('id', id);
+  if (error) throw error;
+  await logAudit(`Updated sponsor "${input.name ?? id}"`);
+}
+
+// ===========================================================================
+// CAMPAIGNS — lifecycle beyond approve/reject
+// ===========================================================================
+export type CampaignStatus = 'Draft' | 'Pending Approval' | 'Active' | 'Paused' | 'Ended';
+
+export async function setCampaignStatus(id: string, status: CampaignStatus, name?: string) {
+  const { error } = await client().from('campaigns').update({ status }).eq('id', id);
+  if (error) throw error;
+  await logAudit(`Campaign "${name ?? id}" → ${status}`);
+}
+
+// ===========================================================================
+// AD CREATIVES
+// ===========================================================================
+export interface AdInput {
+  sponsor: string;
+  sponsorId?: string | null;
+  sponsorLogo?: string;
+  headline: string;
+  body: string;
+  cta: string;
+  bgImage: string;
+  accent: string;
+  campaignId?: string | null;
+}
+
+function adToRow(input: Partial<AdInput>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  if (input.sponsor !== undefined) row.sponsor = input.sponsor;
+  if (input.sponsorId !== undefined) row.sponsor_id = input.sponsorId;
+  if (input.sponsorLogo !== undefined) row.sponsor_logo = input.sponsorLogo;
+  if (input.headline !== undefined) row.headline = input.headline;
+  if (input.body !== undefined) row.body = input.body;
+  if (input.cta !== undefined) row.cta = input.cta;
+  if (input.bgImage !== undefined) row.bg_image = input.bgImage;
+  if (input.accent !== undefined) row.accent = input.accent;
+  if (input.campaignId !== undefined) row.campaign_id = input.campaignId;
+  return row;
+}
+
+export async function createAd(input: AdInput) {
+  const { data, error } = await client().from('ads').insert(adToRow(input)).select().single();
+  if (error) throw error;
+  await logAudit(`Created ad creative "${input.headline}"`);
+  return data;
+}
+
+export async function updateAd(id: string, input: Partial<AdInput>) {
+  const { error } = await client().from('ads').update(adToRow(input)).eq('id', id);
+  if (error) throw error;
+  await logAudit(`Updated ad creative "${input.headline ?? id}"`);
+}
+
+export async function deleteAd(id: string, headline?: string) {
+  const { error } = await client().from('ads').delete().eq('id', id);
+  if (error) throw error;
+  await logAudit(`Deleted ad creative "${headline ?? id}"`);
+}
+
+/** Create the placement row that makes an ad eligible for a given slot. */
+export async function createAdPlacement(input: {
+  sponsor: string; adId: string; placement: string; status?: string;
+}) {
+  const { error } = await client().from('ad_placements').insert({
+    sponsor: input.sponsor,
+    ad_id: input.adId,
+    placement: input.placement,
+    status: input.status ?? 'Live',
+  });
+  if (error) throw error;
+  await logAudit(`Created ad placement ${input.placement} for ${input.sponsor}`);
+}
+
+export async function deleteAdPlacement(id: string, placement?: string) {
+  const { error } = await client().from('ad_placements').delete().eq('id', id);
+  if (error) throw error;
+  await logAudit(`Deleted ad placement ${placement ?? id}`);
 }

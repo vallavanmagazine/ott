@@ -1,9 +1,9 @@
 /**
- * Ad serving engine. Selection order for every slot:
- *   1) Active campaigns whose target_districts include the viewer's district
- *   2) else statewide campaigns (empty target_districts)
- *   3) else any ad creative
- *   4) else the Vallavan house ad (self-promo)
+ * Ad serving engine. For every slot:
+ *   1) Eligible = creatives on Active campaigns that either target the viewer's
+ *      district OR are statewide (empty target_districts).
+ *   2) If none, unattached house inventory (ads with no campaign).
+ *   3) If still none, the Vallavan house ad (self-promo).
  * Rotation: least-impressions-served first (from ad_events). Events go to
  * `ad_events` (public insert) with kind=impression|click + placement=slot type.
  */
@@ -42,27 +42,41 @@ function rowToAd(row: any): AdContent {
   };
 }
 
-/** Candidate ads (with campaign id) for a district, applying the geo cascade. */
+/**
+ * Candidate ads (with campaign id) eligible for one district.
+ *
+ * Eligibility is a UNION, not a fallback chain: a campaign targeting Chennai
+ * and a statewide campaign are both eligible for a Chennai viewer. That is what
+ * the two product rules require together —
+ *   "select Chennai  → shows ONLY to Chennai viewers"  (district-scoped)
+ *   "select All TN   → shows to everyone"              (always eligible)
+ * A fallback chain would satisfy the first but break the second, because a
+ * statewide campaign would go dark in every district that had a targeted
+ * campaign running. House inventory is only reached when no campaign qualifies.
+ */
 async function candidatesForDistrict(district: string): Promise<{ ad: AdContent; campaignId: string | null }[]> {
   if (!supabase) return mockAds.map((ad) => ({ ad, campaignId: null }));
   try {
-    // 1) district-targeted active campaigns
-    const geo = await supabase.from('campaigns').select('id').eq('status', 'Active').contains('target_districts', [district]);
-    let campaignIds = (geo.data ?? []).map((c: any) => c.id);
+    // Every active campaign, then keep the ones this district qualifies for.
+    const { data: active } = await supabase
+      .from('campaigns')
+      .select('id, target_districts')
+      .eq('status', 'Active');
 
-    // 2) statewide (empty target_districts) active campaigns
-    if (campaignIds.length === 0) {
-      const state = await supabase.from('campaigns').select('id, target_districts').eq('status', 'Active');
-      campaignIds = (state.data ?? []).filter((c: any) => !c.target_districts || c.target_districts.length === 0).map((c: any) => c.id);
-    }
+    const campaignIds = (active ?? [])
+      .filter((c: any) => {
+        const districts: string[] = c.target_districts ?? [];
+        return districts.length === 0 || districts.includes(district);
+      })
+      .map((c: any) => c.id);
 
     if (campaignIds.length > 0) {
       const { data } = await supabase.from('ads').select('*').in('campaign_id', campaignIds);
       if (data && data.length) return data.map((r: any) => ({ ad: rowToAd(r), campaignId: r.campaign_id ?? null }));
     }
 
-    // 3) any ad
-    const anyAds = await supabase.from('ads').select('*').limit(20);
+    // No campaign creative available — fall back to unattached house inventory.
+    const anyAds = await supabase.from('ads').select('*').is('campaign_id', null).limit(20);
     if (anyAds.data && anyAds.data.length) return anyAds.data.map((r: any) => ({ ad: rowToAd(r), campaignId: r.campaign_id ?? null }));
   } catch { /* fall through */ }
   return mockAds.map((ad) => ({ ad, campaignId: null }));

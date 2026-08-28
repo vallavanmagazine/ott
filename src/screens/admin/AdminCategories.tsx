@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Plus, Eye, EyeOff, ArrowUp, ArrowDown, Trash2, Pencil, Check, X } from 'lucide-react';
 import {
-  fetchAllCategories, addCategory, renameCategory, setCategoryActive, moveCategory, deleteCategory,
+  fetchAllCategories, addCategory, renameCategory, setCategoryActive, reorderCategories, deleteCategory,
   type CategorySection, type ContentCategory,
 } from '@/services/categories';
+import { useToast } from '@/components/admin/Toast';
+import { ConfirmDialog, SkeletonTable } from '@/components/admin/ui';
 
 const SECTIONS: { key: CategorySection; label: string }[] = [
   { key: 'explore', label: 'Explore' },
@@ -12,34 +14,52 @@ const SECTIONS: { key: CategorySection; label: string }[] = [
 ];
 
 export function AdminCategories() {
+  const toast = useToast();
   const [section, setSection] = useState<CategorySection>('explore');
   const [cats, setCats] = useState<ContentCategory[]>([]);
+  const [loading, setLoading] = useState(true);
   const [addEn, setAddEn] = useState('');
   const [addTa, setAddTa] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [editEn, setEditEn] = useState('');
   const [editTa, setEditTa] = useState('');
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<ContentCategory | null>(null);
 
-  const load = () => fetchAllCategories(section).then(setCats);
-  useEffect(() => { load(); }, [section]);
+  const load = useCallback(async () => {
+    setCats(await fetchAllCategories(section));
+    setLoading(false);
+  }, [section]);
 
-  const run = async (fn: () => Promise<void>) => {
+  useEffect(() => { setLoading(true); load(); }, [load]);
+
+  const run = async (fn: () => Promise<void>, okMessage?: string) => {
     setBusy(true);
-    try { await fn(); await load(); }
-    catch (e) { alert(`Failed: ${(e as Error).message}`); }
-    finally { setBusy(false); }
+    try {
+      await fn();
+      await load();
+      if (okMessage) toast.success(okMessage);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const add = () => { if (addEn.trim()) run(async () => { await addCategory(section, addEn, addTa); setAddEn(''); setAddTa(''); }); };
+  const add = () => {
+    if (!addEn.trim()) return;
+    const name = addEn.trim();
+    run(async () => { await addCategory(section, addEn, addTa); setAddEn(''); setAddTa(''); }, `Added "${name}"`);
+  };
   const startEdit = (c: ContentCategory) => { setEditId(c.id); setEditEn(c.displayName); setEditTa(c.displayNameTa); };
+
+  /** Move one row and rewrite the whole section's order by index. */
   const swap = (i: number, j: number) => {
     if (j < 0 || j >= cats.length) return;
-    run(async () => { await moveCategory(cats[i].id, cats[j].sortOrder); await moveCategory(cats[j].id, cats[i].sortOrder); });
-  };
-  const remove = (c: ContentCategory) => {
-    const msg = c.contentCount ? `"${c.displayName}" has ${c.contentCount} item(s). Delete anyway? Those items keep their label but the chip disappears — consider hiding instead.` : `Delete "${c.displayName}"?`;
-    if (confirm(msg)) run(() => deleteCategory(c.id));
+    const next = [...cats];
+    [next[i], next[j]] = [next[j], next[i]];
+    setCats(next);
+    run(() => reorderCategories(next.map((c) => c.id)));
   };
 
   return (
@@ -58,6 +78,7 @@ export function AdminCategories() {
       </div>
 
       {/* Table */}
+      {loading ? <SkeletonTable rows={5} cols={5} /> : (
       <div className="rounded-xl glass overflow-hidden overflow-x-auto">
         <table className="w-full text-sm min-w-[620px]">
           <thead><tr className="border-b border-white/8 text-[10px] uppercase tracking-wider text-vmuted">
@@ -84,7 +105,7 @@ export function AdminCategories() {
                     <td className="px-3 py-2 text-vmuted">{c.contentCount ?? 0}</td>
                     <td className="px-3 py-2" colSpan={2}>
                       <div className="flex gap-1.5">
-                        <button onClick={() => run(async () => { await renameCategory(c.id, editEn, editTa); setEditId(null); })} className="w-7 h-7 flex items-center justify-center rounded-lg bg-green-500/15 text-green-400"><Check size={14} /></button>
+                        <button onClick={() => run(async () => { await renameCategory(c.id, editEn, editTa); setEditId(null); }, 'Category renamed')} className="w-7 h-7 flex items-center justify-center rounded-lg bg-green-500/15 text-green-400"><Check size={14} /></button>
                         <button onClick={() => setEditId(null)} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted"><X size={14} /></button>
                       </div>
                     </td>
@@ -100,8 +121,8 @@ export function AdminCategories() {
                     <td className="px-3 py-2">
                       <div className="flex gap-1.5">
                         <button onClick={() => startEdit(c)} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted" title="Edit"><Pencil size={13} /></button>
-                        <button onClick={() => run(() => setCategoryActive(c.id, !c.isActive))} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted" title={c.isActive ? 'Hide' : 'Show'}>{c.isActive ? <Eye size={14} /> : <EyeOff size={14} />}</button>
-                        <button onClick={() => remove(c)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/15 text-red-400" title="Delete"><Trash2 size={13} /></button>
+                        <button onClick={() => run(() => setCategoryActive(c.id, !c.isActive), c.isActive ? `"${c.displayName}" hidden` : `"${c.displayName}" is now visible`)} className="w-7 h-7 flex items-center justify-center rounded-lg glass text-vmuted" title={c.isActive ? 'Hide' : 'Show'}>{c.isActive ? <Eye size={14} /> : <EyeOff size={14} />}</button>
+                        <button onClick={() => setDeleting(c)} className="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/15 text-red-400" title="Delete"><Trash2 size={13} /></button>
                       </div>
                     </td>
                   </>
@@ -112,7 +133,25 @@ export function AdminCategories() {
           </tbody>
         </table>
       </div>
+      )}
       <p className="text-[10px] text-vmuted">Run <span className="font-mono">supabase/fix_categories_roles.sql</span> then <span className="font-mono">fix_categories_bilingual.sql</span>.</p>
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete category?"
+          message={deleting.contentCount
+            ? `"${deleting.displayName}" is used by ${deleting.contentCount} item(s). Those items keep their label but the chip disappears — consider hiding it instead.`
+            : `"${deleting.displayName}" will be removed from the ${section} chips.`}
+          onConfirm={() => {
+            const name = deleting.displayName;
+            const id = deleting.id;
+            setDeleting(null);
+            run(() => deleteCategory(id), `Deleted "${name}"`);
+          }}
+          onCancel={() => setDeleting(null)}
+          busy={busy}
+        />
+      )}
     </div>
   );
 }

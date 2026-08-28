@@ -97,3 +97,22 @@ export async function deleteCategory(id: string): Promise<void> {
   if (error) throw error;
   await logAudit(`Deleted category ${id}`);
 }
+
+/**
+ * Persist a whole section's order. Callers pass ids in final display order and
+ * sort_order becomes the array index.
+ *
+ * Swapping the two rows' sort_order values (the obvious approach) silently does
+ * nothing when both rows share a value — which is the case for any section
+ * seeded before sort_order was populated. Writing absolute indices always works.
+ */
+export async function reorderCategories(orderedIds: string[]): Promise<void> {
+  if (!supabase) throw new Error('Supabase not configured');
+  const db = supabase;
+  const results = await Promise.all(
+    orderedIds.map((id, index) => db.from('content_categories').update({ sort_order: index }).eq('id', id)),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
+  await logAudit(`Reordered categories (${orderedIds.length} items)`);
+}

@@ -19,6 +19,20 @@ function timeAgo(dateStr: string): string {
   return `${diffDay} days ago`;
 }
 
+/**
+ * Post a sponsor-facing notification (campaign approved/rejected, wallet, etc.).
+ * Best-effort: a failed notification must never roll back the decision that
+ * triggered it, so this logs and returns instead of throwing.
+ */
+export async function notifySponsor(title: string, body: string): Promise<void> {
+  if (!supabase) return;
+  try {
+    await supabase.from('notifications').insert({ type: 'sponsor', title, body });
+  } catch (e) {
+    console.warn('sponsor notification failed:', e);
+  }
+}
+
 export async function fetchNotifications() {
   if (!supabase) return mockNotifications;
 

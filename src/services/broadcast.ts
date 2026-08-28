@@ -14,6 +14,8 @@ export interface BroadcastConfig {
   ticker_enabled: boolean;
   ticker_speed: string;
   lower_third_enabled: boolean;
+  lower_third_auto: boolean;
+  lower_third_text: string;
   lband_enabled: boolean;
   lband_sponsor_id: string | null;
   lband_position: string;
@@ -36,6 +38,8 @@ export const DEFAULT_BROADCAST_CONFIG: BroadcastConfig = {
   ticker_enabled: true,
   ticker_speed: 'medium',
   lower_third_enabled: true,
+  lower_third_auto: true,
+  lower_third_text: '',
   lband_enabled: false,
   lband_sponsor_id: null,
   lband_position: 'right',
