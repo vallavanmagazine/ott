@@ -92,8 +92,10 @@ function LiveNow({ schedule, allAds, onPlay, onNotifications, onBack }: {
 
           <BroadcastOverlay data={data} />
 
-          {/* Title, progress and controls ride on the picture from `md:` up only. */}
-          <div className="hidden md:block absolute bottom-0 left-0 p-4 sm:p-6 lg:p-8 safe-bottom z-30">
+          {/* Title, progress and controls ride on the picture from `md:` up only.
+              Offset by the ticker's own height (h-9) when it is on, so the controls
+              row rests above the bar instead of grazing it. */}
+          <div className={`hidden md:block absolute ${data.cfg.ticker_enabled ? 'bottom-9' : 'bottom-0'} left-0 p-4 sm:p-6 lg:p-8 safe-bottom z-30`}>
             <div className="max-w-[560px]">
               <h2 className="text-lg lg:text-xl font-black text-white leading-tight">{liveNow.title}</h2>
               <p className="text-sm font-tamil text-vgold leading-tight">{liveNow.titleTa}</p>
