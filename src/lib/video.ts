@@ -12,21 +12,58 @@
 
 export type VideoKind = 'youtube' | 'hls' | 'mp4' | 'dynetube' | 'unknown';
 
-/** Extract the 11-char YouTube video id from any common YouTube URL form. */
+/**
+ * Extract the 11-char YouTube video id from any common YouTube URL form.
+ * Covers watch, youtu.be, embed, shorts, live and the legacy /v/ path, on
+ * youtube.com, m./music. subdomains and youtube-nocookie.com, with or without
+ * a protocol. Returns null for anything that is not a YouTube link.
+ */
 export function youTubeId(url: string): string | null {
   if (!url) return null;
   const patterns = [
     /(?:youtube\.com\/watch\?(?:.*&)?v=)([A-Za-z0-9_-]{11})/,
     /(?:youtu\.be\/)([A-Za-z0-9_-]{11})/,
-    /(?:youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/,
+    /(?:youtube(?:-nocookie)?\.com\/embed\/)([A-Za-z0-9_-]{11})/,
     /(?:youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/,
     /(?:youtube\.com\/live\/)([A-Za-z0-9_-]{11})/,
+    /(?:youtube\.com\/v\/)([A-Za-z0-9_-]{11})/,
   ];
   for (const re of patterns) {
     const m = url.match(re);
     if (m) return m[1];
   }
   return null;
+}
+
+/**
+ * Canonical storage form for a video URL.
+ *
+ * Any YouTube link becomes `https://www.youtube.com/embed/{id}` — the only
+ * form YouTube will serve inside an iframe. A watch/shorts/youtu.be URL in an
+ * iframe is refused by X-Frame-Options and renders as a blank frame, so
+ * normalising at the write boundary is what makes playback work at all.
+ *
+ * Non-YouTube sources (DyneTube, HLS .m3u8, MP4) are returned untouched — they
+ * are played by hls.js or a native <video>, not an iframe.
+ *
+ * Idempotent: an already-embed URL converts to itself.
+ */
+export function toEmbedUrl(url: string): string;
+export function toEmbedUrl(url: string | null | undefined): string | null;
+export function toEmbedUrl(url: string | null | undefined): string | null {
+  if (url === null || url === undefined) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  const id = youTubeId(trimmed);
+  return id ? `https://www.youtube.com/embed/${id}` : trimmed;
+}
+
+/** True when `toEmbedUrl` would rewrite this URL — drives the form hint. */
+export function willConvert(url: string): boolean {
+  const trimmed = (url ?? '').trim();
+  if (!trimmed) return false;
+  const converted = toEmbedUrl(trimmed);
+  return converted !== null && converted !== trimmed;
 }
 
 export function classifyVideoUrl(url: string): VideoKind {

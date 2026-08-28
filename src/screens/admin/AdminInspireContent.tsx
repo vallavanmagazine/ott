@@ -17,12 +17,12 @@ import { pexelsUrl } from '@/data/mockData';
 import { useToast } from '@/components/admin/Toast';
 import { useCategoryOptions } from '@/hooks/useCategoryOptions';
 import { BADGES } from '@/lib/admin-options';
-import { autoThumbnail, videoKindLabel } from '@/lib/video';
+import { autoThumbnail } from '@/lib/video';
 import { formatDuration } from '@/lib/transforms';
 import {
   AdminModal, SaveBar, ConfirmDialog, Field, TextInput, TextArea, SelectInput,
   ToggleRow, SearchInput, StatusPill, StatCard, SkeletonTable, EmptyState,
-  IconButton, useBusy,
+  IconButton, VideoUrlHint, useBusy,
 } from '@/components/admin/ui';
 
 interface InspireForm {
@@ -299,7 +299,7 @@ function InspireFormModal({
     >
       <Field label="Video URL" hint="YouTube, DyneTube, HLS or MP4">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://..." />
-        {form.videoUrl && <p className="text-[10px] text-vgold mt-1">Detected: {videoKindLabel(form.videoUrl)}</p>}
+        <VideoUrlHint url={form.videoUrl} />
       </Field>
 
       <DyneTubeUpload onUploaded={onVideoUrl} />

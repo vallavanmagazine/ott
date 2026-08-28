@@ -19,7 +19,7 @@ import { autoThumbnail, videoKindLabel } from '@/lib/video';
 import { format12Hour } from '@/lib/transforms';
 import {
   AdminModal, SaveBar, ConfirmDialog, Field, TextInput, TextArea,
-  ToggleRow, StatCard, SkeletonTable, EmptyState, IconButton, useBusy,
+  ToggleRow, StatCard, SkeletonTable, EmptyState, IconButton, VideoUrlHint, useBusy,
 } from '@/components/admin/ui';
 
 const DAY_MINUTES = 24 * 60;
@@ -401,7 +401,7 @@ function SlotFormModal({
 
       <Field label="Playout Video URL" hint="HLS (.m3u8) for live playout, or a YouTube / MP4 source">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://.../stream.m3u8" />
-        {form.videoUrl && <p className="text-[10px] text-vgold mt-1">Detected: {videoKindLabel(form.videoUrl)}</p>}
+        <VideoUrlHint url={form.videoUrl} />
       </Field>
 
       <DyneTubeUpload onUploaded={onVideoUrl} />

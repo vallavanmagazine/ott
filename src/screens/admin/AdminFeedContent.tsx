@@ -25,7 +25,7 @@ import { autoThumbnail, videoKindLabel, secondsToClock } from '@/lib/video';
 import {
   AdminModal, SaveBar, ConfirmDialog, Field, TextInput, TextArea, SelectInput,
   ToggleRow, InlineToggle, SearchInput, StatusPill, StatCard, SkeletonTable,
-  EmptyState, IconButton, useBusy,
+  EmptyState, IconButton, VideoUrlHint, useBusy,
 } from '@/components/admin/ui';
 
 const CAPTION_MAX = 200;
@@ -431,7 +431,7 @@ function FeedFormModal({
     >
       <Field label="Video URL" hint="YouTube, DyneTube, HLS (.m3u8) or MP4">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
-        {form.videoUrl && <p className="text-[10px] text-vgold mt-1">Detected: {videoKindLabel(form.videoUrl)}</p>}
+        <VideoUrlHint url={form.videoUrl} />
       </Field>
 
       <DyneTubeUpload onUploaded={onVideoUrl} />

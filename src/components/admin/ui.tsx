@@ -5,6 +5,7 @@
  */
 import { useEffect, useState, type ReactNode } from 'react';
 import { X, Search, Loader2, AlertTriangle } from 'lucide-react';
+import { toEmbedUrl, videoKindLabel, willConvert } from '@/lib/video';
 
 // ---------------------------------------------------------------------------
 // Modal — header + scrollable body + STICKY footer so Save is always reachable
@@ -305,6 +306,28 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
     <div className="p-10 rounded-xl glass text-center">
       <p className="text-sm font-semibold text-white/80">{title}</p>
       {hint && <p className="text-xs text-vmuted mt-1.5">{hint}</p>}
+    </div>
+  );
+}
+
+/**
+ * Shows what a pasted video URL was detected as, and — for YouTube watch /
+ * shorts / youtu.be links — the embed URL it will actually be saved as.
+ * Making the rewrite visible avoids the admin wondering why the stored value
+ * differs from what they pasted.
+ */
+export function VideoUrlHint({ url }: { url: string }) {
+  if (!url.trim()) return null;
+  const converted = toEmbedUrl(url);
+  const rewritten = willConvert(url);
+  return (
+    <div className="mt-1 space-y-0.5">
+      <p className="text-[10px] text-vgold">Detected: {videoKindLabel(url)}</p>
+      {rewritten && (
+        <p className="text-[10px] text-vmuted break-all">
+          Saved as <span className="font-mono text-white/70">{converted}</span>
+        </p>
+      )}
     </div>
   );
 }

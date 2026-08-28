@@ -7,6 +7,7 @@
  * will be rejected by RLS — the UI surfaces the error.
  */
 import { supabase } from '@/lib/supabase';
+import { toEmbedUrl } from '@/lib/video';
 
 function client() {
   if (!supabase) throw new Error('Supabase is not configured (.env missing).');
@@ -79,7 +80,7 @@ function docToRow(input: Partial<DocumentaryInput>): Record<string, unknown> {
   if (input.exclusive !== undefined) row.exclusive = input.exclusive;
   if (input.director !== undefined) row.director = input.director;
   if (input.cast !== undefined) row.cast = input.cast;
-  if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
+  if (input.videoUrl !== undefined) row.video_url = toEmbedUrl(input.videoUrl);
   if (input.status !== undefined) row.status = input.status;
   return row;
 }
@@ -164,7 +165,7 @@ function reelToRow(input: Partial<FeedReelInput>): Record<string, unknown> {
   if (input.stripAdHost !== undefined) row.strip_ad_host = input.stripAdHost;
   if (input.bannerAfter !== undefined) row.banner_after = input.bannerAfter;
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
-  if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
+  if (input.videoUrl !== undefined) row.video_url = toEmbedUrl(input.videoUrl);
   if (input.attachedCampaignId !== undefined) row.attached_campaign = input.attachedCampaignId;
   return row;
 }
@@ -262,7 +263,7 @@ function slotToRow(input: Partial<LiveSlotInput>): Record<string, unknown> {
   if (input.startTime24 !== undefined) row.start_time24 = input.startTime24;
   if (input.durationMin !== undefined) row.duration_min = input.durationMin;
   if (input.isLive !== undefined) row.is_live = input.isLive;
-  if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
+  if (input.videoUrl !== undefined) row.video_url = toEmbedUrl(input.videoUrl);
   if (input.breakAfterSec !== undefined) row.break_after_sec = input.breakAfterSec;
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
   if (input.airDate !== undefined) row.air_date = input.airDate;
@@ -319,7 +320,7 @@ function inspireToRow(input: Partial<InspireItemInput>): Record<string, unknown>
   if (input.quote !== undefined) row.quote = input.quote;
   if (input.attribution !== undefined) row.attribution = input.attribution;
   if (input.badge !== undefined) row.badge = input.badge;
-  if (input.videoUrl !== undefined) row.video_url = input.videoUrl;
+  if (input.videoUrl !== undefined) row.video_url = toEmbedUrl(input.videoUrl);
   if (input.isSponsored !== undefined) row.is_sponsored = input.isSponsored;
   if (input.sponsorId !== undefined) row.sponsor_id = input.sponsorId;
   if (input.sponsorLogoUrl !== undefined) row.sponsor_logo_url = input.sponsorLogoUrl;

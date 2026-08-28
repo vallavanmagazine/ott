@@ -377,3 +377,41 @@ blocking `window.alert()` in an admin flow; converted to a toast.
 Every admin screen now loads real Supabase data, shows a loading skeleton where
 it has a list to load, and reports through toasts. `npm run typecheck` and
 `npm run build` both pass.
+
+### YouTube URL auto-convert (2026-08-29)
+
+Admins paste whatever YouTube gives them — usually a `/shorts/` or `watch?v=`
+link. Those cannot be iframed: YouTube serves them with `X-Frame-Options`, so
+the player rendered a blank frame. Only `/embed/{id}` is frameable.
+
+**Root cause**: `lib/video-player.ts` `youtubeEmbedUrl()` matched only
+`youtu.be/`, `?v=` and `embed/` — a `/shorts/` URL fell through its regex and
+was passed to the iframe unchanged.
+
+**Fix, at two layers**
+1. **Write boundary** — `lib/video.ts` gains `toEmbedUrl()`, applied in the four
+   `admin-writes.ts` row mappers (`reelToRow`, `docToRow`, `slotToRow`,
+   `inspireToRow`). That covers create AND update for Feed, Documentaries,
+   Live TV and Inspire from one place, rather than four form-level call sites
+   that a fifth writer could later bypass.
+2. **Playback fallback** — `youtubeEmbedUrl()` now shares `youTubeId()` with the
+   write path, so legacy rows saved before this fix still play. Both layers
+   accept exactly the same URL shapes by construction.
+
+Accepted: watch, youtu.be, embed, shorts, live, legacy `/v/`, on `youtube.com`,
+`m.`/`music.` subdomains and `youtube-nocookie.com`, with or without protocol,
+and with trailing params (`?si=`, `&t=`). Non-YouTube URLs (DyneTube, HLS
+`.m3u8`, MP4) pass through untouched and keep playing via hls.js / native
+`<video>`.
+
+The four admin forms show a `VideoUrlHint` — detected source plus, when a
+rewrite will happen, the exact embed URL that will be stored.
+
+Verified by transpiling the real modules and running them under node: 19 cases
+against `toEmbedUrl` (including the four specified inputs, idempotence, and
+pass-through for HLS/MP4/DyneTube) and 8 against the player path. All pass.
+
+`supabase/video_url_embed_backfill.sql` (optional, idempotent) normalises rows
+already in the database. Not required for playback — the player fallback covers
+them — but keeps stored data canonical for the SEO site, exports and playout,
+which do not go through the player.
