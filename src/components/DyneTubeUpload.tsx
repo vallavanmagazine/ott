@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
 import { UploadCloud, Check, Loader } from 'lucide-react';
 import { uploadVideo, hasDyneTube } from '@/services/dynetube';
+import { useToast } from '@/components/admin/Toast';
 
 /** Admin upload button: file → DyneTube → returns HLS URL to fill video_url. */
 export function DyneTubeUpload({ onUploaded }: { onUploaded: (hlsUrl: string) => void }) {
+  const toast = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [pct, setPct] = useState<number | null>(null);
   const [done, setDone] = useState(false);
@@ -19,8 +21,9 @@ export function DyneTubeUpload({ onUploaded }: { onUploaded: (hlsUrl: string) =>
       const video = await uploadVideo(file, setPct);
       onUploaded(video.hlsUrl || video.playerUrl);
       setDone(true);
+      toast.success('Video uploaded — URL filled in');
     } catch (err) {
-      alert(`Upload failed: ${(err as Error).message}`);
+      toast.error(`Upload failed: ${(err as Error).message}`);
     } finally {
       setPct(null);
       if (inputRef.current) inputRef.current.value = '';

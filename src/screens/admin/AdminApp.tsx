@@ -148,7 +148,7 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
 
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <AdminDashboard />;
+      case 'dashboard': return <AdminDashboard onNavigate={setPage} />;
       case 'feed': return <AdminFeedContent />;
       case 'livetv': return <AdminLiveTV />;
       case 'broadcast': return <AdminBroadcast />;
@@ -169,7 +169,7 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
       case 'apisettings': return <AdminApiSettings />;
       case 'settings': return <AdminSettings />;
       case 'audit': return <AdminAuditLogs />;
-      default: return <AdminDashboard />;
+      default: return <AdminDashboard onNavigate={setPage} />;
     }
   };
 

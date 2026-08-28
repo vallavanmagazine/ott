@@ -335,3 +335,45 @@ are only queued in `social_posts`), no push to `main`.
 was already failing at baseline (275 problems); the new files add only
 `no-explicit-any` on Supabase row mappers, matching the existing convention in
 every other service.
+
+### Admin dashboard — final three screens (2026-08-29, follow-up)
+
+`admin_dashboard.sql` has been applied to Supabase. Completed the last screens
+the first pass had left untouched, which closes out the admin overhaul.
+
+**AdminDashboard** — rebuilt as a work list rather than a wall of numbers. A
+"Needs attention" panel surfaces only what actually needs a decision (pending
+campaign approvals, freelancer applications, unreleased payouts, feed drafts,
+channel offline) and each card navigates straight to the relevant screen via a
+new `onNavigate` prop. Content stats now lead with Feed, since that is the live
+viewer surface; documentaries were previously the only content counted.
+
+**AdminRevenueReports** — rebuilt. The old version printed the SAME value under
+two different tiles ("Total Revenue" and "Sponsor Campaigns" both rendered
+`r.totalRupees`). Now shows paired top-ups vs spend bars over 8 months, GST and
+invoiced totals, and a per-sponsor table with unspent balance, plus CSV export.
+
+**AdminLogin** — reviewed, left as-is. It already uses real auth via
+`AuthContext`, verifies the `Admin` role and signs the user back out if they
+lack it. Inline error text is the right pattern for a login form; a toast would
+be worse.
+
+**Money definitions unified** (`services/admin-stats.ts`). Three screens were
+each computing something different and calling it "revenue". They are now named
+and kept apart:
+- `topupRupees`  — cash actually received (wallet `kind = 'topup'` only)
+- `spendRupees`  — campaign budget consumed, already funded by a top-up
+- `walletLiabilityRupees` — unspent float, a liability rather than income
+Summing top-ups and spend double-counts, so no screen does. `revenueByWeek`
+previously counted every positive wallet row, including promotional bonus
+credits that are not money the platform received; it is now top-ups only.
+
+Also fixed: month bucketing in the revenue report keyed on month name alone, so
+the same month in different years collided. Now keyed `yyyy-mm`.
+
+`DyneTubeUpload` (admin-only, used by the four content forms) was the last
+blocking `window.alert()` in an admin flow; converted to a toast.
+
+Every admin screen now loads real Supabase data, shows a loading skeleton where
+it has a list to load, and reports through toasts. `npm run typecheck` and
+`npm run build` both pass.
