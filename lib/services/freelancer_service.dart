@@ -143,13 +143,92 @@ class FreelancerService {
     }
   }
 
-  static Future<String?> submitContent(String assignmentId, String contentUrl, {String? notes}) async {
+  static Future<String?> submitContent(
+    String assignmentId,
+    String contentUrl, {
+    String? thumbnailUrl,
+    String? notes,
+  }) async {
     final c = Db.client;
     if (c == null) return 'Service not configured';
     try {
       await c.from('task_assignments').update({
-        'content_url': contentUrl, 'notes': notes, 'status': 'submitted', 'submitted_at': DateTime.now().toIso8601String(),
+        'content_url': contentUrl,
+        if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) 'thumbnail_url': thumbnailUrl,
+        'notes': notes,
+        'status': 'submitted',
+        'submitted_at': DateTime.now().toIso8601String(),
       }).eq('id', assignmentId);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Claim an open task. Creates the assignment row and flips the task to
+  /// 'assigned' so it stops appearing in the open list for everyone else.
+  ///
+  /// This is a two-step write without a transaction, so a rare race can leave
+  /// a task claimed twice; the admin review step catches that. Guarding the
+  /// common case (already claimed by this freelancer) is done up front.
+  static Future<String?> claimTask(FreelancerTask task, {String? role}) async {
+    final c = Db.client;
+    if (c == null) return 'Service not configured';
+    final profile = await fetchMyProfile();
+    final fid = profile?['id']?.toString();
+    if (fid == null) return 'Complete your freelancer registration first.';
+    if ((profile?['status'] ?? '').toString().toLowerCase() == 'rejected') {
+      return 'Your application was not approved. Contact support for details.';
+    }
+
+    try {
+      final existing = await c
+          .from('task_assignments')
+          .select('id')
+          .eq('task_id', task.id)
+          .eq('freelancer_id', fid)
+          .maybeSingle();
+      if (existing != null) return 'You have already picked up this task.';
+
+      await c.from('task_assignments').insert({
+        'task_id': task.id,
+        'freelancer_id': fid,
+        'role': role ?? (task.rolesNeeded.isNotEmpty ? task.rolesNeeded.first : null),
+        'status': 'assigned',
+      });
+      await c.from('freelancer_tasks').update({'status': 'assigned'}).eq('id', task.id);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Update the freelancer's own profile details.
+  static Future<String?> updateProfile({
+    required String name,
+    required String email,
+    required String district,
+    required List<String> roles,
+    String? portfolioUrl,
+    String? showreelUrl,
+    String? resumeUrl,
+  }) async {
+    final c = Db.client;
+    if (c == null) return 'Service not configured';
+    final fid = await _myFreelancerId();
+    if (fid == null) return 'No freelancer profile found.';
+    if (name.trim().isEmpty) return 'Name is required.';
+    if (roles.isEmpty) return 'Pick at least one role.';
+    try {
+      await c.from('freelancers').update({
+        'name': name.trim(),
+        'email': email.trim(),
+        'district': district,
+        'roles': roles,
+        'portfolio_url': portfolioUrl,
+        'showreel_url': showreelUrl,
+        'resume_url': resumeUrl,
+      }).eq('id', fid);
       return null;
     } catch (e) {
       return e.toString();

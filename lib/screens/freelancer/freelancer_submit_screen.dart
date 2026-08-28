@@ -26,6 +26,7 @@ class _FreelancerSubmitScreenState extends State<FreelancerSubmitScreen> {
 
   Future<void> _openSubmit(Map<String, dynamic> a) async {
     final urlCtrl = TextEditingController();
+    final thumbCtrl = TextEditingController();
     final notesCtrl = TextEditingController();
     String? error;
     bool busy = false;
@@ -42,6 +43,8 @@ class _FreelancerSubmitScreenState extends State<FreelancerSubmitScreen> {
             const SizedBox(height: 16),
             TextField(controller: urlCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Content URL (https://…)', hintStyle: const TextStyle(color: AppColors.muted), filled: true, fillColor: AppColors.glass, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
             const SizedBox(height: 10),
+            TextField(controller: thumbCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Thumbnail URL (https://...)', hintStyle: const TextStyle(color: AppColors.muted), filled: true, fillColor: AppColors.glass, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+            const SizedBox(height: 10),
             TextField(controller: notesCtrl, maxLines: 2, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Notes (optional)', hintStyle: const TextStyle(color: AppColors.muted), filled: true, fillColor: AppColors.glass, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
             if (error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(error!, style: const TextStyle(color: AppColors.red, fontSize: 12))),
             const SizedBox(height: 14),
@@ -49,7 +52,7 @@ class _FreelancerSubmitScreenState extends State<FreelancerSubmitScreen> {
               onPressed: busy ? null : () async {
                 if (urlCtrl.text.trim().isEmpty) { setSheet(() => error = 'Provide a content URL.'); return; }
                 setSheet(() => busy = true);
-                final err = await FreelancerService.submitContent(a['id'].toString(), urlCtrl.text.trim(), notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim());
+                final err = await FreelancerService.submitContent(a['id'].toString(), urlCtrl.text.trim(), thumbnailUrl: thumbCtrl.text.trim(), notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim());
                 if (err != null) { setSheet(() { busy = false; error = err; }); return; }
                 if (ctx.mounted) Navigator.pop(ctx);
               },

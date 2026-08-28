@@ -1,24 +1,28 @@
 import 'package:flutter/material.dart';
 import '../config/theme.dart';
 
-/// Simple Vallavan mark (red rounded badge with a gold "V") + optional wordmark.
+/// The Vallavan brand mark. Renders the shipped PNG icon and falls back to a
+/// drawn red/gold badge if the asset ever fails to decode, so the header can
+/// never show a broken-image box.
 class VallavanLogo extends StatelessWidget {
   final double size;
   final bool showWordmark;
-  const VallavanLogo({super.key, this.size = 40, this.showWordmark = false});
+  final bool circle;
+  const VallavanLogo({super.key, this.size = 40, this.showWordmark = false, this.circle = false});
 
   @override
   Widget build(BuildContext context) {
-    final mark = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [AppColors.red, AppColors.redLight], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(size * 0.28),
-        boxShadow: [BoxShadow(color: AppColors.red.withValues(alpha: 0.4), blurRadius: size * 0.4)],
+    final radius = circle ? size / 2 : size * 0.28;
+    final mark = ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Image.asset(
+        'assets/vallavanicon.png',
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, __, ___) => _fallback(radius),
       ),
-      alignment: Alignment.center,
-      child: Text('V', style: TextStyle(fontSize: size * 0.55, fontWeight: FontWeight.w900, color: AppColors.gold)),
     );
     if (!showWordmark) return mark;
     return Row(mainAxisSize: MainAxisSize.min, children: [
@@ -30,4 +34,15 @@ class VallavanLogo extends StatelessWidget {
       ]),
     ]);
   }
+
+  Widget _fallback(double radius) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [AppColors.red, AppColors.redLight], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          borderRadius: BorderRadius.circular(radius),
+        ),
+        alignment: Alignment.center,
+        child: Text('V', style: TextStyle(fontSize: size * 0.55, fontWeight: FontWeight.w900, color: AppColors.gold)),
+      );
 }

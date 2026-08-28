@@ -7,7 +7,7 @@
     <!-- Voice input for the AI assistant (speech_to_text). -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
-        android:label="vallavan_app"
+        android:label="Vallavan"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
