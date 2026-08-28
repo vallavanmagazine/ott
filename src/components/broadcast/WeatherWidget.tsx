@@ -1,14 +1,5 @@
-import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning } from 'lucide-react';
 import type { Weather } from '@/services/weather';
-
-/** Open-Meteo WMO code → lucide icon. Shared by the overlay widget and the mobile strip. */
-export function weatherIcon(code: number) {
-  if (code === 0) return Sun;
-  if (code <= 48) return Cloud;
-  if (code <= 67 || (code >= 80 && code <= 82)) return CloudRain;
-  if (code <= 77) return CloudSnow;
-  return CloudLightning;
-}
+import { weatherIcon } from './weatherIcon';
 
 /**
  * Corner weather widget for the broadcast overlay (desktop only).

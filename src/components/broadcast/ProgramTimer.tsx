@@ -1,8 +1,8 @@
 import type { LiveSlot } from '@/data/mockData';
 
-/** Time-remaining bar for the current program. */
-export function ProgramTimer({ current, progress }: { current: LiveSlot | null; progress: number }) {
-  if (!current) return null;
+/** Time-remaining bar for the current program. Hidden unless something is on air. */
+export function ProgramTimer({ current, progress, onAir }: { current: LiveSlot | null; progress: number; onAir: boolean }) {
+  if (!current || !onAir) return null;
   const durMatch = current.duration.match(/(\d+)/);
   const totalMin = durMatch ? parseInt(durMatch[1], 10) : 30;
   const remaining = Math.max(0, Math.round(totalMin * (1 - progress)));

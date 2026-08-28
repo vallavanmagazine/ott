@@ -16,6 +16,8 @@ export interface BroadcastState {
   current: LiveSlot | null;
   next: LiveSlot | null;
   progress: number;
+  /** True while the current program is genuinely playing (not a schedule-gap fallback). */
+  onAir: boolean;
   /** True in the last 10% of the current program — cue the "Coming Up Next" card. */
   nearEnd: boolean;
   lbandName: string;
@@ -42,7 +44,8 @@ export function useBroadcast(schedule: LiveSlot[]): BroadcastState {
     const unsubTick = subscribeTicker(() => fetchTickerItems().then(setTicker));
     // Resolve sponsor names for L-band / Powered-by strips.
     if (supabase) supabase.from('sponsors').select('id, name').then(({ data }) => {
-      if (data) setSponsors(Object.fromEntries(data.map((s: any) => [s.id, s.name])));
+      const rows = (data ?? []) as { id: string; name: string }[];
+      if (rows.length) setSponsors(Object.fromEntries(rows.map((s) => [s.id, s.name])));
     });
     // Re-evaluate current/next program each minute.
     const tick = setInterval(() => force((n) => n + 1), 60_000);
@@ -58,7 +61,10 @@ export function useBroadcast(schedule: LiveSlot[]): BroadcastState {
     return () => { active = false; clearInterval(t); };
   }, [city]);
 
-  const { current, next, progress } = getCurrentProgram(schedule);
+  // nearEnd/onAir are derived by the schedule engine, which knows whether the
+  // program is actually on air — deriving it from `progress` here latched the
+  // "Coming Up Next" card on permanently once progress saturated at 1.
+  const { current, next, progress, onAir, nearEnd } = getCurrentProgram(schedule);
 
   return {
     cfg,
@@ -67,7 +73,8 @@ export function useBroadcast(schedule: LiveSlot[]): BroadcastState {
     current,
     next,
     progress,
-    nearEnd: progress > 0.9,
+    onAir,
+    nearEnd,
     lbandName: (cfg.lband_sponsor_id && sponsors[cfg.lband_sponsor_id]) || 'Sponsor',
     poweredName: (cfg.powered_by_sponsor_id && sponsors[cfg.powered_by_sponsor_id]) || 'Sponsor',
   };

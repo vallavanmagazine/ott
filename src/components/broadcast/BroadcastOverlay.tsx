@@ -20,7 +20,7 @@ import { PoweredBy } from './PoweredBy';
  * State is passed in — see `useBroadcast`, which must be mounted exactly once.
  */
 export function BroadcastOverlay({ data }: { data: BroadcastState }) {
-  const { cfg, ticker, weather, current, next, progress, nearEnd, lbandName, poweredName } = data;
+  const { cfg, ticker, weather, current, next, progress, onAir, nearEnd, lbandName, poweredName } = data;
 
   return (
     <>
@@ -34,7 +34,7 @@ export function BroadcastOverlay({ data }: { data: BroadcastState }) {
         {cfg.powered_by_enabled && <PoweredBy sponsorName={poweredName} />}
         {cfg.logo_enabled && <ChannelBug position={cfg.logo_position} opacity={cfg.logo_opacity} />}
         {cfg.weather_enabled && <WeatherWidget weather={weather} city={cfg.weather_city} />}
-        <ProgramTimer current={current} progress={progress} />
+        <ProgramTimer current={current} progress={progress} onAir={onAir} />
         {cfg.lband_enabled && <LBand sponsorName={lbandName} position={cfg.lband_position} />}
         {cfg.lower_third_enabled && !cfg.breaking_active && <LowerThird current={current} next={next} />}
         {cfg.breaking_active && <BreakingNews headline={cfg.breaking_headline} body={cfg.breaking_body} />}

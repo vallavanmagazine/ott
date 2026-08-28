@@ -1,7 +1,7 @@
 import type { LiveSlot } from '@/data/mockData';
 import type { BroadcastState } from '@/hooks/useBroadcast';
 import { NewsTicker } from './NewsTicker';
-import { weatherIcon } from './WeatherWidget';
+import { weatherIcon } from './weatherIcon';
 
 /**
  * Mobile-only (< 768px) counterparts to the desktop broadcast overlay.

@@ -57,7 +57,10 @@ function LiveNow({ schedule, allAds, onPlay, onNotifications, onBack }: {
   schedule: LiveSlot[]; allAds: AdContent[]; onPlay: () => void; onNotifications: () => void; onBack?: () => void;
 }) {
   const data = useBroadcast(schedule);
-  const liveNow = schedule.find((s) => s.isLive) ?? schedule[0];
+  // Prefer the schedule engine's answer over the raw isLive flag, so the hero
+  // title, the artwork and the lower-third all name the same program — a stale
+  // flag would otherwise caption the picture with a program that already ended.
+  const liveNow = data.current ?? schedule.find((s) => s.isLive) ?? schedule[0];
   if (!liveNow) return null;
 
   return (
@@ -113,7 +116,7 @@ function LiveNow({ schedule, allAds, onPlay, onNotifications, onBack }: {
 
       {/* Mobile: now/next caption for the picture, then controls, then the
           weather + ticker strips — one section each, nothing stacked. */}
-      <NowNextPanel current={data.current ?? liveNow} next={data.next} />
+      <NowNextPanel current={liveNow} next={data.next} />
 
       <section className="md:hidden px-4 mt-3">
         <div className="flex items-center gap-2">
@@ -128,7 +131,7 @@ function LiveNow({ schedule, allAds, onPlay, onNotifications, onBack }: {
 
       <section className="mt-6 px-4 sm:px-6 lg:px-8"><AdSlot ad={allAds[1]} /></section>
 
-      <ScheduleGrid schedule={schedule} onPlay={onPlay} title="Today's Schedule" titleTa="இன்றைய நிரல்" />
+      <ScheduleGrid schedule={schedule} onPlay={onPlay} title="Today's Schedule" titleTa="இன்றைய நிரல்" currentId={data.onAir && data.current ? data.current.id : null} />
       <div className="h-8" />
     </div>
   );
@@ -238,8 +241,10 @@ function GetNotified() {
   );
 }
 
-function ScheduleGrid({ schedule, onPlay, title, titleTa, preview }: {
+function ScheduleGrid({ schedule, onPlay, title, titleTa, preview, currentId = null }: {
   schedule: LiveSlot[]; onPlay?: () => void; title: string; titleTa: string; preview?: boolean;
+  /** Id of the slot actually on air, from the schedule engine. null = nothing on air. */
+  currentId?: string | null;
 }) {
   return (
     <section className="mt-6 px-4 sm:px-6 lg:px-8">
@@ -251,28 +256,33 @@ function ScheduleGrid({ schedule, onPlay, title, titleTa, preview }: {
         {!preview && <button className="flex items-center gap-0.5 text-[11px] lg:text-xs font-semibold text-vred active:scale-95">Full Guide <ChevronRight size={14} /></button>}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-        {schedule.map((slot) => (
-          <div key={slot.id} className={`flex items-center gap-3 p-2.5 rounded-card transition ${slot.isLive && !preview ? 'glass-strong border-l-2 border-vred' : 'glass'}`}>
+        {schedule.map((slot) => {
+          // Highlight what the engine says is on air, not the raw isLive flag —
+          // a stale flag would badge a program that finished hours ago.
+          const isNow = !preview && !!currentId && slot.id === currentId;
+          return (
+          <div key={slot.id} className={`flex items-center gap-3 p-2.5 rounded-card transition ${isNow ? 'glass-strong border-l-2 border-vred' : 'glass'}`}>
             <div className="relative w-16 h-11 rounded-lg overflow-hidden flex-shrink-0">
               <img src={pexelsUrl(slot.thumb, 200)} alt={slot.title} className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold text-white">{slot.time}</span>
-                {slot.isLive && !preview ? <LiveBadge /> : <span className="text-[9px] text-vmuted px-1.5 py-0.5 rounded bg-white/5">{slot.duration}</span>}
+                {isNow ? <LiveBadge /> : <span className="text-[9px] text-vmuted px-1.5 py-0.5 rounded bg-white/5">{slot.duration}</span>}
               </div>
               <div className="text-sm font-bold text-white truncate mt-0.5">{slot.title}</div>
               <div className="text-[11px] font-tamil text-vmuted truncate">{slot.titleTa}</div>
             </div>
             {preview ? (
               <span className="px-2 py-1 rounded-full bg-vgold/15 text-vgold text-[9px] font-black uppercase">Soon</span>
-            ) : slot.isLive ? (
+            ) : isNow ? (
               <button onClick={onPlay} className="px-3 py-1.5 rounded-full bg-vred text-white text-[11px] font-bold active:scale-90 transition">Watch</button>
             ) : (
               <button className="w-9 h-9 flex items-center justify-center rounded-full glass active:scale-90 transition"><Bell size={15} className="text-vmuted" /></button>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
