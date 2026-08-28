@@ -1,5 +1,4 @@
 import { Bell, Cast, Search, Settings, Tv } from 'lucide-react';
-import { LogoFull } from './Logo';
 import { useDevice } from '@/hooks/useDevice';
 
 interface HeaderProps {
@@ -23,7 +22,7 @@ export function Header({
   onLive,
   showCast = true,
   showSettings = false,
-  showSearchIcon = true,
+  showSearchIcon = false,
   showLiveIcon = true,
   notificationCount = 3,
   title,
@@ -42,7 +41,16 @@ export function Header({
               {subtitle && <p className="text-xs sm:text-sm text-vmuted mt-0.5">{subtitle}</p>}
             </div>
           ) : (
-            <LogoFull size={logoSize} />
+            <div className="flex items-center gap-2 no-select">
+              <img
+                src="/icons/vallavanicon.webp"
+                width={logoSize}
+                height={logoSize}
+                alt="Vallavan"
+                className="rounded-full object-cover"
+              />
+              <span className="font-black text-white text-base sm:text-lg tracking-wide">VALLAVAN</span>
+            </div>
           )}
 
           <div className="flex items-center gap-1.5">
@@ -53,6 +61,10 @@ export function Header({
                 aria-label="Live TV"
               >
                 <Tv size={18} className="text-white/80" />
+                <span className="absolute top-1.5 right-1.5 flex">
+                  <span className="absolute inline-flex h-2 w-2 rounded-full bg-vred opacity-75 animate-ping" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-vred" />
+                </span>
               </button>
             )}
             {showCast && (

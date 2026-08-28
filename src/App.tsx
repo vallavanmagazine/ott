@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react';
 import { BottomNav, type TabKey } from '@/components/BottomNav';
 import { ScreenShell } from '@/components/ScreenShell';
 import { SplashScreen } from '@/screens/SplashScreen';
-import { HomeScreen } from '@/screens/HomeScreen';
-import { ExploreScreen } from '@/screens/ExploreScreen';
 import { LiveScreen } from '@/screens/LiveScreen';
 import { FeedScreen } from '@/screens/FeedScreen';
-import { InspireScreen } from '@/screens/InspireScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { DocumentaryDetailScreen } from '@/screens/DocumentaryDetailScreen';
 import { VideoPlayerScreen } from '@/screens/VideoPlayerScreen';
@@ -17,39 +14,20 @@ import { HelpScreen } from '@/screens/HelpScreen';
 import { AboutScreen } from '@/screens/AboutScreen';
 import { WatchHistoryScreen } from '@/screens/WatchHistoryScreen';
 import { WatchLaterScreen } from '@/screens/WatchLaterScreen';
-import { SponsorDashboard } from '@/screens/business/SponsorDashboard';
-import { CreateCampaignScreen } from '@/screens/business/CreateCampaignScreen';
-import { AIStudioScreen } from '@/screens/business/AIStudioScreen';
-import { CreativeLibraryScreen } from '@/screens/business/CreativeLibraryScreen';
-import { MyCampaignsScreen } from '@/screens/business/MyCampaignsScreen';
-import { GeoTargetingScreen } from '@/screens/business/GeoTargetingScreen';
-import { CampaignAnalyticsScreen } from '@/screens/business/CampaignAnalyticsScreen';
-import { BillingScreen } from '@/screens/business/BillingScreen';
-import { AIAssistantScreen } from '@/screens/business/AIAssistantScreen';
 import { SponsorPromoScreen } from '@/screens/business/SponsorPromoScreen';
 import { SponsorSignupScreen } from '@/screens/business/SponsorSignupScreen';
 import { RegisterScreen } from '@/screens/business/RegisterScreen';
 import { FreelancerCareerScreen } from '@/screens/business/FreelancerCareerScreen';
 import { DownloadAppScreen } from '@/screens/business/DownloadAppScreen';
-import { AIChatbot } from '@/components/AIChatbot';
-import { FreelancerDashboardScreen } from '@/screens/business/FreelancerDashboardScreen';
-import { WalletTopUpScreen } from '@/screens/business/WalletTopUpScreen';
-import { SponsorKycScreen } from '@/screens/business/SponsorKycScreen';
-import { InspireOrderScreen } from '@/screens/business/InspireOrderScreen';
-import { FreelancerEarningsScreen } from '@/screens/business/FreelancerEarningsScreen';
-import { FreelancerSubmitScreen } from '@/screens/business/FreelancerSubmitScreen';
-import { MagazineResellerScreen } from '@/screens/business/MagazineResellerScreen';
-import { AdSalesScreen } from '@/screens/business/AdSalesScreen';
 import { AdminApp } from '@/screens/admin/AdminApp';
 import { SponsorLoginModal } from '@/components/SponsorLoginModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import type { Documentary, InspireItem } from '@/data/mockData';
+import type { Documentary } from '@/data/mockData';
 
 type Overlay =
   | { type: 'none' }
   | { type: 'detail'; item: Documentary }
   | { type: 'player'; item: Documentary }
-  | { type: 'search' }
   | { type: 'notifications' }
   | { type: 'business'; key: string }
   | { type: 'admin' }
@@ -64,7 +42,8 @@ const SPONSOR_ITEMS = ['sponsor', 'create-campaign', 'my-campaigns', 'campaign-a
 
 function AppInner() {
   const [showSplash, setShowSplash] = useState(true);
-  const [tab, setTab] = useState<TabKey>('home');
+  // Three tabs only: Search | Feed (centre logo) | Profile.
+  const [tab, setTab] = useState<TabKey>('feed');
   const [overlay, setOverlay] = useState<Overlay>({ type: 'none' });
   const [showSponsorLogin, setShowSponsorLogin] = useState(false);
   const [pendingBusinessItem, setPendingBusinessItem] = useState<string | null>(null);
@@ -138,40 +117,8 @@ function AppInner() {
     );
   }
 
-  // --- Search overlay ---
-  if (overlay.type === 'search') {
-    return (
-      <SearchScreen
-        onBack={() => setOverlay({ type: 'none' })}
-        onCardClick={(item) => setOverlay({ type: 'detail', item })}
-      />
-    );
-  }
-
   // --- Main app with tabs ---
   const openCard = (item: Documentary) => setOverlay({ type: 'detail', item });
-  const openInspireCard = (item: InspireItem) => {
-    const doc: Documentary = {
-      id: item.id,
-      title: item.title,
-      titleTa: item.titleTa,
-      genre: item.category as Documentary['genre'],
-      duration: item.duration,
-      durationSec: parseInt(item.duration.replace(/:/g, '')) * 60 || 300,
-      poster: item.poster,
-      backdrop: item.poster,
-      year: 2024,
-      language: 'Tamil',
-      synopsis: item.quote || 'Short-form inspirational content.',
-      synopsisTa: 'ஊக்கமூட்டும் குறுக்கட்டி உள்ளடக்கம்.',
-      director: item.attribution,
-      cast: [],
-      videoUrl: item.videoUrl,
-    };
-    // Play directly when a video exists; otherwise open detail.
-    setOverlay(item.videoUrl ? { type: 'player', item: doc } : { type: 'detail', item: doc });
-  };
-  const openSearch = () => setOverlay({ type: 'search' });
   const openNotifications = () => setOverlay({ type: 'notifications' });
   const openLive = () => setOverlay({ type: 'live' });
 
@@ -249,33 +196,16 @@ function AppInner() {
         />
       ) : (
       <>
-      {tab === 'home' && (
-        <HomeScreen
-          onSearch={openSearch}
-          onNotifications={openNotifications}
+      {tab === 'search' && (
+        <SearchScreen
           onCardClick={openCard}
-          onPlay={(item) => setOverlay({ type: 'player', item })}
-          onSeeAll={() => setTab('explore')}
-          onWatchLive={openLive}
+          onNotifications={openNotifications}
           onLive={openLive}
         />
       )}
       {tab === 'feed' && (
-        <FeedScreen />
-      )}
-      {tab === 'explore' && (
-        <ExploreScreen
-          onSearch={openSearch}
+        <FeedScreen
           onNotifications={openNotifications}
-          onCardClick={openCard}
-          onSeeAll={() => {}}
-          onLive={openLive}
-        />
-      )}
-      {tab === 'inspire' && (
-        <InspireScreen
-          onNotifications={openNotifications}
-          onCardClick={openInspireCard}
           onLive={openLive}
         />
       )}

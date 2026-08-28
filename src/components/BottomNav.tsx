@@ -1,15 +1,7 @@
-import { Home, Compass, Newspaper, Sparkles, User } from 'lucide-react';
+import { Search, User } from 'lucide-react';
 import { useDevice, type DeviceType } from '@/hooks/useDevice';
 
-export type TabKey = 'home' | 'feed' | 'explore' | 'inspire' | 'profile';
-
-const tabs: { key: TabKey; label: string; icon: typeof Home }[] = [
-  { key: 'home', label: 'Home', icon: Home },
-  { key: 'feed', label: 'Feed', icon: Newspaper },
-  { key: 'explore', label: 'Explore', icon: Compass },
-  { key: 'inspire', label: 'Inspire', icon: Sparkles },
-  { key: 'profile', label: 'Profile', icon: User },
-];
+export type TabKey = 'search' | 'feed' | 'profile';
 
 export function BottomNav({
   active,
@@ -24,38 +16,88 @@ export function BottomNav({
     return <SideRail active={active} onChange={onChange} device={device.type} />;
   }
 
-  // Mobile + Tablet: bottom bar
+  // Mobile + Tablet: bottom bar with center logo button
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 max-w-[430px] mx-auto">
-      <div className="bg-vblack/95 backdrop-blur-xl border-t border-white/10 safe-bottom">
-        <div className="flex items-stretch justify-around px-1 py-1.5">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = active === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => onChange(tab.key)}
-                className="flex-1 flex flex-col items-center gap-1 py-1.5 active:scale-90 transition no-select"
-              >
-                <Icon
-                  size={22}
-                  className={isActive ? 'text-vred' : 'text-vmuted'}
-                  strokeWidth={isActive ? 2.5 : 2}
-                />
-                <span
-                  className={`text-[10px] font-semibold ${
-                    isActive ? 'text-vred' : 'text-vmuted'
-                  }`}
-                >
-                  {tab.label}
-                </span>
-              </button>
-            );
-          })}
+      <div className="glass-strong border-t border-white/8 safe-bottom">
+        <div className="flex items-stretch justify-around px-1 py-1.5 relative">
+          {/* Left: Search */}
+          <NavButton
+            label="Search"
+            Icon={Search}
+            isActive={active === 'search'}
+            onClick={() => onChange('search')}
+          />
+
+          {/* Center: Logo / Feed button */}
+          <button
+            onClick={() => onChange('feed')}
+            className="flex flex-col items-center gap-0.5 pt-0.5 active:scale-90 transition no-select"
+          >
+            <div
+              className={`w-11 h-11 rounded-full flex items-center justify-center border-2 transition ${
+                active === 'feed'
+                  ? 'border-vred bg-vred/15'
+                  : 'border-white/15 bg-white/5'
+              }`}
+            >
+              <img
+                src="/icons/vallavanicon.webp"
+                alt="Vallavan"
+                className="w-7 h-7 rounded-full object-cover"
+              />
+            </div>
+            <span
+              className={`text-[10px] font-semibold ${
+                active === 'feed' ? 'text-vred' : 'text-vmuted'
+              }`}
+            >
+              Feed
+            </span>
+          </button>
+
+          {/* Right: Profile */}
+          <NavButton
+            label="Profile"
+            Icon={User}
+            isActive={active === 'profile'}
+            onClick={() => onChange('profile')}
+          />
         </div>
       </div>
     </nav>
+  );
+}
+
+function NavButton({
+  label,
+  Icon,
+  isActive,
+  onClick,
+}: {
+  label: string;
+  Icon: typeof Search;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 flex flex-col items-center gap-1 py-1.5 active:scale-90 transition no-select"
+    >
+      <Icon
+        size={22}
+        className={isActive ? 'text-vred' : 'text-vmuted'}
+        strokeWidth={isActive ? 2.5 : 2}
+      />
+      <span
+        className={`text-[10px] font-semibold ${
+          isActive ? 'text-vred' : 'text-vmuted'
+        }`}
+      >
+        {label}
+      </span>
+    </button>
   );
 }
 
@@ -70,6 +112,11 @@ function SideRail({
 }) {
   const isTV = device === 'tv';
 
+  const railItems: { key: TabKey; label: string; icon: typeof Search }[] = [
+    { key: 'search', label: 'Search', icon: Search },
+    { key: 'profile', label: 'Profile', icon: User },
+  ];
+
   return (
     <nav
       className={`fixed left-0 top-0 bottom-0 z-40 w-20 xl:w-60 border-r border-white/8 bg-vblack/95 backdrop-blur-xl safe-top flex flex-col ${
@@ -79,14 +126,14 @@ function SideRail({
       {/* Logo */}
       <div className="p-4 border-b border-white/5">
         <div className="flex items-center gap-2 no-select">
-          <img src="/icons/logo-mark.svg" width={32} height={32} alt="Vallavan" />
+          <img src="/icons/vallavanicon.webp" width={32} height={32} alt="Vallavan" className="rounded-full object-cover" />
           <span className="hidden xl:block font-black text-white text-sm tracking-wide">VALLAVAN</span>
         </div>
       </div>
 
-      {/* Nav items */}
+      {/* Search + Profile rail items */}
       <div className="flex-1 py-4 px-2 xl:px-3 space-y-1">
-        {tabs.map((tab) => {
+        {railItems.map((tab) => {
           const Icon = tab.icon;
           const isActive = active === tab.key;
           return (
@@ -117,11 +164,25 @@ function SideRail({
         })}
       </div>
 
-      {/* AVOD note */}
-      <div className="p-3 border-t border-white/5 hidden xl:block">
-        <p className="text-[9px] text-vmuted leading-relaxed">
-          Free for everyone.<br />Supported by sponsors.
-        </p>
+      {/* Center Feed logo button at bottom */}
+      <div className="p-3 border-t border-white/5">
+        <button
+          onClick={() => onChange('feed')}
+          className={`w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl transition no-select ${
+            active === 'feed'
+              ? 'bg-vred/15 ring-2 ring-vred'
+              : 'hover:bg-white/5'
+          }`}
+        >
+          <img
+            src="/icons/vallavanicon.webp"
+            alt="Vallavan"
+            className={`w-8 h-8 rounded-full object-cover ${active === 'feed' ? 'ring-2 ring-vred' : ''}`}
+          />
+          <span className={`hidden xl:block text-sm font-semibold ${active === 'feed' ? 'text-vred' : 'text-vmuted'}`}>
+            Feed
+          </span>
+        </button>
       </div>
     </nav>
   );

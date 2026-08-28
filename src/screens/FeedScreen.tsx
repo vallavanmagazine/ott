@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Heart, MessageCircle, Share2, Volume2, VolumeX,
-  ChevronUp, ChevronDown, Play, ArrowRight, Search,
+  ChevronUp, ChevronDown, Play, ArrowRight, Bell, Cast, Tv,
 } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
 import {
@@ -56,15 +56,18 @@ const formatCount = (n: number): string => {
   return String(n);
 };
 
+const AUTO_HIDE_MS = 3500;
+
 export function FeedScreen({
-  onBack,
+  onNotifications,
+  onLive,
 }: {
-  onBack?: () => void;
+  onNotifications?: () => void;
+  onLive?: () => void;
 }) {
   const device = useDevice();
   const [rawReels, setRawReels] = useState<FeedReel[]>(mockFeedReels);
   const [allAds, setAllAds] = useState<AdContent[]>(mockAds);
-  const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
 
   useEffect(() => {
@@ -74,16 +77,27 @@ export function FeedScreen({
     });
   }, []);
 
-  // FIX 3: no categories — latest first, optional text search by title.
-  const q = query.trim().toLowerCase();
-  const filteredReels = q
-    ? rawReels.filter((r) => r.title.toLowerCase().includes(q) || (r.titleTa ?? '').toLowerCase().includes(q))
-    : rawReels;
-  const items = buildFeedSequence(filteredReels, allAds);
+  // FIX 3: no categories - latest first. Text search lives in the Search tab.
+  const items = buildFeedSequence(rawReels, allAds);
   const [muted, setMuted] = useState(true);
   const [liked, setLiked] = useState<Set<string>>(new Set());
+  const [overlayVisible, setOverlayVisible] = useState(true);
+  const overlayTimer = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Auto-hide the chrome (header + title + actions) so the reel fills the frame.
+  const showOverlay = useCallback(() => {
+    setOverlayVisible(true);
+    if (overlayTimer.current) clearTimeout(overlayTimer.current);
+    overlayTimer.current = setTimeout(() => setOverlayVisible(false), AUTO_HIDE_MS);
+  }, []);
+
+  // Re-show on every reel change; clear the pending timer on unmount.
+  useEffect(() => {
+    showOverlay();
+    return () => { if (overlayTimer.current) clearTimeout(overlayTimer.current); };
+  }, [activeIdx, showOverlay]);
 
   const scrollToIndex = useCallback((idx: number) => {
     const clamped = Math.max(0, Math.min(items.length - 1, idx));
@@ -144,6 +158,7 @@ export function FeedScreen({
       <div
         ref={containerRef}
         className="h-full overflow-y-scroll snap-y snap-mandatory no-scrollbar"
+        onClick={showOverlay}
         onScroll={(e) => {
           const el = e.currentTarget;
           const idx = Math.round(el.scrollTop / el.clientHeight);
@@ -152,8 +167,8 @@ export function FeedScreen({
       >
         {items.length === 0 && (
           <div className="h-full w-full flex flex-col items-center justify-center text-center px-6">
-            <p className="text-white font-bold">{q ? 'No matches' : 'Nothing here yet'}</p>
-            <p className="text-xs text-vmuted mt-1">{q ? 'Try a different search.' : 'Check back soon for new reels.'}</p>
+            <p className="text-white font-bold">Nothing here yet</p>
+            <p className="text-xs text-vmuted mt-1">Check back soon for new reels.</p>
           </div>
         )}
         {items.map((item, i) => (
@@ -167,6 +182,7 @@ export function FeedScreen({
                 reel={item.reel}
                 stripAd={item.stripAd}
                 active={i === activeIdx}
+                overlayVisible={overlayVisible}
                 muted={muted}
                 onToggleMute={() => setMuted((m) => !m)}
                 liked={liked.has(item.reel.id)}
@@ -181,26 +197,72 @@ export function FeedScreen({
 
       {/* Desktop/TV: on-screen up/down chevrons */}
       {isSideNav && (
-        <>
+        <div className={`transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}>
           <button
-            onClick={() => scrollToIndex(activeIdx - 1)}
+            onClick={() => { scrollToIndex(activeIdx - 1); showOverlay(); }}
             disabled={activeIdx === 0}
             className="absolute right-6 top-1/2 -translate-y-1/2 z-30 w-12 h-12 rounded-full glass-strong flex items-center justify-center disabled:opacity-30 active:scale-90 transition"
           >
             <ChevronUp size={24} className="text-white" />
           </button>
           <button
-            onClick={() => scrollToIndex(activeIdx + 1)}
+            onClick={() => { scrollToIndex(activeIdx + 1); showOverlay(); }}
             disabled={activeIdx === items.length - 1}
             className="absolute right-6 bottom-1/2 translate-y-1/2 z-30 w-12 h-12 rounded-full glass-strong flex items-center justify-center disabled:opacity-30 active:scale-90 transition"
           >
             <ChevronDown size={24} className="text-white" />
           </button>
-        </>
+        </div>
       )}
 
       {/* Top overlay: strip ad (if active reel has one) + feed label + progress */}
-      <div className="absolute top-0 left-0 right-0 z-20 safe-top pointer-events-none">
+      <div
+        className={`absolute top-0 left-0 right-0 z-20 safe-top pointer-events-none transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}
+      >
+        {/* Floating header - gradient fade, so the reel keeps the full frame */}
+        <div className="pointer-events-auto">
+          <div className="bg-gradient-to-b from-black/70 to-transparent px-4 sm:px-6 lg:px-8 pt-3 pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 no-select">
+                <img
+                  src="/icons/vallavanicon.webp"
+                  width={32}
+                  height={32}
+                  alt="Vallavan"
+                  className="rounded-full object-cover"
+                />
+                <span className="font-black text-white text-base tracking-wide drop-shadow-lg">VALLAVAN</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={onLive}
+                  className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 active:scale-90 transition"
+                  aria-label="Live TV"
+                >
+                  <Tv size={18} className="text-white drop-shadow" />
+                  <span className="absolute top-1.5 right-1.5 flex">
+                    <span className="absolute inline-flex h-2 w-2 rounded-full bg-vred opacity-75 animate-ping" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-vred" />
+                  </span>
+                </button>
+                <button className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 active:scale-90 transition">
+                  <Cast size={18} className="text-white drop-shadow" />
+                </button>
+                <button
+                  onClick={onNotifications}
+                  className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/10 active:scale-90 transition relative"
+                  aria-label="Notifications"
+                >
+                  <Bell size={18} className="text-white drop-shadow" />
+                  <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-vred rounded-full text-[9px] font-bold text-white flex items-center justify-center">
+                    3
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Strip ad at top */}
         {items[activeIdx]?.type === 'reel' && items[activeIdx].stripAd && (
           <StripAdTop ad={items[activeIdx].stripAd!} />
@@ -208,27 +270,6 @@ export function FeedScreen({
         {items[activeIdx]?.type === 'banner' && (
           <StripAdTop ad={allAds[activeIdx % allAds.length]} />
         )}
-
-        <div className="flex items-center justify-between px-4 py-3">
-          <h2 className="text-base font-black text-white drop-shadow-lg">Feed</h2>
-          {onBack && (
-            <button onClick={onBack} className="pointer-events-auto w-9 h-9 rounded-full glass-strong flex items-center justify-center active:scale-90 transition">
-              <span className="text-white text-xs font-bold">✕</span>
-            </button>
-          )}
-        </div>
-        {/* Search bar (no categories) */}
-        <div className="pointer-events-auto px-4 pb-2">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-full glass-strong">
-            <Search size={15} className="text-white/60 flex-shrink-0" />
-            <input
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setActiveIdx(0); containerRef.current?.scrollTo({ top: 0 }); }}
-              placeholder="Search reels…"
-              className="flex-1 bg-transparent text-sm text-white placeholder:text-white/50 outline-none"
-            />
-          </div>
-        </div>
 
         {/* Progress bar */}
         <div className="h-0.5 bg-white/10 mx-4 rounded-full overflow-hidden">
@@ -263,6 +304,7 @@ function StripAdTop({ ad }: { ad: AdContent }) {
 function ReelCard({
   reel,
   active,
+  overlayVisible,
   muted,
   onToggleMute,
   liked,
@@ -271,6 +313,7 @@ function ReelCard({
   reel: FeedReel;
   stripAd?: AdContent;
   active: boolean;
+  overlayVisible: boolean;
   muted: boolean;
   onToggleMute: () => void;
   liked: boolean;
@@ -311,8 +354,8 @@ function ReelCard({
         </button>
       )}
 
-      {/* Right-edge action icons */}
-      <div className="absolute right-3 bottom-32 sm:bottom-28 z-20 flex flex-col items-center gap-5">
+      {/* Right-edge action icons - auto-hide */}
+      <div className={`absolute right-3 bottom-32 sm:bottom-28 z-20 flex flex-col items-center gap-5 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}>
         <button onClick={onLike} className="flex flex-col items-center gap-1 active:scale-90 transition">
           <div className="w-12 h-12 rounded-full glass-strong flex items-center justify-center">
             <Heart size={22} className={liked ? 'text-vred' : 'text-white'} fill={liked ? 'currentColor' : 'none'} />
@@ -337,8 +380,8 @@ function ReelCard({
       </div>
 
       {/* Bottom-left: short title only + category tag + duration */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 pb-20 px-4">
-        <div className="max-w-[70%]">
+      <div className={`absolute bottom-0 left-0 right-0 z-20 pb-20 px-4 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="max-w-[85%]">
           <div className="flex items-center gap-2 mb-1.5">
             <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-white" style={{ backgroundColor: genreColor }}>
               {reel.contentType}

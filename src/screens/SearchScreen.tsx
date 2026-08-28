@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Search, Mic, SlidersHorizontal, X, TrendingUp, Clock } from 'lucide-react';
+import { Search, Mic, SlidersHorizontal, TrendingUp, Clock } from 'lucide-react';
 import { ContentCard } from '@/components/ContentCard';
+import { Header } from '@/components/Header';
 import { Chip } from '@/components/ui';
 import {
   recentSearches, trendingSearches, documentaries as mockDocuments, genres,
@@ -9,11 +10,13 @@ import {
 import { fetchDocumentaries } from '@/services/documentaries';
 
 export function SearchScreen({
-  onBack,
   onCardClick,
+  onNotifications,
+  onLive,
 }: {
-  onBack: () => void;
   onCardClick: (d: Documentary) => void;
+  onNotifications: () => void;
+  onLive: () => void;
 }) {
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -34,13 +37,12 @@ export function SearchScreen({
     : [];
 
   return (
-    <div className="fixed inset-0 z-50 bg-vblack flex flex-col safe-top">
+    <div className="min-h-screen">
+      <Header onNotifications={onNotifications} onLive={onLive} notificationCount={3} />
+
       {/* Search bar */}
-      <div className="px-4 sm:px-6 lg:px-8 py-3 border-b border-white/5 max-w-[900px] mx-auto w-full">
+      <div className="px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex items-center gap-2">
-          <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full glass active:scale-90">
-            <X size={18} className="text-white" />
-          </button>
           <div className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-full glass">
             <Search size={16} className="text-vmuted" />
             <input
@@ -103,9 +105,9 @@ export function SearchScreen({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto max-w-[900px] mx-auto w-full px-4 sm:px-6 lg:px-8 py-4">
+      <div className="px-4 sm:px-6 lg:px-8 py-4 pb-24">
         {query.length === 0 ? (
-          <div className="px-4 py-4">
+          <div>
             {/* Recent searches */}
             {recentSearches.length > 0 && (
               <section className="mb-6">
@@ -146,7 +148,7 @@ export function SearchScreen({
             </section>
           </div>
         ) : results.length > 0 ? (
-          <div className="px-4 py-4">
+          <div>
             <p className="text-xs text-vmuted mb-3">{results.length} results for "{query}"</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
               {results.map((d) => (

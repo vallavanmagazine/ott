@@ -1,7 +1,7 @@
 {
-  "name": "Vallavan — Documentaries That Matter",
+  "name": "Vallavan — Tamil Documentary OTT",
   "short_name": "Vallavan",
-  "description": "Tamil-first digital documentary OTT & advertising platform.",
+  "description": "Tamil-first digital documentary OTT & advertising platform. வள்ளாண் — தமிழ் ஆவணப்படங்கள்.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0A0A",
@@ -9,10 +9,22 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/icons/logo.svg",
+      "src": "/vallavan-favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/vallavan-favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/vallavanicon.png",
       "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
