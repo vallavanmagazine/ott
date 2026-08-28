@@ -33,7 +33,7 @@ export function BroadcastOverlay({ data }: { data: BroadcastState }) {
       <div className="hidden md:block absolute inset-0 z-20 pointer-events-none">
         {cfg.powered_by_enabled && <PoweredBy sponsorName={poweredName} />}
         {cfg.logo_enabled && <ChannelBug position={cfg.logo_position} opacity={cfg.logo_opacity} />}
-        {cfg.weather_enabled && <WeatherWidget weather={weather} city={cfg.weather_city} />}
+        {cfg.weather_enabled && <WeatherWidget weather={weather} city={cfg.weather_city} belowPoweredBy={cfg.powered_by_enabled} />}
         <ProgramTimer current={current} progress={progress} onAir={onAir} />
         {cfg.lband_enabled && <LBand sponsorName={lbandName} position={cfg.lband_position} />}
         {cfg.lower_third_enabled && !cfg.breaking_active && <LowerThird current={current} next={next} />}

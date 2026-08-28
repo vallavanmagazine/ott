@@ -1,10 +1,21 @@
 import type { LiveSlot } from '@/data/mockData';
 
-/** NOW / NEXT lower-third, auto-populated from the schedule. */
+/**
+ * NOW / NEXT lower-third, auto-populated from the schedule.
+ *
+ * Anchored bottom-RIGHT: the bottom-left of the video is occupied by the hero
+ * title block (title, synopsis, progress, player controls), which this used to
+ * sit directly on top of. It also stays above the channel bug, and its width is
+ * capped at the narrower breakpoints so a long program name can never grow far
+ * enough left to reach the title block again.
+ *
+ * Rendered only from `md:` up — on mobile the same information is the
+ * `NowNextPanel` strip below the video.
+ */
 export function LowerThird({ current, next }: { current: LiveSlot | null; next: LiveSlot | null }) {
   if (!current) return null;
   return (
-    <div className="absolute bottom-16 left-3 right-3 sm:right-auto sm:max-w-md z-20 pointer-events-none animate-slide-up">
+    <div className="absolute bottom-28 right-3 max-w-[264px] lg:max-w-md z-20 pointer-events-none animate-slide-up">
       <div className="rounded-lg overflow-hidden shadow-xl">
         <div className="flex items-stretch">
           <div className="bg-vred px-3 py-2 flex items-center">
