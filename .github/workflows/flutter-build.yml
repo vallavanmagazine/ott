@@ -31,11 +31,16 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # Unset secrets resolve to an empty string, which the app treats as
+      # "feature not configured" (Env.*Configured) rather than failing the
+      # build: payments and SMS OTP then degrade to their disabled states.
       - name: Build APK
         run: |
           flutter build apk --release \
             --dart-define="SUPABASE_URL=${{ secrets.SUPABASE_URL }}" \
-            --dart-define="SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}"
+            --dart-define="SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}" \
+            --dart-define="RAZORPAY_KEY_ID=${{ secrets.RAZORPAY_KEY_ID }}" \
+            --dart-define="FAST2SMS_KEY=${{ secrets.FAST2SMS_KEY }}"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
