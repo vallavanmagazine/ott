@@ -8,6 +8,7 @@ seo-site/node_modules/
 # Build output
 dist/
 dist.zip
+dist*.zip
 build/
 backend/dist/
 seo-site/.next/
@@ -23,6 +24,9 @@ seo-site/.env
 seo-site/.env.local
 !.env.example
 !**/.env.example
+# Server access notes — credentials, never commit
+serveraccessclaudecode.txt
+serveraccess*.txt
 
 # Supabase local
 supabase/.temp/
