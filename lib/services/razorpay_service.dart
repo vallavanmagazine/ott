@@ -25,6 +25,24 @@ class PaymentResult {
 class RazorpayService {
   static bool get isConfigured => Env.razorpayConfigured;
 
+  /// Set when the build carries a key that would charge real money without
+  /// having opted in via `--dart-define=ALLOW_LIVE_PAYMENTS=true`.
+  static bool get isBlocked => Env.livePaymentsBlocked;
+
+  /// Why checkout is unavailable, or null when it is ready to run. Exposed so
+  /// screens can explain the state up front instead of only on tap.
+  static String? get unavailableReason {
+    if (isBlocked) {
+      return 'This build carries a live Razorpay key, which would charge real '
+          'money. Rebuild with a test key (rzp_test_...), or with '
+          '--dart-define=ALLOW_LIVE_PAYMENTS=true to take real payments.';
+    }
+    if (!isConfigured) {
+      return 'Payments are not configured for this build (RAZORPAY_KEY_ID missing).';
+    }
+    return null;
+  }
+
   static Future<PaymentResult> checkout({
     required int amountRupees,
     required String description,
@@ -32,11 +50,10 @@ class RazorpayService {
     String? email,
     String name = 'Vallavan Media',
   }) {
-    if (!isConfigured) {
-      return Future.value(
-        const PaymentResult.failure('Payments are not configured for this build (RAZORPAY_KEY_ID missing).'),
-      );
-    }
+    // Refuse before the sheet opens — never let a live key reach Razorpay in a
+    // build that has not opted in.
+    final blocked = unavailableReason;
+    if (blocked != null) return Future.value(PaymentResult.failure(blocked));
 
     final completer = Completer<PaymentResult>();
     final razorpay = Razorpay();

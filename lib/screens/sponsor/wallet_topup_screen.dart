@@ -44,8 +44,9 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
       setState(() => _error = 'Minimum top-up is Rs.${PricingService.minTopupRupees}.');
       return;
     }
-    if (!RazorpayService.isConfigured) {
-      setState(() => _error = 'Payments are not configured for this build.');
+    final unavailable = RazorpayService.unavailableReason;
+    if (unavailable != null) {
+      setState(() => _error = unavailable);
       return;
     }
 
@@ -239,9 +240,29 @@ class _WalletTopUpScreenState extends State<WalletTopUpScreen> {
               ]),
             ),
           ),
+        if (RazorpayService.unavailableReason != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+              ),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Icon(Icons.lock_outline, color: AppColors.gold, size: 17),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(RazorpayService.unavailableReason!,
+                      style: const TextStyle(color: AppColors.gold, fontSize: 11, height: 1.4)),
+                ),
+              ]),
+            ),
+          ),
         const SizedBox(height: 18),
         FilledButton(
-          onPressed: _busy ? null : _pay,
+          onPressed: (_busy || RazorpayService.unavailableReason != null) ? null : _pay,
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.red,
             padding: const EdgeInsets.symmetric(vertical: 16),
