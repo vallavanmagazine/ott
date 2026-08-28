@@ -4,12 +4,14 @@ import { Header } from '@/components/Header';
 import { AdSlot } from '@/components/AdSlot';
 import { LiveBadge } from '@/components/ui';
 import { LogoMark } from '@/components/Logo';
-import { liveSchedule as mockSchedule, ads as mockAds, pexelsUrl, type Documentary, type LiveSlot } from '@/data/mockData';
+import { liveSchedule as mockSchedule, ads as mockAds, pexelsUrl, type AdContent, type Documentary, type LiveSlot } from '@/data/mockData';
 import { fetchLiveSchedule } from '@/services/live';
 import { fetchAds } from '@/services/ads';
 import { fetchDocumentaries } from '@/services/documentaries';
 import { fetchBroadcastConfig } from '@/services/broadcast';
 import { BroadcastOverlay } from '@/components/broadcast/BroadcastOverlay';
+import { NowNextPanel, BroadcastStrips } from '@/components/broadcast/BroadcastPanels';
+import { useBroadcast } from '@/hooks/useBroadcast';
 
 export function LiveScreen({
   onNotifications,
@@ -38,7 +40,25 @@ export function LiveScreen({
   }
 
   // --- LIVE mode (channel_live = true) — real player + broadcast overlay ---
+  return <LiveNow schedule={schedule} allAds={allAds} onPlay={onPlay} onNotifications={onNotifications} onBack={onBack} />;
+}
+
+// ---------------------------------------------------------------------------
+// LIVE mode — clean video on mobile, full broadcast overlay from `md:` up.
+//
+// On phones the picture carries only the LIVE badge, the channel bug and the
+// play button; now/next, player controls, weather, ticker and the sponsor ad
+// each get their own non-overlapping strip below it. `useBroadcast` is mounted
+// here exactly once and feeds both the overlay and the mobile strips — the
+// hidden-on-mobile overlay is still mounted, so duplicating the hook would
+// duplicate every Realtime subscription.
+// ---------------------------------------------------------------------------
+function LiveNow({ schedule, allAds, onPlay, onNotifications, onBack }: {
+  schedule: LiveSlot[]; allAds: AdContent[]; onPlay: () => void; onNotifications: () => void; onBack?: () => void;
+}) {
+  const data = useBroadcast(schedule);
   const liveNow = schedule.find((s) => s.isLive) ?? schedule[0];
+  if (!liveNow) return null;
 
   return (
     <div>
@@ -55,19 +75,22 @@ export function LiveScreen({
           <div className="absolute inset-0 bg-gradient-to-t from-vblack via-vblack/40 to-vblack/20" />
           <div className="absolute inset-0 bg-gradient-to-r from-vblack/60 to-transparent" />
 
-          <div className="absolute top-3 left-3 sm:left-6 lg:left-8 flex items-center gap-2">
+          <div className="absolute top-3 left-3 sm:left-6 lg:left-8 z-30 flex items-center gap-2">
             <LiveBadge size="md" />
-            <span className="px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] font-bold text-white">1.2K Watching</span>
+            <span className="hidden md:inline-block px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] font-bold text-white">1.2K Watching</span>
           </div>
-          <div className="absolute top-3 right-3 px-2 py-1 bg-vred rounded text-[10px] font-black tracking-wider text-white">VALLAVAN TV</div>
+          {/* Channel wordmark — desktop only, dropped clear of the program timer.
+              Mobile gets the compact channel bug from BroadcastOverlay instead. */}
+          <div className="hidden md:block absolute top-12 right-3 z-30 px-2 py-1 bg-vred rounded text-[10px] font-black tracking-wider text-white">VALLAVAN TV</div>
 
           <button onClick={onPlay} className="absolute inset-0 flex items-center justify-center active:scale-95 transition z-10">
             <div className="w-16 h-16 rounded-full bg-vred/90 flex items-center justify-center shadow-glow"><Play size={28} fill="white" className="text-white ml-1" /></div>
           </button>
 
-          <BroadcastOverlay schedule={schedule} />
+          <BroadcastOverlay data={data} />
 
-          <div className="absolute bottom-0 left-0 p-4 sm:p-6 lg:p-8 safe-bottom z-30">
+          {/* Title, progress and controls ride on the picture from `md:` up only. */}
+          <div className="hidden md:block absolute bottom-0 left-0 p-4 sm:p-6 lg:p-8 safe-bottom z-30">
             <div className="max-w-[560px]">
               <h2 className="text-lg lg:text-xl font-black text-white leading-tight">{liveNow.title}</h2>
               <p className="text-sm font-tamil text-vgold leading-tight">{liveNow.titleTa}</p>
@@ -87,6 +110,21 @@ export function LiveScreen({
           </div>
         </div>
       </section>
+
+      {/* Mobile: now/next caption for the picture, then controls, then the
+          weather + ticker strips — one section each, nothing stacked. */}
+      <NowNextPanel current={data.current ?? liveNow} next={data.next} />
+
+      <section className="md:hidden px-4 mt-3">
+        <div className="flex items-center gap-2">
+          <button onClick={onPlay} className="flex-1 h-11 rounded-full bg-vred text-white text-sm font-bold active:scale-95 transition flex items-center justify-center gap-1.5"><Play size={14} fill="currentColor" /> Watch Live</button>
+          <button aria-label="Volume" className="w-11 h-11 rounded-full glass flex items-center justify-center active:scale-90 flex-shrink-0"><Volume2 size={16} className="text-white" /></button>
+          <button aria-label="Fullscreen" className="w-11 h-11 rounded-full glass flex items-center justify-center active:scale-90 flex-shrink-0"><Maximize size={16} className="text-white" /></button>
+          <button className="px-3 h-11 rounded-full glass text-white text-xs font-bold active:scale-95 transition flex-shrink-0">Guide</button>
+        </div>
+      </section>
+
+      <BroadcastStrips data={data} />
 
       <section className="mt-6 px-4 sm:px-6 lg:px-8"><AdSlot ad={allAds[1]} /></section>
 
