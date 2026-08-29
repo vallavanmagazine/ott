@@ -137,7 +137,7 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
           // Shares the seo-site URL, which server-renders per-reel OpenGraph
           // tags so the link previews properly. See utils/share.dart.
           _action(Icons.share_outlined, formatCount(r.shares),
-              () => shareContent(kind: ShareKind.reel, id: r.id, title: r.title)),
+              () => shareContent(kind: ShareKind.reel, id: r.id, slug: r.slug, title: r.title)),
         ])),
         Positioned(
           left: 16,

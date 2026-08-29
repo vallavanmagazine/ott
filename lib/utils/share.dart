@@ -17,22 +17,37 @@ import '../config/env.dart';
 /// Content kinds and the seo-site route each maps to. Mirrors ShareKind in
 /// src/services/share.ts — the two must agree or the clients emit different
 /// URLs for the same row.
+///
+/// [reel] and [live] are the app's real navigation (Feed and Live TV) and use
+/// slugs. [documentary] and [inspire] are legacy id-based routes, kept working
+/// for links already in the wild but not extended.
 enum ShareKind { documentary, reel, inspire, live }
 
 const Map<ShareKind, String> _routes = {
   ShareKind.documentary: 'documentaries',
-  ShareKind.reel: 'videos',
+  ShareKind.reel: 'feed',
   ShareKind.inspire: 'inspire',
   ShareKind.live: 'live',
 };
 
+/// The slug when present, else the id.
+///
+/// seo-site resolves slug first and falls back to id, so a row that predates
+/// supabase/feed_live_slugs.sql still shares a link that works.
+String shareRefFor({String? slug, required String id}) {
+  final s = (slug ?? '').trim();
+  return s.isEmpty ? id : s;
+}
+
 /// Canonical public URL for a piece of content.
+///
+/// [ref] is a slug or an id — see [shareRefFor].
 ///
 /// [Env.siteUrl] carries a trailing slash (it doubles as the Referer sent to
 /// Bunny's CDN), so it is trimmed here rather than producing a double slash.
-String shareUrlFor(ShareKind kind, String id) {
+String shareUrlFor(ShareKind kind, String ref) {
   final base = Env.siteUrl.replaceAll(RegExp(r'/+$'), '');
-  return '$base/${_routes[kind]}/$id';
+  return '$base/${_routes[kind]}/$ref';
 }
 
 /// The message body. Same wording as the web client's contentShareLinks().
@@ -48,8 +63,9 @@ Future<void> shareContent({
   required ShareKind kind,
   required String id,
   required String title,
+  String? slug,
 }) async {
-  final url = shareUrlFor(kind, id);
+  final url = shareUrlFor(kind, shareRefFor(slug: slug, id: id));
   await SharePlus.instance.share(
     ShareParams(text: shareMessageFor(title, url), subject: title),
   );

@@ -21,6 +21,11 @@ class FeedReel {
   final int order;
   final String? videoUrl;
 
+  /// URL slug used for share links (/feed/{slug}). Null for rows created before
+  /// supabase/feed_live_slugs.sql ran — [shareRefFor] falls back to the id,
+  /// which the seo-site route still resolves.
+  final String? slug;
+
   const FeedReel({
     required this.id,
     required this.title,
@@ -41,12 +46,14 @@ class FeedReel {
     this.bannerAfter = false,
     this.order = 0,
     this.videoUrl,
+    this.slug,
   });
 
   String get duration => formatDuration(durationSec);
 
   factory FeedReel.fromMap(Map<String, dynamic> r) => FeedReel(
         id: r['id'].toString(),
+        slug: r['slug'] as String?,
         title: r['title'] ?? '',
         titleTa: r['title_ta'] ?? '',
         caption: r['caption'] ?? '',
