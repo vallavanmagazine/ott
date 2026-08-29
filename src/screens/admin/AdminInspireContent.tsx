@@ -325,14 +325,14 @@ function InspireFormModal({
       onClose={onClose}
       footer={<SaveBar onCancel={onClose} onSave={submit} saving={saving} label={form.status === 'Published' ? 'Save & Publish' : 'Save Draft'} />}
     >
-      <Field label="Video URL" hint="YouTube, DyneTube, HLS or MP4">
+      <Field label="Video URL" hint="Paste a link, or upload a file">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://..." />
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
       <BunnyUpload table="inspire_items" title={form.title} onComplete={onBunnyComplete} />
 
-      <Field label="Poster / Thumbnail" hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the YouTube URL — edit to override.' : 'URL or Pexels photo id.'}>
+      <Field label="Poster / Thumbnail" hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the video URL — edit to override.' : 'URL or Pexels photo id.'}>
         <TextInput value={form.poster} onChange={(e) => { setPosterTouched(true); set('poster', e.target.value); }} />
       </Field>
 

@@ -88,10 +88,10 @@ export function autoThumbnail(url: string): string | null {
 /** Human label for the detected source, shown next to the URL field. */
 export function videoKindLabel(url: string): string {
   switch (classifyVideoUrl(url)) {
-    case 'youtube': return 'YouTube';
+    case 'youtube': return 'External video link';
     case 'hls': return 'HLS stream';
     case 'mp4': return 'MP4 file';
-    case 'dynetube': return 'DyneTube';
+    case 'dynetube': return 'External video link';
     default: return url ? 'Custom URL' : '';
   }
 }

@@ -69,7 +69,7 @@ export function uploadFile(
         if (onProgress && total > 0) onProgress(Math.round((sent / total) * 100));
       },
       onSuccess: () => resolve(),
-      onError: (err) => reject(new Error(`Upload to Bunny failed: ${err.message}`)),
+      onError: (err) => reject(new Error(err.message)),
     });
     upload.start();
   });
@@ -101,16 +101,19 @@ export async function pollStatus(
     if (s.ready) {
       if (!s.playbackUrl) {
         // Ready but unplayable means BUNNY_CDN_HOSTNAME is unset server-side.
-        throw new Error('Bunny reported the video ready but returned no playback URL (check BUNNY_CDN_HOSTNAME).');
+        // The admin-facing message stays provider-neutral; the actionable
+        // detail goes to the console so it is still diagnosable.
+        console.error('Video ready but no playback URL returned — check BUNNY_CDN_HOSTNAME on the backend.');
+        throw new Error('The video processed but no playback URL was returned. Check the server configuration.');
       }
       return { playbackUrl: s.playbackUrl, thumbnailUrl: s.thumbnailUrl };
     }
     if (s.status === 'error' || s.status === 'upload_failed') {
-      throw new Error(`Bunny could not process this video (status: ${s.status}).`);
+      throw new Error(`This video could not be processed (status: ${s.status}).`);
     }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
-  throw new Error('Timed out waiting for Bunny to finish processing (15 min).');
+  throw new Error('Timed out waiting for the video to finish processing (15 min).');
 }
 
 /**

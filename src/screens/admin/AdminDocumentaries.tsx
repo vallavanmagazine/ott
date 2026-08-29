@@ -325,7 +325,7 @@ function DocFormModal({
       onClose={onClose}
       footer={<SaveBar onCancel={onClose} onSave={submit} saving={saving} label={form.status === 'Published' ? 'Save & Publish' : 'Save Draft'} />}
     >
-      <Field label="Video URL" hint="YouTube, DyneTube, HLS or MP4">
+      <Field label="Video URL" hint="Paste a link, or upload a file">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://..." />
         <VideoUrlHint url={form.videoUrl} />
       </Field>

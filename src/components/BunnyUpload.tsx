@@ -100,15 +100,15 @@ export function BunnyUpload({
         type="button"
         onClick={pick}
         disabled={!configured || busy}
-        title={configured ? 'Upload to Bunny Stream' : 'Set VITE_API_BASE_URL to enable'}
+        title={configured ? 'Upload a video file' : 'Upload unavailable — the backend is not configured'}
         data-table={table}
         data-record-id={recordId ?? undefined}
         className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg glass text-sm font-bold text-white active:scale-95 disabled:opacity-50"
       >
         {phase.kind === 'uploading' ? <><Loader size={14} className="animate-spin" /> Uploading {phase.pct}%</>
-          : phase.kind === 'processing' ? <><Loader size={14} className="animate-spin" /> Processing on Bunny…</>
+          : phase.kind === 'processing' ? <><Loader size={14} className="animate-spin" /> Processing…</>
           : phase.kind === 'done' ? <><Check size={14} className="text-green-400" /> Uploaded — URL filled</>
-          : <><UploadCloud size={14} /> {configured ? 'Upload Video (Bunny)' : 'Upload (set backend URL)'}</>}
+          : <><UploadCloud size={14} /> Upload Video</>}
       </button>
 
       {phase.kind === 'uploading' && (
@@ -118,7 +118,7 @@ export function BunnyUpload({
       )}
       {phase.kind === 'processing' && (
         <p className="mt-1.5 text-[11px] text-white/60">
-          Bunny is transcoding. This can take several minutes for a long video — leave this open.
+          Processing your video. This can take several minutes for a long video — leave this open.
         </p>
       )}
     </div>

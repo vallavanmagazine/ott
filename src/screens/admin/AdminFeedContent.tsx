@@ -457,7 +457,7 @@ function FeedFormModal({
       onClose={onClose}
       footer={<SaveBar onCancel={onClose} onSave={submit} saving={saving} label={form.status === 'Published' ? 'Save & Publish' : 'Save Draft'} />}
     >
-      <Field label="Video URL" hint="YouTube, DyneTube, HLS (.m3u8) or MP4">
+      <Field label="Video URL" hint="Paste a link, or upload a file">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
         <VideoUrlHint url={form.videoUrl} />
       </Field>
@@ -466,7 +466,7 @@ function FeedFormModal({
 
       <Field
         label="Thumbnail URL"
-        hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the YouTube URL — edit to override.' : 'Full image URL, or a Pexels photo id.'}
+        hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the video URL — edit to override.' : 'Full image URL, or a Pexels photo id.'}
       >
         <div className="flex gap-2">
           <TextInput

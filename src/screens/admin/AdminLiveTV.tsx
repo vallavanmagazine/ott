@@ -427,14 +427,14 @@ function SlotFormModal({
         <TextArea rows={2} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="What airs in this slot..." />
       </Field>
 
-      <Field label="Playout Video URL" hint="HLS (.m3u8) for live playout, or a YouTube / MP4 source">
+      <Field label="Playout Video URL" hint="Paste a link, or upload a file">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://.../stream.m3u8" />
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
       <BunnyUpload table="live_slots" title={form.title} onComplete={onBunnyComplete} />
 
-      <Field label="Thumbnail URL" hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the YouTube URL — edit to override.' : 'Full image URL, or a Pexels photo id.'}>
+      <Field label="Thumbnail URL" hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the video URL — edit to override.' : 'Full image URL, or a Pexels photo id.'}>
         <TextInput
           value={form.thumb}
           onChange={(e) => { setThumbTouched(true); set('thumb', e.target.value); }}
