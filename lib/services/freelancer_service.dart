@@ -1,3 +1,4 @@
+import '../utils/video.dart';
 import 'supabase_client.dart';
 import 'auth_phone_service.dart';
 
@@ -152,9 +153,21 @@ class FreelancerService {
     final c = Db.client;
     if (c == null) return 'Service not configured';
     try {
+      // Normalise at the write boundary, exactly as the web CMS does in
+      // services/admin-writes.ts: a freelancer pastes whatever YouTube hands
+      // them (usually /shorts/ or watch?v=), and every consumer downstream —
+      // the web player's iframe above all — needs the canonical /embed/ form.
+      // Idempotent, and MP4/HLS/DyneTube links pass through untouched.
+      final normalisedUrl = toEmbedUrl(contentUrl) ?? contentUrl;
+      // A YouTube submission always has a derivable poster, so an omitted
+      // thumbnail costs the reviewer nothing rather than showing a blank card.
+      final thumb = (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+          ? thumbnailUrl
+          : autoThumbnail(normalisedUrl);
+
       await c.from('task_assignments').update({
-        'content_url': contentUrl,
-        if (thumbnailUrl != null && thumbnailUrl.isNotEmpty) 'thumbnail_url': thumbnailUrl,
+        'content_url': normalisedUrl,
+        if (thumb != null && thumb.isNotEmpty) 'thumbnail_url': thumb,
         'notes': notes,
         'status': 'submitted',
         'submitted_at': DateTime.now().toIso8601String(),

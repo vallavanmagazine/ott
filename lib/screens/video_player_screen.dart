@@ -12,15 +12,9 @@ import '../services/ad_engine.dart';
 import '../services/documentaries_service.dart';
 import '../utils/geo_detect.dart';
 import '../utils/library.dart';
+import '../utils/video.dart';
 import '../widgets/ad_overlay.dart';
 import '../widgets/content_card.dart';
-
-String _kindOf(String? url) {
-  if (url == null || url.isEmpty) return 'none';
-  if (url.contains('youtube') || url.contains('youtu.be')) return 'youtube';
-  if (url.contains('.m3u8')) return 'hls';
-  return 'mp4';
-}
 
 class VideoPlayerScreen extends StatefulWidget {
   final Documentary item;
@@ -32,7 +26,7 @@ class VideoPlayerScreen extends StatefulWidget {
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   VideoPlayerController? _vpc;
   ChewieController? _chewie;
-  late final String _kind;
+  late final VideoKind _kind;
 
   String _district = 'Chennai';
   List<Documentary> _related = [];
@@ -53,12 +47,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
-    _kind = _kindOf(widget.item.videoUrl);
-    _showPre = _kind != 'none';
+    _kind = classifyVideoUrl(widget.item.videoUrl);
+    _showPre = _kind != VideoKind.none;
     if (widget.item.id != 'live-player') Library.addToHistory(widget.item);
     DocumentariesService.related(widget.item.genre, widget.item.id).then((r) { if (mounted) setState(() => _related = r); });
     _initAds();
-    if (_kind == 'mp4' || _kind == 'hls') _initVideo();
+    if (isNativePlayable(widget.item.videoUrl)) _initVideo();
   }
 
   Future<void> _initAds() async {
@@ -203,12 +197,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Widget _videoSurface() {
     if (_showPre || _showMid) return const SizedBox.shrink();
-    if (_chewie != null && (_kind == 'mp4' || _kind == 'hls')) return Chewie(controller: _chewie!);
+    if (_chewie != null && isNativePlayable(widget.item.videoUrl)) return Chewie(controller: _chewie!);
     // YouTube / none → poster + action
     return Stack(fit: StackFit.expand, children: [
       CachedNetworkImage(imageUrl: pexelsUrl(widget.item.backdrop, w: 800), fit: BoxFit.cover, color: Colors.black38, colorBlendMode: BlendMode.darken, errorWidget: (_, __, ___) => Container(color: AppColors.dark)),
-      Center(child: _kind == 'youtube'
-          ? FilledButton.icon(onPressed: () => launchUrl(Uri.parse(widget.item.videoUrl!.replaceFirst('/embed/', '/watch?v=')), mode: LaunchMode.externalApplication), icon: const Icon(Icons.play_arrow), label: const Text('Play on YouTube'), style: FilledButton.styleFrom(backgroundColor: AppColors.red))
+      Center(child: _kind == VideoKind.youtube
+          ? FilledButton.icon(onPressed: () => launchUrl(Uri.parse(toWatchUrl(widget.item.videoUrl!)), mode: LaunchMode.externalApplication), icon: const Icon(Icons.play_arrow), label: const Text('Play on YouTube'), style: FilledButton.styleFrom(backgroundColor: AppColors.red))
           : const Column(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.play_circle_outline, size: 44, color: Colors.white70), SizedBox(height: 6), Text('Video coming soon', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))])),
     ]);
   }

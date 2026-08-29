@@ -8,14 +8,8 @@ import '../models/feed_reel.dart';
 import '../services/ads_service.dart';
 import '../services/feed_service.dart';
 import '../utils/formatters.dart';
+import '../utils/video.dart';
 import '../widgets/ad_strip.dart';
-
-/// True when the URL points at something the native player can decode.
-/// YouTube links need an embedded webview, so they fall back to the thumbnail.
-bool _nativePlayable(String? url) {
-  if (url == null || url.isEmpty) return false;
-  return !url.contains('youtube') && !url.contains('youtu.be');
-}
 
 /// One slot in the vertical feed: either a reel (optionally carrying a strip
 /// ad) or a full-screen sponsored banner.
@@ -248,7 +242,7 @@ class _ReelViewState extends State<_ReelView> {
   /// calling setState on a torn-down State.
   int _generation = 0;
 
-  bool get _shouldPlay => widget.active && _nativePlayable(widget.reel.videoUrl);
+  bool get _shouldPlay => widget.active && isNativePlayable(widget.reel.videoUrl);
 
   @override
   void initState() {

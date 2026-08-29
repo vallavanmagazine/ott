@@ -5,6 +5,7 @@ import '../config/constants.dart';
 import '../config/theme.dart';
 import '../models/feed_reel.dart';
 import '../utils/formatters.dart';
+import '../utils/video.dart';
 
 /// Detail view for a single feed reel, reached from Search.
 ///
@@ -23,12 +24,9 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
   bool _muted = false;
   bool _liked = false;
 
-  bool get _playable {
-    final u = widget.reel.videoUrl;
-    if (u == null || u.isEmpty) return false;
-    // YouTube URLs need an embedded webview; only direct mp4/HLS play natively.
-    return !u.contains('youtube') && !u.contains('youtu.be');
-  }
+  /// YouTube serves a web page rather than a media stream, so only direct
+  /// mp4/HLS sources reach the native player. See utils/video.dart.
+  bool get _playable => isNativePlayable(widget.reel.videoUrl);
 
   @override
   void initState() {

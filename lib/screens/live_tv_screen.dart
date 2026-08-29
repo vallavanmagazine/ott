@@ -11,6 +11,7 @@ import '../services/broadcast_service.dart';
 import '../services/documentaries_service.dart';
 import '../services/live_service.dart';
 import '../services/preferences_service.dart';
+import '../services/schedule_engine.dart';
 import '../widgets/ad_banner.dart';
 import '../widgets/vallavan_logo.dart';
 import 'video_player_screen.dart';
@@ -66,27 +67,18 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
     }
   }
 
-  /// The on-air slot, falling back to the first of the day when nothing is
-  /// flagged live. `firstOrNull` lives in package:collection, so this walks the
-  /// list directly rather than adding a dependency for one call.
-  LiveSlot? get _now {
-    for (final s in _schedule) {
-      if (s.isLive) return s;
-    }
-    return _schedule.isNotEmpty ? _schedule.first : null;
-  }
-
-  LiveSlot? get _next {
-    final now = _now;
-    if (now == null || _schedule.length < 2) return null;
-    final i = _schedule.indexOf(now);
-    return (i >= 0 && i + 1 < _schedule.length) ? _schedule[i + 1] : _schedule[1];
-  }
+  /// Now/next resolved by wall clock, exactly as the web app resolves them.
+  ///
+  /// Previously this returned the first `is_live` slot regardless of the time
+  /// and fell back to `_schedule.first` — which follows `sort_order`, an admin
+  /// display ordering, not the clock. At 8pm that could label the 6am
+  /// programme "NOW PLAYING". See services/schedule_engine.dart.
+  ProgramNow get _program => getCurrentProgram(_schedule);
 
   /// The live channel plays the currently scheduled programme. A synthetic
   /// Documentary with the reserved 'live-player' id keeps it out of history.
   void _watchLive() {
-    final slot = _now;
+    final slot = _program.current;
     if (slot == null) return;
     final item = Documentary(
       id: 'live-player',
@@ -123,11 +115,12 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
   // -------------------------------------------------------------- LIVE mode
 
   Widget _liveBody(BroadcastConfig cfg) {
-    final now = _now;
+    final program = _program;
+    final now = program.current;
     return ListView(padding: const EdgeInsets.only(bottom: 28), children: [
-      _videoArea(now),
+      _videoArea(now, program.onAir),
       if (cfg.breakingActive && cfg.breakingHeadline.isNotEmpty) _breaking(cfg),
-      _nowNext(now),
+      _nowNext(program),
       _controlsBar(),
       if (cfg.weatherEnabled && _weather != null) _weatherStrip(_weather!),
       if (cfg.tickerEnabled && _ticker.isNotEmpty) _NewsTicker(items: _ticker),
@@ -141,7 +134,7 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
   }
 
   /// Picture with only three overlaid elements, each pinned to its own corner.
-  Widget _videoArea(LiveSlot? now) {
+  Widget _videoArea(LiveSlot? now, bool onAir) {
     return AspectRatio(
       aspectRatio: 16 / 9,
       child: Stack(fit: StackFit.expand, children: [
@@ -162,7 +155,7 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
             ),
           ),
         ),
-        const Positioned(top: 10, left: 12, child: _LiveBadge()),
+        if (onAir) const Positioned(top: 10, left: 12, child: _LiveBadge()),
         const Positioned(top: 10, right: 12, child: VallavanLogo(size: 30, circle: true)),
         Center(
           child: GestureDetector(
@@ -205,14 +198,23 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
         ]),
       );
 
-  Widget _nowNext(LiveSlot? now) {
+  Widget _nowNext(ProgramNow program) {
+    final now = program.current;
     if (now == null) return const SizedBox.shrink();
-    final next = _next;
+    final next = program.next;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('NOW PLAYING',
-            style: TextStyle(fontSize: 9, letterSpacing: 1.4, color: AppColors.red, fontWeight: FontWeight.w900)),
+        // Through a schedule gap the channel keeps naming its programme for
+        // identity, but nothing is actually playing — so the label must not
+        // claim otherwise. It is also not "up next": `current` is the flagged
+        // slot here, which may already have aired.
+        Text(program.onAir ? 'NOW PLAYING' : 'OFF AIR',
+            style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.4,
+                color: program.onAir ? AppColors.red : AppColors.gold,
+                fontWeight: FontWeight.w900)),
         const SizedBox(height: 3),
         Text(now.titleTa.isNotEmpty ? now.titleTa : now.title,
             style: tamilStyle(size: 17, color: Colors.white, weight: FontWeight.bold)),
@@ -331,7 +333,13 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
         ]),
       );
 
-  Widget _scheduleList() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget _scheduleList() {
+    // Badge the slot that is actually on air, not the one carrying the
+    // editorial is_live flag — otherwise the grid contradicts the player above
+    // it whenever a stale flag is left set.
+    final program = _program;
+    final onAirId = program.onAir ? program.current?.id : null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 22, 16, 4),
           child: Text("Today's Schedule",
@@ -374,11 +382,12 @@ class _LiveTvScreenState extends State<LiveTvScreen> {
                                 style: tamilStyle(size: 13, color: Colors.white, weight: FontWeight.bold)),
                           ]),
                     ),
-                    if (s.isLive) const _LiveBadge(),
+                    if (s.id == onAirId) const _LiveBadge(),
                   ]),
                 ),
               )),
-      ]);
+    ]);
+  }
 
   // ------------------------------------------------------- COMING SOON mode
 

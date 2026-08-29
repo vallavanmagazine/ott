@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../services/freelancer_service.dart';
+import '../../utils/video.dart';
 
 /// C3 — Content submission for assignments. Mirrors web FreelancerSubmitScreen.
 class FreelancerSubmitScreen extends StatefulWidget {
@@ -41,7 +42,8 @@ class _FreelancerSubmitScreenState extends State<FreelancerSubmitScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Submit: ${a['freelancer_tasks']?['title'] ?? 'Task'}', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
             const SizedBox(height: 16),
-            TextField(controller: urlCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Content URL (https://…)', hintStyle: const TextStyle(color: AppColors.muted), filled: true, fillColor: AppColors.glass, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+            TextField(controller: urlCtrl, onChanged: (_) => setSheet(() {}), style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Content URL (https://…)', hintStyle: const TextStyle(color: AppColors.muted), filled: true, fillColor: AppColors.glass, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+            _VideoUrlHint(url: urlCtrl.text),
             const SizedBox(height: 10),
             TextField(controller: thumbCtrl, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: 'Thumbnail URL (https://...)', hintStyle: const TextStyle(color: AppColors.muted), filled: true, fillColor: AppColors.glass, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
             const SizedBox(height: 10),
@@ -101,6 +103,34 @@ class _FreelancerSubmitScreenState extends State<FreelancerSubmitScreen> {
                     ]),
                   );
                 }).toList()),
+    );
+  }
+}
+
+/// Shows what a pasted URL was detected as and, for YouTube watch/shorts/
+/// youtu.be links, the embed URL that will actually be stored.
+///
+/// Mirrors the web CMS's `VideoUrlHint`: the submission is rewritten on save
+/// (see FreelancerService.submitContent), so making the rewrite visible stops
+/// the freelancer wondering why the stored link differs from what they pasted.
+class _VideoUrlHint extends StatelessWidget {
+  final String url;
+  const _VideoUrlHint({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    if (url.trim().isEmpty) return const SizedBox.shrink();
+    final converted = toEmbedUrl(url);
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Detected: ${videoKindLabel(url)}', style: const TextStyle(fontSize: 10, color: AppColors.gold)),
+        if (willConvert(url) && converted != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text('Saved as $converted', style: const TextStyle(fontSize: 10, color: AppColors.muted)),
+          ),
+      ]),
     );
   }
 }
