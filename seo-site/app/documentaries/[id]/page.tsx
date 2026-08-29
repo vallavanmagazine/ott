@@ -56,7 +56,15 @@ export default async function DocumentaryPage({ params }: { params: { id: string
       <h1 style={{ fontSize: 32, fontWeight: 900, marginTop: 16 }}>{doc.title}</h1>
       <div style={{ color: '#A0A0A0' }}>{doc.genre} · {doc.year} · {doc.language}</div>
       <p style={{ lineHeight: 1.6, marginTop: 12 }}>{doc.synopsis}</p>
-      <a href={`${APP_URL}/#/documentary/${doc.id}`}
+      {/*
+        Links to the app's homepage, not a per-video route. The SPA has no
+        router — navigation is React state (App.tsx Overlay), and the only URL
+        it reads is the `#admin` hash — so the previous
+        `${APP_URL}/#/documentary/${doc.id}` was a dead link that silently
+        dropped the visitor on the default feed. Restore the deep link once the
+        SPA has real routing.
+      */}
+      <a href={`${APP_URL}/`}
          style={{ display: 'inline-block', marginTop: 16, background: '#D32F2F', color: '#fff', padding: '12px 24px', borderRadius: 999, fontWeight: 700, textDecoration: 'none' }}>
         ▶ Watch Now on Vallavan
       </a>
