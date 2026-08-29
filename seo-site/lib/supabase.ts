@@ -26,6 +26,7 @@ export interface Doc {
 /** feed_reels — short vertical video. Note `thumb`, not `poster`/`backdrop`. */
 export interface Reel {
   id: string;
+  slug: string | null;
   title: string;
   caption: string;
   thumb: string;
@@ -54,6 +55,7 @@ export interface InspireItem {
  */
 export interface LiveSlot {
   id: string;
+  slug: string | null;
   title: string;
   description: string;
   thumb: string;
@@ -77,4 +79,15 @@ export function imageUrl(value: string | null | undefined, w = 1280): string {
   if (v.startsWith('http://') || v.startsWith('https://')) return v;
   const id = v.replace(/^img\//, '');
   return `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&w=${w}`;
+}
+
+/**
+ * True when a route param looks like a uuid.
+ *
+ * Guards the id fallback in the slug routes: Postgres rejects a malformed uuid
+ * with an error rather than returning no rows, so probing `.eq('id', 'not-a-uuid')`
+ * would turn an ordinary 404 into a 500.
+ */
+export function isUuid(v: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 }

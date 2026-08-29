@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
 import { ShareSheet } from '@/components/ShareSheet';
-import { nativeShare, shareUrl } from '@/services/share';
+import { nativeShare, shareRef, shareUrl } from '@/services/share';
 import {
   feedReels as mockFeedReels,
   ads as mockAds,
@@ -327,13 +327,13 @@ function ReelCard({
   const [sharing, setSharing] = useState(false);
 
   /**
-   * Share this reel. Points at seo-site's /videos/{id}, which server-renders
+   * Share this reel. Points at seo-site's /feed/{slug}, which server-renders
    * per-reel OpenGraph tags — see services/share.ts. Prefers the OS share
    * sheet, falling back to the WhatsApp/SMS/email menu on browsers without
    * the Web Share API.
    */
   const onShare = async () => {
-    const url = shareUrl('reel', reel.id);
+    const url = shareUrl('reel', shareRef(reel));
     if ((await nativeShare(reel.title, url)) === 'unsupported') setSharing(true);
   };
 
@@ -390,7 +390,7 @@ function ReelCard({
         </button>
 
         {sharing && (
-          <ShareSheet title={reel.title} url={shareUrl('reel', reel.id)} onClose={() => setSharing(false)} />
+          <ShareSheet title={reel.title} url={shareUrl('reel', shareRef(reel))} onClose={() => setSharing(false)} />
         )}
         <button onClick={onToggleMute} className="w-12 h-12 rounded-full glass-strong flex items-center justify-center active:scale-90 transition">
           {muted ? <VolumeX size={20} className="text-white" /> : <Volume2 size={20} className="text-white" />}

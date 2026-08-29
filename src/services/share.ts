@@ -17,19 +17,36 @@
 export const SITE_URL: string =
   ((import.meta.env.VITE_SITE_URL as string | undefined) || 'https://vallavan.in').replace(/\/$/, '');
 
-/** Content kinds and the seo-site route each one maps to. */
+/**
+ * Content kinds and the seo-site route each one maps to.
+ *
+ * 'reel' and 'live' are the app's real navigation (Feed and Live TV) and use
+ * slugs. 'documentary' and 'inspire' are legacy id-based routes kept working
+ * for links already in the wild; they are not being extended.
+ */
 export type ShareKind = 'documentary' | 'reel' | 'inspire' | 'live';
 
 const ROUTES: Record<ShareKind, string> = {
   documentary: 'documentaries',
-  reel: 'videos',
+  reel: 'feed',
   inspire: 'inspire',
   live: 'live',
 };
 
-/** Canonical public URL for a piece of content. */
-export function shareUrl(kind: ShareKind, id: string): string {
-  return `${SITE_URL}/${ROUTES[kind]}/${id}`;
+/**
+ * Canonical public URL for a piece of content.
+ *
+ * `ref` is the slug where one exists and the id otherwise — the seo-site routes
+ * resolve slug first and fall back to id, so a row that predates
+ * supabase/feed_live_slugs.sql still shares a working link.
+ */
+export function shareUrl(kind: ShareKind, ref: string): string {
+  return `${SITE_URL}/${ROUTES[kind]}/${ref}`;
+}
+
+/** The slug when present, else the id. Use this to build `ref`. */
+export function shareRef(item: { slug?: string | null; id: string }): string {
+  return (item.slug ?? '').trim() || item.id;
 }
 
 /** WhatsApp / SMS / email deep-links — same shape as payments.ts shareLinks(). */

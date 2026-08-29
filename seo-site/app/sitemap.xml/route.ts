@@ -16,22 +16,37 @@ export const revalidate = 3600;
 export async function GET() {
   const [docs, reels, inspire, slots] = await Promise.all([
     supabase.from('documentaries').select('id').eq('status', 'Published'),
-    supabase.from('feed_reels').select('id').eq('status', 'Published'),
+    supabase.from('feed_reels').select('*').eq('status', 'Published'),
     supabase.from('inspire_items').select('id').eq('status', 'Published'),
-    supabase.from('live_slots').select('id'),
+    supabase.from('live_slots').select('*'),
   ]);
 
   const genres = ['Environment', 'Wildlife', 'History', 'Science', 'Society', 'Investigation', 'Education', 'Culture'];
 
   const ids = (r: { data: { id: string }[] | null }) => r.data ?? [];
 
+  /**
+   * Prefer the slug, fall back to the id. Matches how the routes resolve, so a
+   * row that has not been backfilled yet is still listed at a URL that works
+   * rather than being dropped from the sitemap.
+   *
+   * These two queries select '*' rather than naming `slug`. Naming a column
+   * that does not exist yet makes PostgREST reject the whole query, and
+   * supabase-js then returns data:null — which silently emptied feed and live
+   * out of the sitemap (16 URLs) while the build still reported success. With
+   * '*', a pre-migration schema simply yields undefined slugs and the entries
+   * fall back to id-based URLs, which the routes resolve.
+   */
+  const refs = (r: { data: { id: string; slug?: string | null }[] | null }) =>
+    (r.data ?? []).map((d) => d.slug || d.id);
+
   const urls = [
     `${SITE_URL}/`,
     ...genres.map((g) => `${SITE_URL}/genre/${encodeURIComponent(g)}`),
     ...ids(docs).map((d) => `${SITE_URL}/documentaries/${d.id}`),
-    ...ids(reels).map((d) => `${SITE_URL}/videos/${d.id}`),
+    ...refs(reels).map((ref) => `${SITE_URL}/feed/${ref}`),
     ...ids(inspire).map((d) => `${SITE_URL}/inspire/${d.id}`),
-    ...ids(slots).map((d) => `${SITE_URL}/live/${d.id}`),
+    ...refs(slots).map((ref) => `${SITE_URL}/live/${ref}`),
   ];
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>

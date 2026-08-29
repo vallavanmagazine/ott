@@ -11,6 +11,7 @@ import {
 function rowToFeedReel(row: any): FeedReel {
   return {
     id: row.id,
+    slug: row.slug ?? null,
     title: row.title,
     titleTa: row.title_ta,
     caption: row.caption,

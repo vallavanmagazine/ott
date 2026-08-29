@@ -1,18 +1,35 @@
 import type { Metadata } from 'next';
-import { supabase, imageUrl, type Reel, APP_URL } from '../../../lib/supabase';
+import { supabase, imageUrl, isUuid, type Reel, APP_URL } from '../../../lib/supabase';
 
 export const revalidate = 3600;
 
-async function getReel(id: string): Promise<Reel | null> {
-  const { data } = await supabase
-    .from('feed_reels')
-    .select('id, title, caption, thumb, creator, genre, duration_sec, created_at')
-    .eq('id', id).maybeSingle();
-  return (data as Reel) ?? null;
+// '*' rather than a column list: naming `slug` before the migration has run
+// makes PostgREST reject the query outright. See app/sitemap.xml/route.ts.
+const COLUMNS = '*';
+
+/**
+ * Look up by slug first, falling back to id.
+ *
+ * The fallback keeps every URL minted before supabase/feed_live_slugs.sql ran
+ * working — including links already shared from an older build. The id branch
+ * is only attempted when the param actually looks like a uuid, so an ordinary
+ * unmatched slug does not send a malformed uuid to Postgres (which errors
+ * rather than returning no rows).
+ */
+async function getReel(slugOrId: string): Promise<Reel | null> {
+  const bySlug = await supabase
+    .from('feed_reels').select(COLUMNS).eq('slug', slugOrId).maybeSingle();
+  if (bySlug.data) return bySlug.data as Reel;
+  // bySlug.error means the slug column does not exist yet — fall through.
+
+  if (!isUuid(slugOrId)) return null;
+  const byId = await supabase
+    .from('feed_reels').select(COLUMNS).eq('id', slugOrId).maybeSingle();
+  return (byId.data as Reel) ?? null;
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const reel = await getReel(params.id);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const reel = await getReel(params.slug);
   if (!reel) return { title: 'Not found' };
   // feed_reels has no synopsis; `caption` is the human-written blurb.
   const image = imageUrl(reel.thumb);
@@ -39,8 +56,8 @@ function iso8601Duration(sec: number) {
   return `PT${m}M${s}S`;
 }
 
-export default async function ReelPage({ params }: { params: { id: string } }) {
-  const reel = await getReel(params.id);
+export default async function ReelPage({ params }: { params: { slug: string } }) {
+  const reel = await getReel(params.slug);
   if (!reel) return <main style={{ padding: 24 }}>Not found.</main>;
 
   const image = imageUrl(reel.thumb);

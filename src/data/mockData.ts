@@ -486,6 +486,12 @@ export type FeedContentType = 'News' | 'Teaser' | 'Short Story' | 'Other';
 
 export interface FeedReel {
   id: string;
+  /**
+   * URL slug used for share links (/feed/{slug}). Null for rows created before
+   * supabase/feed_live_slugs.sql ran — callers fall back to the id, which the
+   * seo-site route still resolves.
+   */
+  slug?: string | null;
   title: string;
   titleTa: string;
   caption: string;

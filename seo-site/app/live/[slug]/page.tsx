@@ -1,18 +1,26 @@
 import type { Metadata } from 'next';
-import { supabase, imageUrl, type LiveSlot, APP_URL } from '../../../lib/supabase';
+import { supabase, imageUrl, isUuid, type LiveSlot, APP_URL } from '../../../lib/supabase';
 
 export const revalidate = 3600;
 
-async function getSlot(id: string): Promise<LiveSlot | null> {
-  const { data } = await supabase
-    .from('live_slots')
-    .select('id, title, description, thumb, start_time24, duration_min, air_date')
-    .eq('id', id).maybeSingle();
-  return (data as LiveSlot) ?? null;
+// '*' rather than a column list — see app/feed/[slug]/page.tsx.
+const COLUMNS = '*';
+
+/** Slug first, id fallback — see the note in app/feed/[slug]/page.tsx. */
+async function getSlot(slugOrId: string): Promise<LiveSlot | null> {
+  const bySlug = await supabase
+    .from('live_slots').select(COLUMNS).eq('slug', slugOrId).maybeSingle();
+  if (bySlug.data) return bySlug.data as LiveSlot;
+  // bySlug.error means the slug column does not exist yet — fall through.
+
+  if (!isUuid(slugOrId)) return null;
+  const byId = await supabase
+    .from('live_slots').select(COLUMNS).eq('id', slugOrId).maybeSingle();
+  return (byId.data as LiveSlot) ?? null;
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
-  const slot = await getSlot(params.id);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const slot = await getSlot(params.slug);
   if (!slot) return { title: 'Not found' };
   const image = imageUrl(slot.thumb);
   return {
@@ -42,8 +50,8 @@ function iso8601FromMinutes(min: number) {
   return `PT${Math.max(0, Math.floor(min))}M`;
 }
 
-export default async function LiveSlotPage({ params }: { params: { id: string } }) {
-  const slot = await getSlot(params.id);
+export default async function LiveSlotPage({ params }: { params: { slug: string } }) {
+  const slot = await getSlot(params.slug);
   if (!slot) return <main style={{ padding: 24 }}>Not found.</main>;
 
   const image = imageUrl(slot.thumb);

@@ -198,20 +198,57 @@ function reelToRow(input: Partial<FeedReelInput>): Record<string, unknown> {
   return row;
 }
 
+/**
+ * URL slug from a title. Mirrors supabase/feed_live_slugs.sql exactly — the
+ * backfill and this write path must agree, or a row created in the CMS gets a
+ * different slug shape than one backfilled by the migration.
+ *
+ * Slugs are built from the English `title`, never `title_ta`: a Tamil title
+ * contains no [a-z0-9] and would reduce to an empty string. Callers supply the
+ * uuid-derived fallback for that case.
+ */
+export function slugify(title: string): string {
+  return (title ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Insert a row, retrying with -2/-3/... when the unique slug index rejects it.
+ *
+ * Uniqueness cannot be decided client-side — two admins saving at once would
+ * both read "slug is free" and one insert would still lose. Postgres is the
+ * arbiter, so this reacts to its 23505 rather than trying to pre-empt it.
+ */
+async function insertWithSlug(
+  table: 'feed_reels' | 'live_slots',
+  row: Record<string, unknown>,
+  base: string,
+) {
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    const slug = attempt === 1 ? base : `${base}-${attempt}`;
+    const { data, error } = await client().from(table).insert({ ...row, slug }).select().single();
+    if (!error) return data;
+    // 23505 = unique_violation. Anything else is a real failure, not a collision.
+    if (error.code !== '23505' || !String(error.message).includes('slug')) throw error;
+  }
+  throw new Error(`Could not find a free slug for "${base}" after 10 attempts.`);
+}
+
 export async function createFeedReel(input: FeedReelInput) {
-  const { data, error } = await client()
-    .from('feed_reels')
-    .insert({
+  const data = await insertWithSlug(
+    'feed_reels',
+    {
       caption_ta: '',
       creator: 'Vallavan News',
       creator_handle: '@vallavannews',
       duration_sec: 30,
       status: 'Draft',
       ...reelToRow(input),
-    })
-    .select()
-    .single();
-  if (error) throw error;
+    },
+    slugify(input.title) || `reel-${Date.now().toString(36)}`,
+  );
   await logAudit(`Created feed reel "${input.title}"`);
   return data;
 }
@@ -300,8 +337,11 @@ function slotToRow(input: Partial<LiveSlotInput>): Record<string, unknown> {
 }
 
 export async function createLiveSlot(input: LiveSlotInput) {
-  const { data, error } = await client().from('live_slots').insert(slotToRow(input)).select().single();
-  if (error) throw error;
+  const data = await insertWithSlug(
+    'live_slots',
+    slotToRow(input),
+    slugify(input.title) || `live-${Date.now().toString(36)}`,
+  );
   await logAudit(`Added live slot "${input.title}"`);
   return data;
 }
