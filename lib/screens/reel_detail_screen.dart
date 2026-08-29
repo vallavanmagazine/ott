@@ -35,7 +35,10 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
   }
 
   Future<void> _init() async {
-    final vpc = VideoPlayerController.networkUrl(Uri.parse(widget.reel.videoUrl!));
+    final vpc = VideoPlayerController.networkUrl(
+      Uri.parse(widget.reel.videoUrl!),
+      httpHeaders: videoHttpHeaders(widget.reel.videoUrl),
+    );
     _vpc = vpc;
     try {
       await vpc.initialize();

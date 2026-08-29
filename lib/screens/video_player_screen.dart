@@ -82,7 +82,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   }
 
   Future<void> _initVideo() async {
-    final vpc = VideoPlayerController.networkUrl(Uri.parse(widget.item.videoUrl!));
+    final vpc = VideoPlayerController.networkUrl(
+      Uri.parse(widget.item.videoUrl!),
+      httpHeaders: videoHttpHeaders(widget.item.videoUrl),
+    );
     _vpc = vpc;
     await vpc.initialize();
     vpc.addListener(_onTick);

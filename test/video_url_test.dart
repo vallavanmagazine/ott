@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:vallavan_app/config/env.dart';
 import 'package:vallavan_app/utils/video.dart';
 
 /// The Flutter and web clients read and write the same Supabase `video_url`
@@ -126,6 +127,38 @@ void main() {
       expect(willConvert('https://x.tv/a.mp4'), isFalse);
       expect(willConvert(''), isFalse);
       expect(willConvert(null), isFalse);
+    });
+  });
+
+  group('isBunnyCdn / videoHttpHeaders — Bunny needs a non-empty Referer', () {
+    const bunny =
+        'https://vz-6f9f8bff-b88.b-cdn.net/ce86d115-e4ee-49ad-8712-d9e2e0a9dc7c/playlist.m3u8';
+
+    test('recognises any b-cdn.net pull zone', () {
+      expect(isBunnyCdn(bunny), isTrue);
+      expect(isBunnyCdn('https://vz-OTHER-ZONE.B-CDN.NET/x/playlist.m3u8'), isTrue);
+    });
+
+    test('does not match non-Bunny sources', () {
+      expect(isBunnyCdn(embed), isFalse);
+      expect(isBunnyCdn('https://player.dyntube.com/play/abc.m3u8'), isFalse);
+      expect(isBunnyCdn('https://x.tv/a.mp4'), isFalse);
+      expect(isBunnyCdn(''), isFalse);
+      expect(isBunnyCdn(null), isFalse);
+    });
+
+    // Bunny 403s a request that carries NO Referer; any non-empty value passes.
+    test('sends a non-empty Referer for Bunny URLs', () {
+      final h = videoHttpHeaders(bunny);
+      expect(h['Referer'], isNotNull);
+      expect(h['Referer'], isNotEmpty);
+      expect(h['Referer'], Env.siteUrl);
+    });
+
+    test('sends no headers for anything else', () {
+      expect(videoHttpHeaders(embed), isEmpty);
+      expect(videoHttpHeaders('https://player.dyntube.com/play/abc.m3u8'), isEmpty);
+      expect(videoHttpHeaders(null), isEmpty);
     });
   });
 }

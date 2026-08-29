@@ -17,6 +17,18 @@ class Env {
   /// Empty → the app falls back to the client-side paths below.
   static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 
+  /// Public site URL. Not a secret and not an API endpoint — it is sent as the
+  /// `Referer` when fetching Bunny-hosted video (see utils/video.dart
+  /// videoHttpHeaders). Bunny's CDN answers 403 to requests that arrive with no
+  /// Referer at all, and ExoPlayer/AVPlayer send none by default, so without
+  /// this every Bunny video would fail to load on device while playing fine in
+  /// the browser. Any non-empty value is accepted by Bunny today; this is the
+  /// real domain so it keeps working if a referrer allow-list is added later.
+  static const siteUrl = String.fromEnvironment(
+    'SITE_URL',
+    defaultValue: 'https://vallavan.in/',
+  );
+
   /// Razorpay publishable key id (`rzp_test_…` / `rzp_live_…`). This is a
   /// PUBLIC key — safe to ship in the APK. The key *secret* must never be here.
   static const razorpayKeyId = String.fromEnvironment('RAZORPAY_KEY_ID');

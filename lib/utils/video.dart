@@ -17,7 +17,31 @@
 /// live channel, and plain MP4. Only the last three decode natively.
 library;
 
+import '../config/env.dart';
+
 enum VideoKind { youtube, hls, mp4, dynetube, none }
+
+/// True when [url] is served from Bunny Stream's CDN.
+///
+/// Matches on the `b-cdn.net` domain rather than the library id, so it holds for
+/// any pull zone the account adds later.
+bool isBunnyCdn(String? url) =>
+    url != null && url.toLowerCase().contains('b-cdn.net');
+
+/// HTTP headers to attach when handing [url] to video_player/Chewie.
+///
+/// Bunny's CDN has "block direct file access" enabled, which rejects a request
+/// carrying NO Referer header with 403 — verified against the live library: any
+/// non-empty Referer returns 200, an absent one returns 403. Browsers set the
+/// header themselves, which is why the web player works untouched; ExoPlayer and
+/// AVPlayer do not, so the mobile app must send one explicitly or every Bunny
+/// video 403s on device.
+///
+/// Deliberately scoped to Bunny URLs only. YouTube never reaches a controller
+/// (url_launcher hands it to the OS), and legacy DyneTube/MP4/HLS sources are
+/// unaffected by a stray Referer but are left alone regardless.
+Map<String, String> videoHttpHeaders(String? url) =>
+    isBunnyCdn(url) ? {'Referer': Env.siteUrl} : const {};
 
 /// Every YouTube URL shape the CMS accepts, each capturing the 11-char id.
 ///

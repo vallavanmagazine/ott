@@ -264,7 +264,10 @@ class _ReelViewState extends State<_ReelView> {
 
   Future<void> _attach() async {
     final gen = ++_generation;
-    final vpc = VideoPlayerController.networkUrl(Uri.parse(widget.reel.videoUrl!));
+    final vpc = VideoPlayerController.networkUrl(
+      Uri.parse(widget.reel.videoUrl!),
+      httpHeaders: videoHttpHeaders(widget.reel.videoUrl),
+    );
     try {
       await vpc.initialize();
     } catch (_) {
