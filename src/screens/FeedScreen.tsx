@@ -4,6 +4,8 @@ import {
   ChevronUp, ChevronDown, Play, ArrowRight, Bell, Cast, Tv,
 } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
+import { ShareSheet } from '@/components/ShareSheet';
+import { nativeShare, shareUrl } from '@/services/share';
 import {
   feedReels as mockFeedReels,
   ads as mockAds,
@@ -322,6 +324,18 @@ function ReelCard({
   const device = useDevice();
   const genreColor = genreColors[reel.genre] || '#666';
   const likeCount = reel.likes + (liked ? 1 : 0);
+  const [sharing, setSharing] = useState(false);
+
+  /**
+   * Share this reel. Points at seo-site's /videos/{id}, which server-renders
+   * per-reel OpenGraph tags — see services/share.ts. Prefers the OS share
+   * sheet, falling back to the WhatsApp/SMS/email menu on browsers without
+   * the Web Share API.
+   */
+  const onShare = async () => {
+    const url = shareUrl('reel', reel.id);
+    if ((await nativeShare(reel.title, url)) === 'unsupported') setSharing(true);
+  };
 
   return (
     <div className="relative w-full h-full flex items-center justify-center">
@@ -368,12 +382,16 @@ function ReelCard({
           </div>
           <span className="text-[10px] font-bold text-white drop-shadow">{formatCount(reel.comments)}</span>
         </button>
-        <button className="flex flex-col items-center gap-1 active:scale-90 transition">
+        <button onClick={onShare} aria-label="Share" className="flex flex-col items-center gap-1 active:scale-90 transition">
           <div className="w-12 h-12 rounded-full glass-strong flex items-center justify-center">
             <Share2 size={22} className="text-white" />
           </div>
           <span className="text-[10px] font-bold text-white drop-shadow">{formatCount(reel.shares)}</span>
         </button>
+
+        {sharing && (
+          <ShareSheet title={reel.title} url={shareUrl('reel', reel.id)} onClose={() => setSharing(false)} />
+        )}
         <button onClick={onToggleMute} className="w-12 h-12 rounded-full glass-strong flex items-center justify-center active:scale-90 transition">
           {muted ? <VolumeX size={20} className="text-white" /> : <Volume2 size={20} className="text-white" />}
         </button>

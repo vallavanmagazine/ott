@@ -6,6 +6,8 @@ import { genreColors, documentaries as mockDocuments, pexelsUrl, type Documentar
 import { fetchDocumentaries } from '@/services/documentaries';
 import { isWatchLater, toggleWatchLater } from '@/lib/library';
 import { useDevice } from '@/hooks/useDevice';
+import { ShareSheet } from '@/components/ShareSheet';
+import { nativeShare, shareUrl } from '@/services/share';
 
 export function DocumentaryDetailScreen({
   item,
@@ -19,12 +21,26 @@ export function DocumentaryDetailScreen({
   onCardClick: (d: Documentary) => void;
 }) {
   const [added, setAdded] = useState(() => isWatchLater(item.id));
+  const [sharing, setSharing] = useState(false);
   const [allDocs, setAllDocs] = useState(mockDocuments);
   const device = useDevice();
 
   useEffect(() => {
     fetchDocumentaries().then(setAllDocs);
   }, []);
+
+  /**
+   * Share this documentary. The link points at seo-site, which server-renders
+   * per-item OpenGraph tags, so the pasted URL previews with a real title and
+   * thumbnail — see services/share.ts.
+   *
+   * Prefers the OS share sheet; falls back to the WhatsApp/SMS/email menu when
+   * the browser has no Web Share API. A dismissed native sheet opens nothing.
+   */
+  const onShare = async () => {
+    const url = shareUrl('documentary', item.id);
+    if ((await nativeShare(item.title, url)) === 'unsupported') setSharing(true);
+  };
 
   const genreColor = genreColors[item.genre] || '#666';
   const related = allDocs.filter((d) => d.genre === item.genre && d.id !== item.id).slice(0, 5);
@@ -38,7 +54,7 @@ export function DocumentaryDetailScreen({
           <button onClick={onBack} className="w-9 h-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm active:scale-90 transition">
             <ChevronLeft size={20} className="text-white" />
           </button>
-          <button className="w-9 h-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm active:scale-90 transition">
+          <button onClick={onShare} aria-label="Share" className="w-9 h-9 flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm active:scale-90 transition">
             <Share2 size={16} className="text-white" />
           </button>
         </div>
@@ -118,6 +134,10 @@ export function DocumentaryDetailScreen({
       </div>
 
       <div className="h-8" />
+
+      {sharing && (
+        <ShareSheet title={item.title} url={shareUrl('documentary', item.id)} onClose={() => setSharing(false)} />
+      )}
     </div>
   );
 }
