@@ -17,7 +17,7 @@ import {
   setFeedReelStatus, setFeedReelAdFlags, reorderFeedReels,
 } from '@/services/admin-writes';
 import { fetchCampaignOptions } from '@/services/admin-campaigns';
-import { DyneTubeUpload } from '@/components/DyneTubeUpload';
+import { BunnyUpload, type BunnyUploadResult } from '@/components/BunnyUpload';
 import { useToast } from '@/components/admin/Toast';
 import { useCategoryOptions } from '@/hooks/useCategoryOptions';
 import { ALL_GENRES, CONTENT_TYPES, compactCount } from '@/lib/admin-options';
@@ -39,6 +39,13 @@ const typeColors: Record<string, string> = {
 
 interface FeedForm {
   videoUrl: string;
+  // Bunny provenance, set only by a successful BunnyUpload. Left undefined for
+  // legacy (YouTube / DyneTube / manual URL) rows: the row mappers treat
+  // undefined as "leave this column alone", so saving such a row never blanks
+  // its thumbnail_url or rewrites its video_provider.
+  thumbnailUrl?: string | null;
+  videoProvider?: string | null;
+  bunnyVideoId?: string | null;
   thumb: string;
   title: string;
   titleTa: string;
@@ -202,6 +209,9 @@ export function AdminFeedContent() {
       stripAdHost: form.stripAdHost,
       bannerAfter: form.bannerAfter,
       videoUrl: form.videoUrl.trim() || null,
+      thumbnailUrl: form.thumbnailUrl,
+      videoProvider: form.videoProvider,
+      bunnyVideoId: form.bunnyVideoId,
       attachedCampaignId: form.attachedCampaignId || null,
     };
 
@@ -407,6 +417,24 @@ function FeedFormModal({
     });
   };
 
+  /**
+   * A finished Bunny upload fills the form; the existing Save button persists
+   * it. Nothing is written to the database here, so this behaves the same in
+   * "Add" (no row yet) and "Edit" — matching the DyneTube flow it replaces.
+   */
+  const onBunnyComplete = (r: BunnyUploadResult) => {
+    setForm((f) => ({
+      ...f,
+      videoUrl: r.videoUrl,
+      thumbnailUrl: r.thumbnailUrl,
+      videoProvider: r.videoProvider,
+      bunnyVideoId: r.bunnyVideoId,
+      // Bunny generates a real poster frame; adopt it unless the admin has
+      // already chosen an image (same rule autoThumbnail() follows for YouTube).
+      thumb: !thumbTouched && r.thumbnailUrl ? r.thumbnailUrl : f.thumb,
+    }));
+  };
+
   const previewThumb = form.thumb || autoThumbnail(form.videoUrl) || '';
 
   const submit = async () => {
@@ -434,7 +462,7 @@ function FeedFormModal({
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
-      <DyneTubeUpload onUploaded={onVideoUrl} />
+      <BunnyUpload table="feed_reels" title={form.title} onComplete={onBunnyComplete} />
 
       <Field
         label="Thumbnail URL"

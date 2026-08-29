@@ -12,7 +12,7 @@ import {
   createDocumentary, updateDocumentary, deleteDocumentary,
   publishDocumentary, unpublishDocumentary,
 } from '@/services/admin-writes';
-import { DyneTubeUpload } from '@/components/DyneTubeUpload';
+import { BunnyUpload, type BunnyUploadResult } from '@/components/BunnyUpload';
 import { pexelsUrl } from '@/data/mockData';
 import { useToast } from '@/components/admin/Toast';
 import { useCategoryOptions } from '@/hooks/useCategoryOptions';
@@ -33,6 +33,13 @@ interface DocForm {
   poster: string;
   backdrop: string;
   videoUrl: string;
+  // Bunny provenance, set only by a successful BunnyUpload. Left undefined for
+  // legacy (YouTube / DyneTube / manual URL) rows: the row mappers treat
+  // undefined as "leave this column alone", so saving such a row never blanks
+  // its thumbnail_url or rewrites its video_provider.
+  thumbnailUrl?: string | null;
+  videoProvider?: string | null;
+  bunnyVideoId?: string | null;
   year: number;
   language: string;
   synopsis: string;
@@ -126,6 +133,9 @@ export function AdminDocumentaries() {
       director: form.director.trim() || null,
       cast: form.cast.split(',').map((c) => c.trim()).filter(Boolean),
       videoUrl: form.videoUrl.trim() || null,
+      thumbnailUrl: form.thumbnailUrl,
+      videoProvider: form.videoProvider,
+      bunnyVideoId: form.bunnyVideoId,
       status: form.status,
     };
     if (editing === 'new') {
@@ -284,6 +294,24 @@ function DocFormModal({
     });
   };
 
+  /**
+   * A finished Bunny upload fills the form; the existing Save button persists
+   * it. Nothing is written to the database here, so this behaves the same in
+   * "Add" (no row yet) and "Edit" — matching the DyneTube flow it replaces.
+   */
+  const onBunnyComplete = (r: BunnyUploadResult) => {
+    setForm((f) => ({
+      ...f,
+      videoUrl: r.videoUrl,
+      thumbnailUrl: r.thumbnailUrl,
+      videoProvider: r.videoProvider,
+      bunnyVideoId: r.bunnyVideoId,
+      // Bunny generates a real poster frame; adopt it unless the admin has
+      // already chosen an image (same rule autoThumbnail() follows for YouTube).
+      poster: !posterTouched && r.thumbnailUrl ? r.thumbnailUrl : f.poster,
+    }));
+  };
+
   const submit = async () => {
     if (!form.title.trim()) { toast.error('Title (English) is required'); return; }
     setSaving(true);
@@ -302,7 +330,7 @@ function DocFormModal({
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
-      <DyneTubeUpload onUploaded={onVideoUrl} />
+      <BunnyUpload table="documentaries" title={form.title} onComplete={onBunnyComplete} />
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Poster image" hint="Portrait 2:3">

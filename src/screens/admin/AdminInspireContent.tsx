@@ -12,7 +12,7 @@ import {
   createInspireItem, updateInspireItem, deleteInspireItem, setInspireStatus,
 } from '@/services/admin-writes';
 import { fetchSponsorOptions } from '@/services/admin-campaigns';
-import { DyneTubeUpload } from '@/components/DyneTubeUpload';
+import { BunnyUpload, type BunnyUploadResult } from '@/components/BunnyUpload';
 import { pexelsUrl } from '@/data/mockData';
 import { useToast } from '@/components/admin/Toast';
 import { useCategoryOptions } from '@/hooks/useCategoryOptions';
@@ -32,6 +32,13 @@ interface InspireForm {
   durationSec: number;
   poster: string;
   videoUrl: string;
+  // Bunny provenance, set only by a successful BunnyUpload. Left undefined for
+  // legacy (YouTube / DyneTube / manual URL) rows: the row mappers treat
+  // undefined as "leave this column alone", so saving such a row never blanks
+  // its thumbnail_url or rewrites its video_provider.
+  thumbnailUrl?: string | null;
+  videoProvider?: string | null;
+  bunnyVideoId?: string | null;
   quote: string;
   attribution: string;
   badge: string;
@@ -118,6 +125,9 @@ export function AdminInspireContent() {
       attribution: form.attribution.trim() || null,
       badge: form.badge || null,
       videoUrl: form.videoUrl.trim() || null,
+      thumbnailUrl: form.thumbnailUrl,
+      videoProvider: form.videoProvider,
+      bunnyVideoId: form.bunnyVideoId,
       status: form.status,
       isSponsored: form.isSponsored,
       sponsorId: form.isSponsored ? (form.sponsorId || null) : null,
@@ -283,6 +293,24 @@ function InspireFormModal({
     });
   };
 
+  /**
+   * A finished Bunny upload fills the form; the existing Save button persists
+   * it. Nothing is written to the database here, so this behaves the same in
+   * "Add" (no row yet) and "Edit" — matching the DyneTube flow it replaces.
+   */
+  const onBunnyComplete = (r: BunnyUploadResult) => {
+    setForm((f) => ({
+      ...f,
+      videoUrl: r.videoUrl,
+      thumbnailUrl: r.thumbnailUrl,
+      videoProvider: r.videoProvider,
+      bunnyVideoId: r.bunnyVideoId,
+      // Bunny generates a real poster frame; adopt it unless the admin has
+      // already chosen an image (same rule autoThumbnail() follows for YouTube).
+      poster: !posterTouched && r.thumbnailUrl ? r.thumbnailUrl : f.poster,
+    }));
+  };
+
   const submit = async () => {
     if (!form.title.trim()) { toast.error('Title (English) is required'); return; }
     if (form.isSponsored && !form.sponsorId) { toast.error('Pick the sponsor, or turn sponsorship off'); return; }
@@ -302,7 +330,7 @@ function InspireFormModal({
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
-      <DyneTubeUpload onUploaded={onVideoUrl} />
+      <BunnyUpload table="inspire_items" title={form.title} onComplete={onBunnyComplete} />
 
       <Field label="Poster / Thumbnail" hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the YouTube URL — edit to override.' : 'URL or Pexels photo id.'}>
         <TextInput value={form.poster} onChange={(e) => { setPosterTouched(true); set('poster', e.target.value); }} />

@@ -32,6 +32,32 @@ export async function logAudit(action: string): Promise<void> {
   }
 }
 
+
+/**
+ * Provenance for a video asset, shared by every table carrying `video_url`
+ * (documentaries, feed_reels, inspire_items, live_slots). Written by the Bunny
+ * upload widget via form state; see supabase/bunny_video_fields.sql.
+ */
+export interface VideoSourceInput {
+  thumbnailUrl?: string | null;
+  videoProvider?: string | null;
+  bunnyVideoId?: string | null;
+}
+
+/**
+ * Copy the Bunny provenance fields onto a row payload.
+ *
+ * Each mapper below treats `undefined` as "leave this column alone", which is
+ * what protects legacy rows: an editor that did not run an upload leaves all
+ * three undefined, so saving an existing DyneTube/YouTube row never blanks its
+ * thumbnail_url or rewrites its video_provider.
+ */
+function applyVideoSource(input: Partial<VideoSourceInput>, row: Record<string, unknown>): void {
+  if (input.thumbnailUrl !== undefined) row.thumbnail_url = input.thumbnailUrl;
+  if (input.videoProvider !== undefined) row.video_provider = input.videoProvider;
+  if (input.bunnyVideoId !== undefined) row.bunny_video_id = input.bunnyVideoId;
+}
+
 // ===========================================================================
 // SPONSORS (management)
 // ===========================================================================
@@ -45,7 +71,7 @@ export async function setSponsorStatus(id: string, status: string, name?: string
 // ===========================================================================
 // DOCUMENTARIES
 // ===========================================================================
-export interface DocumentaryInput {
+export interface DocumentaryInput extends VideoSourceInput {
   title: string;
   titleTa: string;
   genre: string;
@@ -82,6 +108,7 @@ function docToRow(input: Partial<DocumentaryInput>): Record<string, unknown> {
   if (input.cast !== undefined) row.cast = input.cast;
   if (input.videoUrl !== undefined) row.video_url = toEmbedUrl(input.videoUrl);
   if (input.status !== undefined) row.status = input.status;
+  applyVideoSource(input, row);
   return row;
 }
 
@@ -129,7 +156,7 @@ export async function unpublishDocumentary(id: string, title?: string) {
 // ===========================================================================
 // FEED REELS
 // ===========================================================================
-export interface FeedReelInput {
+export interface FeedReelInput extends VideoSourceInput {
   title: string;
   titleTa: string;
   caption: string;
@@ -167,6 +194,7 @@ function reelToRow(input: Partial<FeedReelInput>): Record<string, unknown> {
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
   if (input.videoUrl !== undefined) row.video_url = toEmbedUrl(input.videoUrl);
   if (input.attachedCampaignId !== undefined) row.attached_campaign = input.attachedCampaignId;
+  applyVideoSource(input, row);
   return row;
 }
 
@@ -240,7 +268,7 @@ export async function reorderFeedReels(orderedIds: string[]) {
 // ===========================================================================
 // LIVE SLOTS
 // ===========================================================================
-export interface LiveSlotInput {
+export interface LiveSlotInput extends VideoSourceInput {
   title: string;
   titleTa: string;
   description: string;
@@ -267,6 +295,7 @@ function slotToRow(input: Partial<LiveSlotInput>): Record<string, unknown> {
   if (input.breakAfterSec !== undefined) row.break_after_sec = input.breakAfterSec;
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
   if (input.airDate !== undefined) row.air_date = input.airDate;
+  applyVideoSource(input, row);
   return row;
 }
 
@@ -293,7 +322,7 @@ export async function deleteLiveSlot(id: string, title?: string) {
 // ===========================================================================
 // INSPIRE ITEMS
 // ===========================================================================
-export interface InspireItemInput {
+export interface InspireItemInput extends VideoSourceInput {
   title: string;
   titleTa: string;
   category: string;
@@ -326,6 +355,7 @@ function inspireToRow(input: Partial<InspireItemInput>): Record<string, unknown>
   if (input.sponsorLogoUrl !== undefined) row.sponsor_logo_url = input.sponsorLogoUrl;
   if (input.sortOrder !== undefined) row.sort_order = input.sortOrder;
   if (input.status !== undefined) row.status = input.status;
+  applyVideoSource(input, row);
   return row;
 }
 

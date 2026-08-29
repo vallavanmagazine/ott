@@ -12,7 +12,7 @@ import { Plus, Tv, Trash2, Pencil, Radio, Clock, AlertTriangle } from 'lucide-re
 import { fetchAdminLiveSlots, fetchAirDates, type AdminLiveSlot } from '@/services/live';
 import { createLiveSlot, updateLiveSlot, deleteLiveSlot } from '@/services/admin-writes';
 import { fetchBroadcastConfig, updateBroadcastConfig } from '@/services/broadcast';
-import { DyneTubeUpload } from '@/components/DyneTubeUpload';
+import { BunnyUpload, type BunnyUploadResult } from '@/components/BunnyUpload';
 import { pexelsUrl } from '@/data/mockData';
 import { useToast } from '@/components/admin/Toast';
 import { autoThumbnail, videoKindLabel } from '@/lib/video';
@@ -30,6 +30,13 @@ interface SlotForm {
   description: string;
   thumb: string;
   videoUrl: string;
+  // Bunny provenance, set only by a successful BunnyUpload. Left undefined for
+  // legacy (YouTube / DyneTube / manual URL) rows: the row mappers treat
+  // undefined as "leave this column alone", so saving such a row never blanks
+  // its thumbnail_url or rewrites its video_provider.
+  thumbnailUrl?: string | null;
+  videoProvider?: string | null;
+  bunnyVideoId?: string | null;
   startTime24: string;
   durationMin: number;
   airDate: string;
@@ -152,6 +159,9 @@ export function AdminLiveTV() {
       startTime24: form.startTime24,
       durationMin: Number(form.durationMin) || 30,
       videoUrl: form.videoUrl.trim() || null,
+      thumbnailUrl: form.thumbnailUrl,
+      videoProvider: form.videoProvider,
+      bunnyVideoId: form.bunnyVideoId,
       isLive: form.isLive,
       airDate: form.airDate,
       breakAfterSec: Number(form.breakAfterSec) || 0,
@@ -361,6 +371,24 @@ function SlotFormModal({
     });
   };
 
+  /**
+   * A finished Bunny upload fills the form; the existing Save button persists
+   * it. Nothing is written to the database here, so this behaves the same in
+   * "Add" (no row yet) and "Edit" — matching the DyneTube flow it replaces.
+   */
+  const onBunnyComplete = (r: BunnyUploadResult) => {
+    setForm((f) => ({
+      ...f,
+      videoUrl: r.videoUrl,
+      thumbnailUrl: r.thumbnailUrl,
+      videoProvider: r.videoProvider,
+      bunnyVideoId: r.bunnyVideoId,
+      // Bunny generates a real poster frame; adopt it unless the admin has
+      // already chosen an image (same rule autoThumbnail() follows for YouTube).
+      thumb: !thumbTouched && r.thumbnailUrl ? r.thumbnailUrl : f.thumb,
+    }));
+  };
+
   const endsAt = useMemo(() => {
     const [h, m] = form.startTime24.split(':').map((n) => parseInt(n, 10) || 0);
     const total = (h * 60 + m + (Number(form.durationMin) || 0)) % DAY_MINUTES;
@@ -404,7 +432,7 @@ function SlotFormModal({
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
-      <DyneTubeUpload onUploaded={onVideoUrl} />
+      <BunnyUpload table="live_slots" title={form.title} onComplete={onBunnyComplete} />
 
       <Field label="Thumbnail URL" hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the YouTube URL — edit to override.' : 'Full image URL, or a Pexels photo id.'}>
         <TextInput
