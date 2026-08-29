@@ -29,9 +29,16 @@ enum GenreType {
   YouthVoices    @map("Youth Voices")
 }
 
-enum ContentStatus { Published Draft }
+enum ContentStatus {
+  Published
+  Draft
+}
 
-enum FeedStatus { Published Draft Scheduled }
+enum FeedStatus {
+  Published
+  Draft
+  Scheduled
+}
 
 enum FeedContentType {
   News
@@ -48,10 +55,31 @@ enum CampaignStatus {
   Ended
 }
 
-enum UserRole { Viewer Sponsor Creator Admin }
-enum UserStatus { Active Suspended Pending }
-enum SponsorStatus { Active Pending Suspended }
-enum NotificationType { episode live sponsor system }
+enum UserRole {
+  Viewer
+  Sponsor
+  Creator
+  Admin
+}
+
+enum UserStatus {
+  Active
+  Suspended
+  Pending
+}
+
+enum SponsorStatus {
+  Active
+  Pending
+  Suspended
+}
+
+enum NotificationType {
+  episode
+  live
+  sponsor
+  system
+}
 
 // ---------- Content ----------
 model Documentary {
@@ -77,6 +105,14 @@ model Documentary {
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  // Video source. video_url arrived via supabase/rls_and_tables.sql, the three
+  // Bunny columns via supabase/bunny_video_fields.sql — all four are ALTERs, so
+  // they are nullable in the live table regardless of what the CMS always writes.
+  videoUrl      String? @map("video_url")
+  videoProvider String? @default("legacy") @map("video_provider")
+  bunnyVideoId  String? @map("bunny_video_id")
+  thumbnailUrl  String? @map("thumbnail_url")
+
   @@map("documentaries")
 }
 
@@ -93,6 +129,17 @@ model InspireItem {
   sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  // Publish state — added by supabase/admin_dashboard.sql as plain text, NOT the
+  // content_status enum the other content tables use. Modelled as String to match
+  // the column as it actually exists.
+  status        String  @default("Published")
+
+  // Video source — see the note on Documentary.
+  videoUrl      String? @map("video_url")
+  videoProvider String? @default("legacy") @map("video_provider")
+  bunnyVideoId  String? @map("bunny_video_id")
+  thumbnailUrl  String? @map("thumbnail_url")
+
   @@map("inspire_items")
 }
 
@@ -108,6 +155,16 @@ model LiveSlot {
   airDate     DateTime @default(now()) @map("air_date") @db.Date
   sortOrder   Int      @default(0) @map("sort_order")
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Seconds of programming before the playout rig cuts an ad break — added by
+  // supabase/admin_dashboard.sql.
+  breakAfterSec Int?    @default(60) @map("break_after_sec")
+
+  // Video source — see the note on Documentary.
+  videoUrl      String? @map("video_url")
+  videoProvider String? @default("legacy") @map("video_provider")
+  bunnyVideoId  String? @map("bunny_video_id")
+  thumbnailUrl  String? @map("thumbnail_url")
 
   @@map("live_slots")
 }
@@ -135,6 +192,13 @@ model FeedReel {
   sortOrder        Int             @default(0) @map("sort_order")
   createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   campaign         Campaign?       @relation(fields: [attachedCampaign], references: [id])
+
+  // Video source — see the note on Documentary. feed_reels.video_url arrived via
+  // supabase/video_urls.sql.
+  videoUrl         String?         @map("video_url")
+  videoProvider    String?         @default("legacy") @map("video_provider")
+  bunnyVideoId     String?         @map("bunny_video_id")
+  thumbnailUrl     String?         @map("thumbnail_url")
 
   @@map("feed_reels")
 }

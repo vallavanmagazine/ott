@@ -7,6 +7,7 @@ import { AiModule } from './ai/ai.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { SocialModule } from './social/social.module';
 import { DyneTubeModule } from './dynetube/dynetube.module';
+import { BunnyModule } from './bunny/bunny.module';
 import { PaymentsModule } from './payments/payments.module';
 
 @Module({
@@ -19,6 +20,7 @@ import { PaymentsModule } from './payments/payments.module';
     MessagingModule,
     SocialModule,
     DyneTubeModule,
+    BunnyModule,
     PaymentsModule,
   ],
 })
