@@ -9,6 +9,7 @@ import '../services/ads_service.dart';
 import '../services/feed_service.dart';
 import '../utils/formatters.dart';
 import '../utils/video.dart';
+import '../utils/share.dart';
 import '../widgets/ad_strip.dart';
 
 /// One slot in the vertical feed: either a reel (optionally carrying a strip
@@ -340,7 +341,10 @@ class _ReelViewState extends State<_ReelView> {
               () => setState(() => _liked = !_liked),
               color: _liked ? AppColors.red : Colors.white),
           _action(Icons.chat_bubble_outline, formatCount(r.comments), () {}),
-          _action(Icons.share_outlined, formatCount(r.shares), () {}),
+          // Shares the seo-site URL, which server-renders per-reel OpenGraph
+          // tags so the link previews properly. See utils/share.dart.
+          _action(Icons.share_outlined, formatCount(r.shares),
+              () => shareContent(kind: ShareKind.reel, id: r.id, title: r.title)),
           _action(widget.muted ? Icons.volume_off : Icons.volume_up, '', widget.onToggleMute),
         ])),
         Positioned(

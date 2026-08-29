@@ -6,6 +6,7 @@ import '../config/theme.dart';
 import '../models/feed_reel.dart';
 import '../utils/formatters.dart';
 import '../utils/video.dart';
+import '../utils/share.dart';
 
 /// Detail view for a single feed reel, reached from Search.
 ///
@@ -133,7 +134,10 @@ class _ReelDetailScreenState extends State<ReelDetailScreen> {
               () => setState(() => _liked = !_liked),
               color: _liked ? AppColors.red : Colors.white),
           _action(Icons.chat_bubble_outline, formatCount(r.comments), () {}),
-          _action(Icons.share_outlined, formatCount(r.shares), () {}),
+          // Shares the seo-site URL, which server-renders per-reel OpenGraph
+          // tags so the link previews properly. See utils/share.dart.
+          _action(Icons.share_outlined, formatCount(r.shares),
+              () => shareContent(kind: ShareKind.reel, id: r.id, title: r.title)),
         ])),
         Positioned(
           left: 16,
