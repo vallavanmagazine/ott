@@ -21,17 +21,23 @@ export class BunnyController {
   /**
    * Reserve a Bunny video and hand back TUS upload credentials.
    *
-   * `table` and `recordId` are validated and echoed so the caller can carry them
-   * through to confirm(), but no row is written yet — an abandoned upload leaves
-   * the content row exactly as it was.
+   * Only `title` is required. `table` and `recordId` are optional correlation
+   * hints, echoed back when supplied: the admin UI starts an upload from an
+   * "Add" modal where no row exists yet, so demanding a recordId here would
+   * make the widget unusable for new content. Nothing is written to the
+   * database by this call either way — an abandoned upload leaves every content
+   * row exactly as it was.
+   *
+   * `table` is still allowlist-checked when present, so a bad value fails here
+   * rather than silently travelling to confirm().
    */
   @Post('upload-init')
   async uploadInit(@Body() body: { table?: string; recordId?: string; title?: string }) {
-    const table = assertVideoTable(body?.table);
-    const recordId = (body?.recordId ?? '').trim();
     const title = (body?.title ?? '').trim();
-    if (!recordId) throw new BadRequestException('recordId is required');
     if (!title) throw new BadRequestException('title is required');
+
+    const table = body?.table ? assertVideoTable(body.table) : undefined;
+    const recordId = (body?.recordId ?? '').trim() || undefined;
 
     const { videoGuid } = await this.bunny.createVideo(title);
     const ticket = await this.bunny.getUploadSignature(videoGuid);
