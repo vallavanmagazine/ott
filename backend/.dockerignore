@@ -1,0 +1,16 @@
+# Keep the build context small and secrets out of the image.
+#
+# .env matters most: it holds SUPABASE_SERVICE_ROLE_KEY and the Bunny Stream
+# key. It is passed in at run time (--env-file) so it never becomes an image
+# layer — layers persist even if a later step deletes the file.
+node_modules
+dist
+.env
+.env.*
+*.log
+
+# Never needed inside the image, and .git in particular would drag the whole
+# history into the build context.
+.git
+.gitignore
+README.md
