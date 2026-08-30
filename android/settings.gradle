@@ -18,7 +18,14 @@ pluginManagement {
 
 plugins {
     id "dev.flutter.flutter-plugin-loader" version "1.0.0"
-    id "com.android.application" version "8.3.0" apply false
+    // 8.6.x is the floor for androidx.core:core:1.16.0, which the dependency
+    // graph now pulls in ("requires Android Gradle plugin 8.6.0 or higher").
+    // Deliberately NOT higher: AGP 8.7 would require Gradle 8.9, and Flutter
+    // 3.27.3 declares 8.7 as its maxKnownAndSupportedGradleVersion, so going
+    // further trades a fixed build for tooling that is past what this Flutter
+    // release knows about. AGP 8.6 pairs with Gradle 8.7, which the wrapper
+    // already uses — see gradle/wrapper/gradle-wrapper.properties.
+    id "com.android.application" version "8.6.1" apply false
     id "org.jetbrains.kotlin.android" version "1.9.24" apply false
 }
 
