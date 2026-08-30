@@ -15,17 +15,21 @@ export function ShareSheet({
   title,
   url,
   onClose,
+  onShared,
 }: {
   title: string;
   url: string;
   onClose: () => void;
+  /** Fired once the share actually leaves the app — a copied link or a picked
+   *  channel. Opening the sheet is not a share, so it does not fire here. */
+  onShared?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const links = contentShareLinks(url, title);
 
   const copy = () => {
     navigator.clipboard?.writeText(url).then(
-      () => { setCopied(true); setTimeout(() => setCopied(false), 1500); },
+      () => { setCopied(true); setTimeout(() => setCopied(false), 1500); onShared?.(); },
       () => { /* clipboard blocked — the URL is visible in the field regardless */ },
     );
   };
@@ -56,7 +60,7 @@ export function ShareSheet({
           </button>
         </div>
 
-        <div className="flex gap-2 mt-2">
+        <div className="flex gap-2 mt-2" onClick={() => onShared?.()}>
           <a href={links.whatsapp} target="_blank" rel="noreferrer" className="flex-1 py-2.5 rounded-full glass text-white text-xs font-bold flex items-center justify-center gap-1.5"><MessageCircle size={14} /> WhatsApp</a>
           <a href={links.sms} className="flex-1 py-2.5 rounded-full glass text-white text-xs font-bold flex items-center justify-center gap-1.5"><MessageCircle size={14} /> SMS</a>
           <a href={links.email} className="flex-1 py-2.5 rounded-full glass text-white text-xs font-bold flex items-center justify-center gap-1.5"><Mail size={14} /> Email</a>

@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Heart, MessageCircle, Share2, Volume2, VolumeX,
+  Heart, Share2, Volume2, VolumeX,
   ChevronUp, ChevronDown, Play, ArrowRight, Bell, Cast, Tv,
 } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
 import { ShareSheet } from '@/components/ShareSheet';
 import { nativeShare, shareRef, shareUrl } from '@/services/share';
+import { bumpFeedMetric } from '@/services/feed-metrics';
+import { getLikedReels, setReelLiked } from '@/lib/library';
 import {
   genreColors,
   pexelsUrl,
@@ -14,7 +16,7 @@ import {
 } from '@/data/mockData';
 import { fetchFeedReels } from '@/services/feed';
 import { fetchAds } from '@/services/ads';
-import { detectVideoKind, youtubeEmbedUrl } from '@/lib/video-player';
+import { attachVideo, detectVideoKind, youtubeEmbedUrl } from '@/lib/video-player';
 
 interface FeedItem {
   type: 'reel';
@@ -49,6 +51,12 @@ function buildFeedSequence(feedReels: FeedReel[], ads: AdContent[]): Item[] {
 
   return items;
 }
+
+/** "1:07" from a number of seconds; "0:00" for an unknown duration. */
+const clock = (sec: number): string => {
+  const s = Number.isFinite(sec) && sec > 0 ? Math.floor(sec) : 0;
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
 
 const formatCount = (n: number): string => {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -95,7 +103,8 @@ export function FeedScreen({
   // FIX 3: no categories - latest first. Text search lives in the Search tab.
   const items = buildFeedSequence(rawReels, allAds);
   const [muted, setMuted] = useState(true);
-  const [liked, setLiked] = useState<Set<string>>(new Set());
+  // Seeded from localStorage so a reload cannot count the same like twice.
+  const [liked, setLiked] = useState<Set<string>>(() => new Set(getLikedReels()));
   const [overlayVisible, setOverlayVisible] = useState(true);
   const overlayTimer = useRef<ReturnType<typeof setTimeout>>();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -154,14 +163,49 @@ export function FeedScreen({
     return () => window.removeEventListener('keydown', onKey);
   }, [activeIdx, scrollToIndex]);
 
-  const toggleLike = (id: string) => {
+  /** Move a reel's counter and settle on whatever the database ends up holding. */
+  const bumpCount = useCallback(async (id: string, metric: 'likes' | 'shares', delta: 1 | -1) => {
+    // Optimistic first: the tap has to feel instant, and the number beside the
+    // icon must never disagree with the icon's own state.
+    setRawReels((prev) => prev.map((r) => (
+      r.id === id ? { ...r, [metric]: Math.max(0, (r[metric] ?? 0) + delta) } : r
+    )));
+    try {
+      const settled = await bumpFeedMetric(id, metric, delta);
+      setRawReels((prev) => prev.map((r) => (r.id === id ? { ...r, [metric]: settled } : r)));
+      return true;
+    } catch (e) {
+      // Roll the optimistic step back rather than leave a count that no refresh
+      // will reproduce.
+      console.error(`Could not persist ${metric}:`, e);
+      setRawReels((prev) => prev.map((r) => (
+        r.id === id ? { ...r, [metric]: Math.max(0, (r[metric] ?? 0) - delta) } : r
+      )));
+      return false;
+    }
+  }, []);
+
+  const toggleLike = useCallback(async (id: string) => {
+    const nowLiked = !liked.has(id);
     setLiked((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (nowLiked) next.add(id); else next.delete(id);
       return next;
     });
-  };
+    setReelLiked(id, nowLiked);
+
+    if (!(await bumpCount(id, 'likes', nowLiked ? 1 : -1))) {
+      // The write failed; put the heart back so it matches the stored count.
+      setLiked((prev) => {
+        const next = new Set(prev);
+        if (nowLiked) next.delete(id); else next.add(id);
+        return next;
+      });
+      setReelLiked(id, !nowLiked);
+    }
+  }, [liked, bumpCount]);
+
+  const countShare = useCallback((id: string) => { void bumpCount(id, 'shares', 1); }, [bumpCount]);
 
   // Height: full viewport minus bottom nav (mobile/tablet) or side rail offset (desktop/TV)
   const isSideNav = device.isDesktop || device.isTV;
@@ -213,6 +257,9 @@ export function FeedScreen({
                 onToggleMute={() => setMuted((m) => !m)}
                 liked={liked.has(item.reel.id)}
                 onLike={() => toggleLike(item.reel.id)}
+                onShared={() => countShare(item.reel.id)}
+                onEnded={() => scrollToIndex(i + 1)}
+                isLast={i === items.length - 1}
               />
             ) : (
               <BannerReel ad={item.ad} />
@@ -335,6 +382,9 @@ function ReelCard({
   onToggleMute,
   liked,
   onLike,
+  onShared,
+  onEnded,
+  isLast,
 }: {
   reel: FeedReel;
   stripAd?: AdContent;
@@ -344,11 +394,111 @@ function ReelCard({
   onToggleMute: () => void;
   liked: boolean;
   onLike: () => void;
+  /** A share that actually left the app — used to increment feed_reels.shares. */
+  onShared: () => void;
+  /** Playback reached the end; the feed advances to the next item. */
+  onEnded: () => void;
+  isLast: boolean;
 }) {
   const device = useDevice();
   const genreColor = genreColors[reel.genre] || '#666';
-  const likeCount = reel.likes + (liked ? 1 : 0);
+  // The count comes from the row itself now; the parent moves it optimistically
+  // and reconciles with the database, so nothing is derived from `liked` here.
+  const likeCount = reel.likes ?? 0;
   const [sharing, setSharing] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const kind = detectVideoKind(reel.videoUrl);
+  /** The HTML5 <video> path. YouTube goes through an iframe, which self-plays. */
+  const isHtml5 = kind === 'mp4' || kind === 'hls';
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState({ t: 0, d: 0 });
+  const [volume, setVolume] = useState(1);
+
+  /**
+   * This is what actually makes a Bunny video load.
+   *
+   * The element used to carry `src={reel.videoUrl}` directly. A Bunny playback
+   * URL is an HLS manifest (…/playlist.m3u8), and a bare <video src> only plays
+   * HLS on Safari — Chrome, Edge and Firefox have no demuxer for a manifest, so
+   * nothing streams and no segment is ever fetched. attachVideo() is the helper
+   * VideoPlayerScreen has been using all along: it lazy-imports hls.js and calls
+   * loadSource(url) + attachMedia(video), and hls.js is what issues the XHR for
+   * playlist.m3u8 and then for every media segment. FeedScreen simply never
+   * called it.
+   */
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !active || !isHtml5 || !reel.videoUrl) return;
+    return attachVideo(v, reel.videoUrl);
+  }, [active, isHtml5, reel.videoUrl]);
+
+  // Mirror the element's real state instead of assuming it: autoplay can be
+  // refused, hls.js starts playback asynchronously, and the scrub bar has to
+  // follow the media rather than a timer of our own.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const sync = () => setPlaying(!v.paused);
+    const onTime = () => setProgress({ t: v.currentTime, d: Number.isFinite(v.duration) ? v.duration : 0 });
+    const onVol = () => { setVolume(v.volume); };
+    sync(); onTime(); onVol();
+    v.addEventListener('play', sync);
+    v.addEventListener('pause', sync);
+    v.addEventListener('timeupdate', onTime);
+    v.addEventListener('loadedmetadata', onTime);
+    v.addEventListener('durationchange', onTime);
+    v.addEventListener('volumechange', onVol);
+    return () => {
+      v.removeEventListener('play', sync);
+      v.removeEventListener('pause', sync);
+      v.removeEventListener('timeupdate', onTime);
+      v.removeEventListener('loadedmetadata', onTime);
+      v.removeEventListener('durationchange', onTime);
+      v.removeEventListener('volumechange', onVol);
+    };
+  }, [active, isHtml5]);
+
+  /** Scrub. Guarded on a known duration — seeking an unloaded media throws. */
+  const seekTo = (seconds: number) => {
+    const v = videoRef.current;
+    if (!v || !Number.isFinite(v.duration) || v.duration <= 0) return;
+    v.currentTime = Math.max(0, Math.min(v.duration, seconds));
+  };
+
+  const setVideoVolume = (next: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.volume = Math.max(0, Math.min(1, next));
+    // Nudging the slider off zero is an unmute request; muted audio would
+    // otherwise make the control look broken.
+    if (v.volume > 0 && muted) onToggleMute();
+  };
+
+  // Autoplay on scroll-into-view; stop and rewind on scroll-away so an
+  // off-screen reel never keeps streaming or playing audio.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !isHtml5) return;
+    if (active) {
+      v.play().catch(() => { /* refused until a gesture — the Play button covers that */ });
+    } else {
+      v.pause();
+      v.currentTime = 0;
+    }
+  }, [active, isHtml5]);
+
+  /**
+   * The overlay tap target. It was wired to onToggleMute, so the Play glyph
+   * toggled the sound of a video that had never started — the button could not
+   * begin playback under any circumstances.
+   */
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) { onToggleMute(); return; }  // image-only reel: keep the old tap behaviour
+    if (v.paused) v.play().catch(() => {});
+    else v.pause();
+  };
 
   /**
    * Share this reel. Points at seo-site's /feed/{slug}, which server-renders
@@ -358,7 +508,10 @@ function ReelCard({
    */
   const onShare = async () => {
     const url = shareUrl('reel', shareRef(reel));
-    if ((await nativeShare(reel.title, url)) === 'unsupported') setSharing(true);
+    const outcome = await nativeShare(reel.title, url);
+    // 'dismissed' means the OS sheet was cancelled — not a share, not counted.
+    if (outcome === 'shared') onShared();
+    else if (outcome === 'unsupported') setSharing(true);
   };
 
   return (
@@ -367,8 +520,21 @@ function ReelCard({
       <div className="absolute inset-0">
         {active && reel.videoUrl && detectVideoKind(reel.videoUrl) === 'youtube' ? (
           <iframe src={youtubeEmbedUrl(reel.videoUrl)} title={reel.title} className="w-full h-full" allow="autoplay; encrypted-media; picture-in-picture" />
-        ) : active && reel.videoUrl && (detectVideoKind(reel.videoUrl) === 'mp4' || detectVideoKind(reel.videoUrl) === 'hls') ? (
-          <video src={reel.videoUrl} className="w-full h-full object-cover" autoPlay muted={muted} loop playsInline />
+        ) : active && reel.videoUrl && isHtml5 ? (
+          // No `src` here on purpose — attachVideo() owns the source, because
+          // an HLS manifest has to go through hls.js on every non-Safari browser.
+          <video
+            ref={videoRef}
+            poster={pexelsUrl(reel.thumb, 1080)}
+            className="w-full h-full object-cover"
+            muted={muted}
+            // Only the final reel loops: everywhere else the feed moves on, which
+            // is what a vertical short-form feed is expected to do.
+            loop={isLast}
+            playsInline
+            preload="auto"
+            onEnded={onEnded}
+          />
         ) : (
           <img
             src={pexelsUrl(reel.thumb, 1080)}
@@ -380,13 +546,17 @@ function ReelCard({
         <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
       </div>
 
-      {/* Play indicator (since we use image, not video) */}
+      {/* Tap anywhere to play/pause. The glyph now follows the element's real
+          state, so it stops sitting permanently over a playing video. */}
       {active && (
         <button
-          onClick={onToggleMute}
+          onClick={togglePlay}
+          aria-label={playing ? 'Pause' : 'Play'}
           className="absolute inset-0 flex items-center justify-center z-10"
         >
-          <div className="w-16 h-16 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center active:scale-90 transition">
+          <div
+            className={`w-16 h-16 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-opacity ${playing ? 'opacity-0' : 'opacity-100'}`}
+          >
             <Play size={28} fill="white" className="text-white ml-1" />
           </div>
         </button>
@@ -400,12 +570,6 @@ function ReelCard({
           </div>
           <span className="text-[10px] font-bold text-white drop-shadow">{formatCount(likeCount)}</span>
         </button>
-        <button className="flex flex-col items-center gap-1 active:scale-90 transition">
-          <div className="w-12 h-12 rounded-full glass-strong flex items-center justify-center">
-            <MessageCircle size={22} className="text-white" />
-          </div>
-          <span className="text-[10px] font-bold text-white drop-shadow">{formatCount(reel.comments)}</span>
-        </button>
         <button onClick={onShare} aria-label="Share" className="flex flex-col items-center gap-1 active:scale-90 transition">
           <div className="w-12 h-12 rounded-full glass-strong flex items-center justify-center">
             <Share2 size={22} className="text-white" />
@@ -414,12 +578,60 @@ function ReelCard({
         </button>
 
         {sharing && (
-          <ShareSheet title={reel.title} url={shareUrl('reel', shareRef(reel))} onClose={() => setSharing(false)} />
+          <ShareSheet
+            title={reel.title}
+            url={shareUrl('reel', shareRef(reel))}
+            onClose={() => setSharing(false)}
+            onShared={onShared}
+          />
         )}
         <button onClick={onToggleMute} className="w-12 h-12 rounded-full glass-strong flex items-center justify-center active:scale-90 transition">
           {muted ? <VolumeX size={20} className="text-white" /> : <Volume2 size={20} className="text-white" />}
         </button>
       </div>
+
+      {/* Player controls, wired to the real <video> — scrub, elapsed/total and
+          (on pointer devices) a volume slider. Only for the HTML5 path: a
+          YouTube iframe exposes none of this. Stops click propagation so the
+          full-screen play/pause target above does not swallow a scrub. */}
+      {active && isHtml5 && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute bottom-0 left-0 right-0 z-30 pb-[4.5rem] px-4 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] text-white/80 tabular-nums w-9 text-right drop-shadow">{clock(progress.t)}</span>
+            <input
+              type="range"
+              min={0}
+              max={progress.d || 0}
+              step={0.1}
+              value={Math.min(progress.t, progress.d || 0)}
+              onChange={(e) => seekTo(Number(e.target.value))}
+              aria-label="Seek"
+              className="flex-1 h-1 accent-vred cursor-pointer"
+            />
+            <span className="text-[10px] text-white/80 tabular-nums w-9 drop-shadow">{clock(progress.d)}</span>
+            {(device.isDesktop || device.isTV) && (
+              <div className="flex items-center gap-1.5 ml-1">
+                <button onClick={onToggleMute} aria-label={muted ? 'Unmute' : 'Mute'} className="text-white/80 hover:text-white">
+                  {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={muted ? 0 : volume}
+                  onChange={(e) => setVideoVolume(Number(e.target.value))}
+                  aria-label="Volume"
+                  className="w-20 h-1 accent-white cursor-pointer"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Bottom-left: short title only + category tag + duration */}
       <div className={`absolute bottom-0 left-0 right-0 z-20 pb-20 px-4 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}>
