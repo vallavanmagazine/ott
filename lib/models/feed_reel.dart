@@ -1,4 +1,5 @@
 import '../utils/formatters.dart';
+import '../utils/view_ramp.dart';
 
 class FeedReel {
   final String id;
@@ -16,6 +17,15 @@ class FeedReel {
   final int comments;
   final int shares;
   final int views;
+
+  /// Publish timing for the synthetic view floor (see utils/view_ramp.dart).
+  /// `publishedAt` only exists once supabase/feed_view_ramp.sql has run;
+  /// `createdAt` is the fallback, and is the same value for anything published
+  /// straight away.
+  final DateTime? createdAt;
+  final DateTime? publishedAt;
+  final int? initialSeedViews;
+
   final bool stripAdHost;
   final bool bannerAfter;
   final int order;
@@ -42,6 +52,9 @@ class FeedReel {
     this.comments = 0,
     this.shares = 0,
     this.views = 0,
+    this.createdAt,
+    this.publishedAt,
+    this.initialSeedViews,
     this.stripAdHost = false,
     this.bannerAfter = false,
     this.order = 0,
@@ -50,6 +63,15 @@ class FeedReel {
   });
 
   String get duration => formatDuration(durationSec);
+
+  /// What the UI shows: the stored count, or the synthetic floor while it is
+  /// higher. Matches the web SPA exactly — same hash, same generator.
+  int get displayViewCount => displayViews(
+        id: id,
+        publishedAt: publishedAt ?? createdAt,
+        initialSeedViews: initialSeedViews,
+        realViews: views,
+      );
 
   factory FeedReel.fromMap(Map<String, dynamic> r) => FeedReel(
         id: r['id'].toString(),
@@ -68,6 +90,9 @@ class FeedReel {
         comments: (r['comments'] ?? 0) as int,
         shares: (r['shares'] ?? 0) as int,
         views: (r['views'] ?? 0) as int,
+        createdAt: DateTime.tryParse(r['created_at']?.toString() ?? ''),
+        publishedAt: DateTime.tryParse(r['published_at']?.toString() ?? ''),
+        initialSeedViews: r['initial_seed_views'] as int?,
         stripAdHost: r['strip_ad_host'] == true,
         bannerAfter: r['banner_after'] == true,
         order: (r['sort_order'] ?? 0) as int,

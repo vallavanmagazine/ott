@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -11,6 +13,19 @@ import '../utils/formatters.dart';
 import '../utils/video.dart';
 import '../utils/share.dart';
 import '../widgets/ad_strip.dart';
+
+/// A full-screen ad slot goes in after every Nth reel. Mirrors the web SPA's
+/// AD_EVERY_N_REELS so the two feeds have the same shape.
+const int kAdEveryNReels = 3;
+
+/// Fixed time an ad slot holds the screen before the feed moves on. It is
+/// deliberately independent of the creative — a sponsor cannot buy extra screen
+/// time by supplying a longer asset, and an ad still image has no natural end
+/// to wait for the way a video does.
+const Duration kAdDwell = Duration(seconds: 10);
+
+/// Step for the on-screen rewind / forward buttons.
+const int kSkipSeconds = 10;
 
 /// One slot in the vertical feed: either a reel (optionally carrying a strip
 /// ad) or a full-screen sponsored banner.
@@ -40,6 +55,10 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _loading = true;
   final _controller = PageController();
 
+  /// Pending auto-advance for an ad slot. Cancelled whenever the page changes,
+  /// so scrolling away never leaves a stray jump queued.
+  Timer? _adTimer;
+
   @override
   void initState() {
     super.initState();
@@ -61,12 +80,39 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   void dispose() {
+    _adTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  /// Interleaves ads into the reel list: a strip ad overlays every 3rd reel,
-  /// and a full-screen banner is inserted after every 5th.
+  /// Move to the next slot. Used by both the ad dwell timer and a reel that has
+  /// played to its end.
+  void _advance(int from) {
+    if (!_controller.hasClients) return;
+    if (from != _active) return; // the viewer already moved on
+    final count = _buildItems().length;
+    if (from >= count - 1) return;
+    _controller.animateToPage(from + 1,
+        duration: const Duration(milliseconds: 320), curve: Curves.easeOut);
+  }
+
+  /// Ads advance on a fixed timer; reels advance when their video ends.
+  void _onPageChanged(int i, List<_Item> items) {
+    _adTimer?.cancel();
+    setState(() => _active = i);
+    if (i < items.length && items[i].banner != null) {
+      _adTimer = Timer(kAdDwell, () => _advance(i));
+    }
+  }
+
+  /// Interleaves ads into the reel list: a full-screen ad slot after every
+  /// [kAdEveryNReels] reels, plus wherever an admin flagged one.
+  ///
+  /// `_adCursor` walks the ad list once per inserted slot, so consecutive
+  /// breaks show different sponsors. Indexing by reel position (the old rule)
+  /// repeated a sponsor whenever the gap divided evenly into the list length.
+  /// The strip overlay is now only where an admin asked for one — it used to
+  /// also fire every third reel, which is what made ads look pinned to the top.
   List<_Item> _buildItems() {
     final q = _query.trim().toLowerCase();
     final reels = q.isEmpty
@@ -76,15 +122,15 @@ class _FeedScreenState extends State<FeedScreen> {
             .toList();
 
     final items = <_Item>[];
+    var adCursor = 0;
     for (var i = 0; i < reels.length; i++) {
       final r = reels[i];
-      final hasStrip = r.stripAdHost || (i > 0 && (i + 1) % 3 == 0);
-      final stripAd = hasStrip && _ads.isNotEmpty ? _ads[i % _ads.length] : null;
+      final stripAd = r.stripAdHost && _ads.isNotEmpty ? _ads[i % _ads.length] : null;
       items.add(_Item.reel(r, stripAd));
 
-      final wantsBanner = r.bannerAfter || (i > 0 && (i + 1) % 5 == 0);
-      if (wantsBanner && _ads.isNotEmpty) {
-        items.add(_Item.banner(_ads[(i + 2) % _ads.length]));
+      if (_ads.isNotEmpty && (r.bannerAfter || (i + 1) % kAdEveryNReels == 0)) {
+        items.add(_Item.banner(_ads[adCursor % _ads.length]));
+        adCursor++;
       }
     }
     return items;
@@ -115,7 +161,7 @@ class _FeedScreenState extends State<FeedScreen> {
           PageView.builder(
             controller: _controller,
             scrollDirection: Axis.vertical,
-            onPageChanged: (i) => setState(() => _active = i),
+            onPageChanged: (i) => _onPageChanged(i, items),
             itemCount: items.length,
             itemBuilder: (_, i) {
               final it = items[i];
@@ -129,6 +175,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 active: i == _active,
                 muted: _muted,
                 onToggleMute: () => setState(() => _muted = !_muted),
+                onEnded: () => _advance(i),
               );
             },
           ),
@@ -221,6 +268,10 @@ class _ReelView extends StatefulWidget {
   final bool active;
   final bool muted;
   final VoidCallback onToggleMute;
+
+  /// The video played to its end — the feed advances immediately.
+  final VoidCallback onEnded;
+
   const _ReelView({
     super.key,
     required this.reel,
@@ -228,6 +279,7 @@ class _ReelView extends StatefulWidget {
     required this.active,
     required this.muted,
     required this.onToggleMute,
+    required this.onEnded,
   });
 
   @override
@@ -237,6 +289,11 @@ class _ReelView extends StatefulWidget {
 class _ReelViewState extends State<_ReelView> {
   VideoPlayerController? _vpc;
   bool _liked = false;
+
+  /// Level for the rail's vertical volume control, 0..1. Mute is separate:
+  /// muting sets the player to 0 without losing the level to come back to.
+  double _volume = 1;
+  bool _ended = false;
 
   /// Bumped on every attach/detach. An async `initialize()` that finishes after
   /// its generation has been superseded discards its controller instead of
@@ -259,8 +316,53 @@ class _ReelViewState extends State<_ReelView> {
     } else if (!_shouldPlay && _vpc != null) {
       _detach();
     } else {
-      _vpc?.setVolume(widget.muted ? 0 : 1);
+      _vpc?.setVolume(widget.muted ? 0 : _volume);
     }
+  }
+
+  /// VideoPlayerController has no completion callback, so completion is read
+  /// off its value. Guarded by [_ended] because the listener keeps firing after
+  /// the position settles, and a repeated advance would skip past an item.
+  void _watchForEnd() {
+    final v = _vpc?.value;
+    if (v == null || !v.isInitialized || _ended) return;
+    if (v.position >= v.duration && v.duration > Duration.zero) {
+      _ended = true;
+      widget.onEnded();
+    }
+  }
+
+  void _setVolume(double next) {
+    final clamped = next.clamp(0.0, 1.0);
+    setState(() => _volume = clamped);
+    _vpc?.setVolume(clamped);
+    // Dragging the level off zero is an unmute request.
+    if (clamped > 0 && widget.muted) widget.onToggleMute();
+  }
+
+  void _togglePlay() {
+    final v = _vpc;
+    if (v == null || !v.value.isInitialized) return;
+    if (v.value.isPlaying) {
+      v.pause();
+    } else {
+      // Replaying the last reel in the feed: it has nowhere to advance to, so
+      // it sits at its end. Rewind before resuming or play() is a no-op.
+      if (v.value.position >= v.value.duration) v.seekTo(Duration.zero);
+      _ended = false;
+      v.play();
+    }
+    setState(() {});
+  }
+
+  void _skip(int seconds) {
+    final v = _vpc;
+    if (v == null || !v.value.isInitialized) return;
+    var target = v.value.position + Duration(seconds: seconds);
+    if (target < Duration.zero) target = Duration.zero;
+    if (target > v.value.duration) target = v.value.duration;
+    _ended = false;
+    v.seekTo(target);
   }
 
   Future<void> _attach() async {
@@ -280,10 +382,13 @@ class _ReelViewState extends State<_ReelView> {
       await vpc.dispose();
       return;
     }
+    // Not looping any more: a reel that reaches its end hands the feed on to
+    // the next item (see _watchForEnd), which is what a vertical feed does.
     vpc
-      ..setLooping(true)
-      ..setVolume(widget.muted ? 0 : 1)
+      ..setLooping(false)
+      ..setVolume(widget.muted ? 0 : _volume)
       ..play();
+    vpc.addListener(_watchForEnd);
     setState(() => _vpc = vpc);
   }
 
@@ -291,6 +396,8 @@ class _ReelViewState extends State<_ReelView> {
     _generation++;
     final old = _vpc;
     _vpc = null;
+    _ended = false;
+    old?.removeListener(_watchForEnd);
     old?.dispose();
     if (mounted) setState(() {});
   }
@@ -298,6 +405,7 @@ class _ReelViewState extends State<_ReelView> {
   @override
   void dispose() {
     _generation++;
+    _vpc?.removeListener(_watchForEnd);
     _vpc?.dispose();
     super.dispose();
   }
@@ -306,8 +414,11 @@ class _ReelViewState extends State<_ReelView> {
   Widget build(BuildContext context) {
     final r = widget.reel;
     final ready = _vpc != null && _vpc!.value.isInitialized;
+    final playing = ready && _vpc!.value.isPlaying;
     return GestureDetector(
-      onTap: widget.onToggleMute,
+      // Tapping the frame plays/pauses. It used to toggle mute, which left the
+      // player with no way to pause at all.
+      onTap: ready ? _togglePlay : null,
       child: Stack(fit: StackFit.expand, children: [
         if (ready)
           FittedBox(
@@ -335,22 +446,66 @@ class _ReelViewState extends State<_ReelView> {
         ),
         if (widget.stripAd != null)
           Positioned(top: 62, left: 12, right: 12, child: AdStrip(ad: widget.stripAd!)),
-        Positioned(right: 12, bottom: 110, child: Column(children: [
+        Positioned(right: 12, bottom: 132, child: Column(children: [
+          // Views. Read-only, so no onTap — it matches the stack visually
+          // without pretending to be a button.
+          _action(Icons.visibility_outlined, formatCount(r.displayViewCount), null),
           _action(_liked ? Icons.favorite : Icons.favorite_border,
               formatCount(r.likes + (_liked ? 1 : 0)),
               () => setState(() => _liked = !_liked),
               color: _liked ? AppColors.red : Colors.white),
-          _action(Icons.chat_bubble_outline, formatCount(r.comments), () {}),
           // Shares the seo-site URL, which server-renders per-reel OpenGraph
           // tags so the link previews properly. See utils/share.dart.
           _action(Icons.share_outlined, formatCount(r.shares),
               () => shareContent(kind: ShareKind.reel, id: r.id, slug: r.slug, title: r.title)),
+          // The only volume control in the player: speaker toggles mute, the
+          // short vertical track under it sets the level. A horizontal slider
+          // would not fit this 46px column, which is why it is drawn this way.
           _action(widget.muted ? Icons.volume_off : Icons.volume_up, '', widget.onToggleMute),
+          if (ready)
+            _VolumeLevel(
+              value: widget.muted ? 0 : _volume,
+              onChanged: _setVolume,
+            ),
         ])),
+
+        // Rewind / play-pause / forward, on the video itself.
+        if (ready)
+          Positioned.fill(
+            child: Center(
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                _round(Icons.replay_10, 46, () => _skip(-kSkipSeconds)),
+                const SizedBox(width: 26),
+                _round(playing ? Icons.pause : Icons.play_arrow, 62, _togglePlay),
+                const SizedBox(width: 26),
+                _round(Icons.forward_10, 46, () => _skip(kSkipSeconds)),
+              ]),
+            ),
+          ),
+
+        // Scrub bar. Sits inside the Scaffold body, which already ends above
+        // the bottom nav (main_shell puts the feed in an Expanded and the nav in
+        // the Scaffold's own bottomNavigationBar slot), so it cannot be covered.
+        if (ready)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 14,
+            child: VideoProgressIndicator(
+              _vpc!,
+              allowScrubbing: true,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              colors: const VideoProgressColors(
+                playedColor: AppColors.red,
+                bufferedColor: Colors.white24,
+                backgroundColor: Colors.white12,
+              ),
+            ),
+          ),
         Positioned(
           left: 16,
           right: 88,
-          bottom: 32,
+          bottom: 54,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Row(children: [
               Container(
@@ -388,7 +543,17 @@ class _ReelViewState extends State<_ReelView> {
     );
   }
 
-  Widget _action(IconData icon, String label, VoidCallback onTap, {Color color = Colors.white}) => Padding(
+  Widget _round(IconData icon, double size, VoidCallback onTap) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
+          child: Icon(icon, color: Colors.white, size: size * 0.45),
+        ),
+      );
+
+  Widget _action(IconData icon, String label, VoidCallback? onTap, {Color color = Colors.white}) => Padding(
         padding: const EdgeInsets.only(bottom: 16),
         child: Column(children: [
           GestureDetector(
@@ -408,4 +573,58 @@ class _ReelViewState extends State<_ReelView> {
             ),
         ]),
       );
+}
+
+/// Compact vertical volume level for the action rail.
+///
+/// Deliberately not a Slider: the rail column is 46px wide and a Material
+/// slider needs far more room, which is how the web player ended up with a
+/// second volume control somewhere else entirely. Drag anywhere on the track —
+/// the whole 56px height is the hit area, top is full, bottom is silent.
+class _VolumeLevel extends StatelessWidget {
+  final double value;
+  final ValueChanged<double> onChanged;
+  const _VolumeLevel({required this.value, required this.onChanged});
+
+  void _fromLocal(Offset local, double height) =>
+      onChanged((1 - local.dy / height).clamp(0.0, 1.0));
+
+  @override
+  Widget build(BuildContext context) {
+    const height = 56.0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: SizedBox(
+        width: 24,
+        height: height,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (d) => _fromLocal(d.localPosition, height),
+          onVerticalDragUpdate: (d) => _fromLocal(d.localPosition, height),
+          child: Center(
+            child: Container(
+              width: 6,
+              height: height,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: FractionallySizedBox(
+                  heightFactor: value.clamp(0.0, 1.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
