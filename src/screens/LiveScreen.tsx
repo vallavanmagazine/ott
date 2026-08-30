@@ -4,7 +4,7 @@ import { Header } from '@/components/Header';
 import { AdSlot } from '@/components/AdSlot';
 import { LiveBadge } from '@/components/ui';
 import { LogoMark } from '@/components/Logo';
-import { liveSchedule as mockSchedule, ads as mockAds, pexelsUrl, type AdContent, type Documentary, type LiveSlot } from '@/data/mockData';
+import { liveSchedule as mockSchedule, pexelsUrl, type AdContent, type Documentary, type LiveSlot } from '@/data/mockData';
 import { fetchLiveSchedule } from '@/services/live';
 import { fetchAds } from '@/services/ads';
 import { fetchDocumentaries } from '@/services/documentaries';
@@ -23,7 +23,7 @@ export function LiveScreen({
   onBack?: () => void;
 }) {
   const [schedule, setSchedule] = useState(mockSchedule);
-  const [allAds, setAllAds] = useState(mockAds);
+  const [allAds, setAllAds] = useState<AdContent[]>([]);
   const [docs, setDocs] = useState<Documentary[]>([]);
   const [channelLive, setChannelLive] = useState<boolean | null>(null);
 

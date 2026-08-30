@@ -6,11 +6,11 @@ import { ContentCard } from '@/components/ContentCard';
 import { AdSlot } from '@/components/AdSlot';
 import {
   documentaries as mockDocuments,
-  ads as mockAds,
   genres,
   genreColors,
   pexelsUrl,
   type Documentary,
+  type AdContent,
 } from '@/data/mockData';
 import { fetchDocumentaries } from '@/services/documentaries';
 import { fetchAds } from '@/services/ads';
@@ -31,7 +31,7 @@ export function ExploreScreen({
 }) {
   const [activeGenre, setActiveGenre] = useState<string>('All');
   const [allDocs, setAllDocs] = useState(mockDocuments);
-  const [allAds, setAllAds] = useState(mockAds);
+  const [allAds, setAllAds] = useState<AdContent[]>([]);
 
   useEffect(() => {
     fetchDocumentaries().then(setAllDocs);

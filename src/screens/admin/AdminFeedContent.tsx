@@ -114,11 +114,23 @@ export function AdminFeedContent() {
   const [deleting, setDeleting] = useState<AdminFeedReel | null>(null);
   const [campaigns, setCampaigns] = useState<{ id: string; name: string }[]>([]);
 
+  const [loadError, setLoadError] = useState('');
+
+  // fetchAdminFeedReels used to answer a failure with mockData's ten reels, so
+  // a broken query looked like a healthy CMS. It throws now, which means this
+  // has to say what went wrong rather than leave the skeleton spinning.
   const load = useCallback(async () => {
-    const rows = await fetchAdminFeedReels();
-    setReels(rows);
-    setLoading(false);
-  }, []);
+    try {
+      const rows = await fetchAdminFeedReels();
+      setReels(rows);
+      setLoadError('');
+    } catch (e) {
+      setLoadError((e as Error).message);
+      toast.error((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     load();
@@ -269,8 +281,8 @@ export function AdminFeedContent() {
         <SkeletonTable rows={6} cols={6} />
       ) : filtered.length === 0 ? (
         <EmptyState
-          title={reels.length === 0 ? 'No feed content yet' : 'Nothing matches those filters'}
-          hint={reels.length === 0 ? 'Click "Add New" to publish the first reel.' : undefined}
+          title={loadError ? 'Could not load feed content' : reels.length === 0 ? 'No feed content yet' : 'Nothing matches those filters'}
+          hint={loadError || (reels.length === 0 ? 'Click "Add New" to publish the first reel.' : undefined)}
         />
       ) : (
         <div className="rounded-xl glass overflow-hidden overflow-x-auto">

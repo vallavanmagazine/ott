@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Download, MoreVertical } from 'lucide-react';
 import { SubPageHeader } from '@/components/ScreenShell';
-import { ads as mockAds, pexelsUrl } from '@/data/mockData';
+import { pexelsUrl, type AdContent } from '@/data/mockData';
 import { fetchAds } from '@/services/ads';
 
 export function CreativeLibraryScreen({ onBack }: { onBack: () => void }) {
-  const [ads, setAds] = useState(mockAds);
+  const [ads, setAds] = useState<AdContent[]>([]);
 
   useEffect(() => {
     fetchAds().then(setAds);

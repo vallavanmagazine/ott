@@ -1,12 +1,32 @@
 /**
  * Feed service — returns FeedReel[] shaped exactly as mockData.ts
+ *
+ * Deliberately has NO mock fallback. It used to answer every failure — Supabase
+ * unconfigured, RLS refusal, network error — by returning mockData's feedReels.
+ * Those ten entries are the same ten rows the seed created, so a build that
+ * could not reach the database rendered a feed indistinguishable from the real
+ * one, and nothing said so: the `!supabase` branch did not even warn. Failures
+ * now propagate and the screen reports them.
  */
 import { supabase } from '@/lib/supabase';
 import { formatShortDuration, formatDate } from '@/lib/transforms';
-import {
-  feedReels as mockFeedReels,
-  type FeedReel,
-} from '@/data/mockData';
+import { type FeedReel } from '@/data/mockData';
+
+/**
+ * The client, or a diagnosis. A null `supabase` means the VITE_SUPABASE_* vars
+ * were absent *at build time* — Vite inlines them, so this is a property of the
+ * bundle, not of the machine serving it. Naming that is the whole point: it is
+ * the failure most likely to be mistaken for "the data is wrong".
+ */
+function db() {
+  if (!supabase) {
+    throw new Error(
+      'Supabase is not configured in this build — VITE_SUPABASE_URL and '
+      + 'VITE_SUPABASE_ANON_KEY were missing when it was compiled. Rebuild with a .env present.',
+    );
+  }
+  return supabase;
+}
 
 function rowToFeedReel(row: any): FeedReel {
   return {
@@ -38,20 +58,20 @@ function rowToFeedReel(row: any): FeedReel {
   };
 }
 
+/**
+ * The viewer feed. Published only — the CMS Draft/Published toggle was
+ * previously decorative here, since this query returned every row regardless.
+ */
 export async function fetchFeedReels(): Promise<FeedReel[]> {
-  if (!supabase) return mockFeedReels;
-
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('feed_reels')
     .select('*, campaign:campaigns(name)')
+    .eq('status', 'Published')
     .order('created_at', { ascending: false }); // FIX 3: latest first
 
-  if (error || !data) {
-    console.warn('fetchFeedReels fallback to mock:', error?.message);
-    return mockFeedReels;
-  }
+  if (error) throw new Error(`Could not load the feed: ${error.message}`);
 
-  return data.map(rowToFeedReel);
+  return (data ?? []).map(rowToFeedReel);
 }
 
 /**
@@ -62,22 +82,16 @@ export async function fetchFeedReels(): Promise<FeedReel[]> {
  */
 export type AdminFeedReel = FeedReel & { attachedCampaignId: string | null };
 
+/** Every row, drafts included — the CMS is the one place that must see them. */
 export async function fetchAdminFeedReels(): Promise<AdminFeedReel[]> {
-  if (!supabase) {
-    return mockFeedReels.map((r) => ({ ...r, attachedCampaignId: null }));
-  }
-
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('feed_reels')
     .select('*, campaign:campaigns(name)')
     .order('sort_order', { ascending: true });
 
-  if (error || !data) {
-    console.warn('fetchAdminFeedReels fallback to mock:', error?.message);
-    return mockFeedReels.map((r) => ({ ...r, attachedCampaignId: null }));
-  }
+  if (error) throw new Error(`Could not load feed content: ${error.message}`);
 
-  return data.map((row: any) => ({
+  return (data ?? []).map((row: any) => ({
     ...rowToFeedReel(row),
     attachedCampaignId: row.attached_campaign ?? null,
   }));

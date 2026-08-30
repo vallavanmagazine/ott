@@ -7,11 +7,11 @@ import { ContentCard, ContinueWatchingCard } from '@/components/ContentCard';
 import { AdSlot } from '@/components/AdSlot';
 import {
   documentaries as mockDocuments,
-  ads as mockAds,
   liveSchedule as mockSchedule,
   genreColors,
   pexelsUrl,
   type Documentary,
+  type AdContent,
 } from '@/data/mockData';
 import { fetchDocumentaries } from '@/services/documentaries';
 import { fetchAds } from '@/services/ads';
@@ -35,7 +35,7 @@ export function HomeScreen({
   onLive: () => void;
 }) {
   const [allDocs, setAllDocs] = useState(mockDocuments);
-  const [allAds, setAllAds] = useState(mockAds);
+  const [allAds, setAllAds] = useState<AdContent[]>([]);
   const [schedule, setSchedule] = useState(mockSchedule);
 
   useEffect(() => {

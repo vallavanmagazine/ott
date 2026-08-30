@@ -8,8 +8,8 @@ import {
   inspireCategories,
   genreColors,
   pexelsUrl,
-  ads as mockAds,
   type InspireItem,
+  type AdContent,
 } from '@/data/mockData';
 import { fetchInspireItems } from '@/services/inspire';
 import { fetchAds } from '@/services/ads';
@@ -31,7 +31,7 @@ export function InspireScreen({
   const categoryList = dbCats.length ? ['All', ...dbCats] : inspireCategories;
   const [heroIdx, setHeroIdx] = useState(0);
   const [items, setItems] = useState(mockInspire);
-  const [allAds, setAllAds] = useState(mockAds);
+  const [allAds, setAllAds] = useState<AdContent[]>([]);
 
   useEffect(() => {
     fetchInspireItems().then(setItems);

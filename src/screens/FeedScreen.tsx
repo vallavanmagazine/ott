@@ -7,8 +7,6 @@ import { useDevice } from '@/hooks/useDevice';
 import { ShareSheet } from '@/components/ShareSheet';
 import { nativeShare, shareRef, shareUrl } from '@/services/share';
 import {
-  feedReels as mockFeedReels,
-  ads as mockAds,
   genreColors,
   pexelsUrl,
   type FeedReel,
@@ -68,15 +66,30 @@ export function FeedScreen({
   onLive?: () => void;
 }) {
   const device = useDevice();
-  const [rawReels, setRawReels] = useState<FeedReel[]>(mockFeedReels);
-  const [allAds, setAllAds] = useState<AdContent[]>(mockAds);
+  // Seeded empty, not with mockData. The mock reels are the same ten the seed
+  // created, so using them as the first paint meant a viewer saw a plausible
+  // fake feed for as long as the query took — and forever if it never answered.
+  const [rawReels, setRawReels] = useState<FeedReel[]>([]);
+  const [allAds, setAllAds] = useState<AdContent[]>([]);
   const [activeIdx, setActiveIdx] = useState(0);
+  /** Keeps an in-flight query from reading as "there is no content". */
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
-    Promise.all([fetchFeedReels(), fetchAds()]).then(([reels, adList]) => {
-      setRawReels(reels);
-      setAllAds(adList);
-    });
+    Promise.all([fetchFeedReels(), fetchAds()])
+      .then(([reels, adList]) => {
+        setRawReels(reels);
+        setAllAds(adList);
+        setLoadState('ready');
+      })
+      .catch((e: Error) => {
+        // Unreachable before: the service answered every failure with mock
+        // reels, so this .catch did not even exist. The reason is now shown.
+        console.error('Feed failed to load:', e);
+        setLoadError(e.message);
+        setLoadState('error');
+      });
   }, []);
 
   // FIX 3: no categories - latest first. Text search lives in the Search tab.
@@ -169,8 +182,19 @@ export function FeedScreen({
       >
         {items.length === 0 && (
           <div className="h-full w-full flex flex-col items-center justify-center text-center px-6">
-            <p className="text-white font-bold">Nothing here yet</p>
-            <p className="text-xs text-vmuted mt-1">Check back soon for new reels.</p>
+            {loadState === 'loading' ? (
+              <p className="text-xs text-vmuted">Loading…</p>
+            ) : loadState === 'error' ? (
+              <>
+                <p className="text-white font-bold">Couldn’t load the feed</p>
+                <p className="text-xs text-vmuted mt-1 max-w-xs break-words">{loadError}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-white font-bold">Nothing here yet</p>
+                <p className="text-xs text-vmuted mt-1">Check back soon for new reels.</p>
+              </>
+            )}
           </div>
         )}
         {items.map((item, i) => (
