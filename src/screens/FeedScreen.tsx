@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  Heart, Share2, Volume2, VolumeX,
+  Heart, Share2, Volume2, VolumeX, Eye, Pause, RotateCcw, RotateCw,
   ChevronUp, ChevronDown, Play, ArrowRight, Bell, Cast, Tv,
 } from 'lucide-react';
 import { useDevice } from '@/hooks/useDevice';
@@ -31,21 +31,38 @@ interface BannerItem {
 
 type Item = FeedItem | BannerItem;
 
+/** A full-screen ad item goes in after every Nth reel. */
+const AD_EVERY_N_REELS = 3;
+
+/** Step for the on-screen rewind / forward buttons. */
+const SKIP_SECONDS = 10;
+
+/** How long an ad item holds the screen before the feed moves on. */
+const AD_DWELL_MS = 10_000;
+
 function buildFeedSequence(feedReels: FeedReel[], ads: AdContent[]): Item[] {
   const items: Item[] = [];
   // FIX 3: keep the incoming order (service returns latest-first).
   const sorted = feedReels;
 
+  // Walks the ad list once per inserted ad, so consecutive ad breaks show
+  // different sponsors instead of the same creative every time. Indexing by
+  // reel position (the old rule) repeated a sponsor whenever the gap between
+  // breaks divided evenly into the list length.
+  let adCursor = 0;
+
   sorted.forEach((reel, idx) => {
-    // Strip ad between every 3 reels (or where admin flagged the reel).
-    const hasStrip = reel.stripAdHost || (idx > 0 && (idx + 1) % 3 === 0);
-    const stripAd = hasStrip && ads.length ? ads[idx % ads.length] : undefined;
+    // The top strip overlay is now only where an admin explicitly asked for
+    // one. It used to also fire automatically every third reel, which is what
+    // made the ads look pinned to the top of the screen; the every-third rule
+    // now produces a real feed item instead.
+    const stripAd = reel.stripAdHost && ads.length ? ads[idx % ads.length] : undefined;
 
     items.push({ type: 'reel', reel, stripAd });
 
-    // Banner interstitial after every 5 reels (or where admin flagged).
-    if ((reel.bannerAfter || ((idx + 1) % 5 === 0 && idx > 0)) && ads.length) {
-      items.push({ type: 'banner', ad: ads[(idx + 2) % ads.length] });
+    if (ads.length && (reel.bannerAfter || (idx + 1) % AD_EVERY_N_REELS === 0)) {
+      items.push({ type: 'banner', ad: ads[adCursor % ads.length] });
+      adCursor++;
     }
   });
 
@@ -101,7 +118,12 @@ export function FeedScreen({
   }, []);
 
   // FIX 3: no categories - latest first. Text search lives in the Search tab.
-  const items = buildFeedSequence(rawReels, allAds);
+  //
+  // Memoised deliberately: this used to rebuild on every render, so `items` got
+  // a fresh identity each time and the ad-dwell effect below — which depends on
+  // it — cleared and restarted its 10s timer on every unrelated re-render (the
+  // chrome auto-hiding, a like landing). An ad could sit there indefinitely.
+  const items = useMemo(() => buildFeedSequence(rawReels, allAds), [rawReels, allAds]);
   const [muted, setMuted] = useState(true);
   // Seeded from localStorage so a reload cannot count the same like twice.
   const [liked, setLiked] = useState<Set<string>>(() => new Set(getLikedReels()));
@@ -128,6 +150,22 @@ export function FeedScreen({
     itemRefs.current[clamped]?.scrollIntoView({ behavior: 'smooth' });
     setActiveIdx(clamped);
   }, [items.length]);
+
+  /**
+   * Ad items advance on a fixed timer, content items do not.
+   *
+   * A reel ends when the media ends (ReelCard's onEnded). An ad is a still
+   * image with no natural end at all, so it gets exactly AD_DWELL_MS on screen
+   * and then the feed moves on — the dwell is deliberately independent of the
+   * creative, so a sponsor cannot buy extra screen time by supplying a longer
+   * asset. Keyed on activeIdx, so scrolling away cancels the pending advance.
+   */
+  useEffect(() => {
+    if (items[activeIdx]?.type !== 'banner') return;
+    if (activeIdx >= items.length - 1) return; // nothing to advance to
+    const t = setTimeout(() => scrollToIndex(activeIdx + 1), AD_DWELL_MS);
+    return () => clearTimeout(t);
+  }, [activeIdx, items, scrollToIndex]);
 
   // Wheel scroll on desktop
   useEffect(() => {
@@ -340,9 +378,6 @@ export function FeedScreen({
         {items[activeIdx]?.type === 'reel' && items[activeIdx].stripAd && (
           <StripAdTop ad={items[activeIdx].stripAd!} />
         )}
-        {items[activeIdx]?.type === 'banner' && (
-          <StripAdTop ad={allAds[activeIdx % allAds.length]} />
-        )}
 
         {/* Progress bar */}
         <div className="h-0.5 bg-white/10 mx-4 rounded-full overflow-hidden">
@@ -466,13 +501,31 @@ function ReelCard({
     v.currentTime = Math.max(0, Math.min(v.duration, seconds));
   };
 
+  /** ±SKIP_SECONDS from wherever playback is now. */
+  const skip = (delta: number) => {
+    const v = videoRef.current;
+    if (!v) return;
+    seekTo(v.currentTime + delta);
+  };
+
   const setVideoVolume = (next: number) => {
     const v = videoRef.current;
     if (!v) return;
     v.volume = Math.max(0, Math.min(1, next));
-    // Nudging the slider off zero is an unmute request; muted audio would
+    // Dragging the level off zero is an unmute request; muted audio would
     // otherwise make the control look broken.
     if (v.volume > 0 && muted) onToggleMute();
+  };
+
+  /**
+   * Vertical level track: top of the bar is 1, bottom is 0. Pointer events
+   * rather than a range input so a drag works the same under a finger and a
+   * mouse, and so the control can be 6px wide without becoming unusable —
+   * the whole 56px track is the hit area.
+   */
+  const volumeFromPointer = (e: React.PointerEvent<HTMLDivElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setVideoVolume(1 - (e.clientY - r.top) / r.height);
   };
 
   // Autoplay on scroll-into-view; stop and rewind on scroll-away so an
@@ -546,24 +599,76 @@ function ReelCard({
         <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
       </div>
 
-      {/* Tap anywhere to play/pause. The glyph now follows the element's real
-          state, so it stops sitting permanently over a playing video. */}
+      {/* Tap anywhere to play/pause — the invisible full-frame target. */}
       {active && (
         <button
           onClick={togglePlay}
           aria-label={playing ? 'Pause' : 'Play'}
-          className="absolute inset-0 flex items-center justify-center z-10"
+          tabIndex={-1}
+          className="absolute inset-0 z-10"
+        />
+      )}
+
+      {/* Rewind / play-pause / forward, on the video itself rather than behind
+          a menu. Sits above the full-frame target and stops propagation, so a
+          skip is not also read as a tap-to-pause. Follows the same auto-hide as
+          the rest of the chrome; while paused it stays up regardless, because a
+          paused player with no visible way to resume is a dead end. */}
+      {active && isHtml5 && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute inset-0 z-20 flex items-center justify-center gap-7 pointer-events-none transition-opacity duration-500 ${overlayVisible || !playing ? 'opacity-100' : 'opacity-0'}`}
         >
-          <div
-            className={`w-16 h-16 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center active:scale-90 transition-opacity ${playing ? 'opacity-0' : 'opacity-100'}`}
+          <button
+            onClick={() => skip(-SKIP_SECONDS)}
+            aria-label={`Rewind ${SKIP_SECONDS} seconds`}
+            className="pointer-events-auto w-12 h-12 rounded-full bg-black/35 backdrop-blur-sm flex flex-col items-center justify-center active:scale-90 transition"
           >
+            <RotateCcw size={19} className="text-white" />
+            <span className="text-[8px] font-bold text-white leading-none mt-0.5">{SKIP_SECONDS}</span>
+          </button>
+
+          <button
+            onClick={togglePlay}
+            aria-label={playing ? 'Pause' : 'Play'}
+            className="pointer-events-auto w-16 h-16 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center active:scale-90 transition"
+          >
+            {playing
+              ? <Pause size={26} fill="white" className="text-white" />
+              : <Play size={28} fill="white" className="text-white ml-1" />}
+          </button>
+
+          <button
+            onClick={() => skip(SKIP_SECONDS)}
+            aria-label={`Forward ${SKIP_SECONDS} seconds`}
+            className="pointer-events-auto w-12 h-12 rounded-full bg-black/35 backdrop-blur-sm flex flex-col items-center justify-center active:scale-90 transition"
+          >
+            <RotateCw size={19} className="text-white" />
+            <span className="text-[8px] font-bold text-white leading-none mt-0.5">{SKIP_SECONDS}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Sources without a controllable element (YouTube iframe, poster-only
+          reels) keep the original single glyph. */}
+      {active && !isHtml5 && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+          <div className="w-16 h-16 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center">
             <Play size={28} fill="white" className="text-white ml-1" />
           </div>
-        </button>
+        </div>
       )}
 
       {/* Right-edge action icons - auto-hide */}
-      <div className={`absolute right-3 bottom-32 sm:bottom-28 z-20 flex flex-col items-center gap-5 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`absolute right-3 feed-rail-safe z-20 flex flex-col items-center gap-5 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}>
+        {/* Views. Read-only, so it is a div rather than a button — it matches
+            the like/share stack visually without pretending to be tappable. */}
+        <div className="flex flex-col items-center gap-1" title={`${(reel.views ?? 0).toLocaleString('en-IN')} views`}>
+          <div className="w-12 h-12 rounded-full glass-strong flex items-center justify-center">
+            <Eye size={22} className="text-white" />
+          </div>
+          <span className="text-[10px] font-bold text-white drop-shadow">{formatCount(reel.views ?? 0)}</span>
+        </div>
         <button onClick={onLike} className="flex flex-col items-center gap-1 active:scale-90 transition">
           <div className="w-12 h-12 rounded-full glass-strong flex items-center justify-center">
             <Heart size={22} className={liked ? 'text-vred' : 'text-white'} fill={liked ? 'currentColor' : 'none'} />
@@ -585,9 +690,44 @@ function ReelCard({
             onShared={onShared}
           />
         )}
-        <button onClick={onToggleMute} className="w-12 h-12 rounded-full glass-strong flex items-center justify-center active:scale-90 transition">
-          {muted ? <VolumeX size={20} className="text-white" /> : <Volume2 size={20} className="text-white" />}
-        </button>
+        {/* The only volume control in the player. The speaker toggles mute; the
+            short vertical track under it sets the level. Deliberately not a
+            range input — this column is 48px wide, and a horizontal slider had
+            to live somewhere else entirely, which is how the player ended up
+            with two competing volume controls. */}
+        <div className="flex flex-col items-center gap-2">
+          <button
+            onClick={onToggleMute}
+            aria-label={muted ? 'Unmute' : 'Mute'}
+            className="w-12 h-12 rounded-full glass-strong flex items-center justify-center active:scale-90 transition"
+          >
+            {muted ? <VolumeX size={20} className="text-white" /> : <Volume2 size={20} className="text-white" />}
+          </button>
+
+          {isHtml5 && (
+            <div
+              role="slider"
+              aria-label="Volume"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round((muted ? 0 : volume) * 100)}
+              tabIndex={0}
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); volumeFromPointer(e); }}
+              onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) volumeFromPointer(e); }}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowUp') { e.preventDefault(); setVideoVolume((muted ? 0 : volume) + 0.1); }
+                if (e.key === 'ArrowDown') { e.preventDefault(); setVideoVolume((muted ? 0 : volume) - 0.1); }
+              }}
+              className="w-1.5 h-14 rounded-full bg-white/25 relative cursor-pointer touch-none"
+            >
+              <div
+                className="absolute bottom-0 left-0 right-0 rounded-full bg-white transition-[height] duration-75"
+                style={{ height: `${Math.round((muted ? 0 : volume) * 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Player controls, wired to the real <video> — scrub, elapsed/total and
@@ -597,8 +737,9 @@ function ReelCard({
       {active && isHtml5 && (
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`absolute bottom-0 left-0 right-0 z-30 pb-[4.5rem] px-4 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          className={`absolute bottom-0 left-0 right-0 z-30 feed-controls-safe px-4 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         >
+          {/* Seek only. Volume lives once, in the right-hand rail. */}
           <div className="flex items-center gap-2.5">
             <span className="text-[10px] text-white/80 tabular-nums w-9 text-right drop-shadow">{clock(progress.t)}</span>
             <input
@@ -612,30 +753,13 @@ function ReelCard({
               className="flex-1 h-1 accent-vred cursor-pointer"
             />
             <span className="text-[10px] text-white/80 tabular-nums w-9 drop-shadow">{clock(progress.d)}</span>
-            {(device.isDesktop || device.isTV) && (
-              <div className="flex items-center gap-1.5 ml-1">
-                <button onClick={onToggleMute} aria-label={muted ? 'Unmute' : 'Mute'} className="text-white/80 hover:text-white">
-                  {muted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={muted ? 0 : volume}
-                  onChange={(e) => setVideoVolume(Number(e.target.value))}
-                  aria-label="Volume"
-                  className="w-20 h-1 accent-white cursor-pointer"
-                />
-              </div>
-            )}
           </div>
         </div>
       )}
 
       {/* Bottom-left: short title only + category tag + duration */}
-      <div className={`absolute bottom-0 left-0 right-0 z-20 pb-20 px-4 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}>
-        <div className="max-w-[85%]">
+      <div className={`absolute bottom-0 left-0 right-0 z-20 feed-title-safe px-4 transition-opacity duration-500 ${overlayVisible ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="max-w-[78%]">
           <div className="flex items-center gap-2 mb-1.5">
             <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-white" style={{ backgroundColor: genreColor }}>
               {reel.contentType}

@@ -71,6 +71,27 @@
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* --- Feed player bottom stack ---------------------------------------------
+   BottomNav is `fixed bottom-0 z-40` and renders after the Feed in document
+   order, so it paints over anything the player puts at the bottom regardless
+   of the player's own z-index. Raising the player above it would hide the nav,
+   so the controls clear it instead. The bar measures 77px (py-1.5 around a 44px
+   centre button plus its label, plus the top border) and both it and these
+   rules add the device's home-indicator inset, so the gap below holds on a
+   notched phone too. The old value was 72px — 5px SHORT of the bar, which is
+   why the seek bar sat behind it.
+
+   At lg the side rail replaces the bottom bar, so the clearance drops away. */
+.feed-controls-safe { padding-bottom: calc(6.25rem + env(safe-area-inset-bottom)); } /* 100px: 23px clear of the 77px bar */
+.feed-title-safe    { padding-bottom: calc(9rem + env(safe-area-inset-bottom)); }    /* 144px */
+.feed-rail-safe     { bottom: calc(11.5rem + env(safe-area-inset-bottom)); }        /* 184px */
+
+@media (min-width: 1024px) {
+  .feed-controls-safe { padding-bottom: 1.5rem; }
+  .feed-title-safe    { padding-bottom: 4.25rem; }
+  .feed-rail-safe     { bottom: 6.5rem; }
+}
+
 .no-select {
   -webkit-user-select: none;
   user-select: none;
