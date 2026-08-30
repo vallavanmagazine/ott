@@ -6,7 +6,14 @@ class DocumentariesService {
     final c = Db.client;
     if (c == null) return [];
     try {
-      final data = await c.from('documentaries').select().order('created_at', ascending: false);
+      // Published only — same reasoning as FeedService.fetchAll(). fetchById
+      // below is deliberately unfiltered: it resolves a row the caller already
+      // holds, and silently 404ing a draft there would be a different bug.
+      final data = await c
+          .from('documentaries')
+          .select()
+          .eq('status', 'Published')
+          .order('created_at', ascending: false);
       return (data as List).map((r) => Documentary.fromMap(r as Map<String, dynamic>)).toList();
     } catch (_) {
       return [];
