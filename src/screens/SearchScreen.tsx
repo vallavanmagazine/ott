@@ -3,11 +3,9 @@ import { Search, Mic, SlidersHorizontal, TrendingUp, Clock } from 'lucide-react'
 import { ContentCard } from '@/components/ContentCard';
 import { Header } from '@/components/Header';
 import { Chip } from '@/components/ui';
-import {
-  recentSearches, trendingSearches, documentaries as mockDocuments, genres,
-  type Documentary,
-} from '@/data/mockData';
-import { fetchDocumentaries } from '@/services/documentaries';
+import { genres, type Documentary } from '@/data/mockData';
+import { fetchSearchIndex, fetchTrendingSearches } from '@/services/search';
+import { getRecentSearches, addRecentSearch } from '@/lib/library';
 
 export function SearchScreen({
   onCardClick,
@@ -22,11 +20,36 @@ export function SearchScreen({
   const [showFilters, setShowFilters] = useState(false);
   const [activeGenre, setActiveGenre] = useState('All');
   const [activeLang, setActiveLang] = useState('All');
-  const [allDocs, setAllDocs] = useState(mockDocuments);
+  // Seeded empty, not from mockData: those eleven fabricated documentaries used
+  // to BE the search index whenever the query failed, so a broken search still
+  // returned confident-looking results. The index now covers documentaries AND
+  // feed_reels — reels were previously absent entirely, which is why no reel
+  // title could ever be found.
+  const [allDocs, setAllDocs] = useState<Documentary[]>([]);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [loadError, setLoadError] = useState('');
+  const [trending, setTrending] = useState<string[]>([]);
+  const [recent, setRecent] = useState<string[]>(() => getRecentSearches());
 
   useEffect(() => {
-    fetchDocumentaries().then(setAllDocs);
+    fetchSearchIndex()
+      .then((rows) => { setAllDocs(rows); setLoadState('ready'); })
+      .catch((e: Error) => {
+        // Unreachable before: the service answered every failure with mock
+        // documentaries, so there was nothing to catch.
+        console.error('Search index failed to load:', e);
+        setLoadError(e.message);
+        setLoadState('error');
+      });
+    fetchTrendingSearches().then(setTrending).catch(() => setTrending([]));
   }, []);
+
+  /** Commit a term to this browser's history — chip taps and Enter. */
+  const commitSearch = (term: string) => {
+    setQuery(term);
+    addRecentSearch(term);
+    setRecent(getRecentSearches());
+  };
 
   const results = query.length > 0
     ? allDocs.filter((d) =>
@@ -49,6 +72,7 @@ export function SearchScreen({
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') commitSearch(query); }}
               placeholder="Search documentaries, genres..."
               className="flex-1 bg-transparent text-sm text-white placeholder:text-vmuted outline-none"
             />
@@ -109,16 +133,16 @@ export function SearchScreen({
         {query.length === 0 ? (
           <div>
             {/* Recent searches */}
-            {recentSearches.length > 0 && (
+            {recent.length > 0 && (
               <section className="mb-6">
                 <h3 className="text-[10px] tracking-wider uppercase text-vmuted font-bold mb-2.5 flex items-center gap-1.5">
                   <Clock size={12} /> Recent Searches
                 </h3>
                 <div className="space-y-1">
-                  {recentSearches.map((s) => (
+                  {recent.map((s) => (
                     <button
                       key={s}
-                      onClick={() => setQuery(s)}
+                      onClick={() => commitSearch(s)}
                       className="w-full flex items-center gap-3 py-2.5 active:scale-95 transition text-left"
                     >
                       <Clock size={14} className="text-vmuted" />
@@ -135,10 +159,10 @@ export function SearchScreen({
                 <TrendingUp size={12} /> Trending Searches
               </h3>
               <div className="flex flex-wrap gap-2">
-                {trendingSearches.map((s) => (
+                {trending.map((s) => (
                   <button
                     key={s}
-                    onClick={() => setQuery(s)}
+                    onClick={() => commitSearch(s)}
                     className="px-3 py-2 rounded-full glass text-xs font-semibold text-white active:scale-95"
                   >
                     {s}
@@ -159,10 +183,21 @@ export function SearchScreen({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-20 px-4">
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
             <Search size={32} className="text-vmuted mb-3" />
-            <p className="text-sm font-semibold text-white">No results found</p>
-            <p className="text-xs text-vmuted mt-1">Try a different keyword or genre</p>
+            {loadState === 'error' ? (
+              <>
+                <p className="text-sm font-semibold text-white">Couldn’t search right now</p>
+                <p className="text-xs text-vmuted mt-1 max-w-xs break-words">{loadError}</p>
+              </>
+            ) : loadState === 'loading' ? (
+              <p className="text-xs text-vmuted">Loading…</p>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-white">No results found</p>
+                <p className="text-xs text-vmuted mt-1">Try a different keyword or genre</p>
+              </>
+            )}
           </div>
         )}
       </div>

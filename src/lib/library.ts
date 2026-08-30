@@ -8,6 +8,7 @@ import type { Documentary } from '@/data/mockData';
 const HIST = 'vallavan_watch_history';
 const LATER = 'vallavan_watch_later';
 const LIKED = 'vallavan_liked_reels';
+const RECENT_SEARCHES = 'vallavan_recent_searches';
 
 function read(key: string): Documentary[] {
   try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; }
@@ -55,4 +56,19 @@ export function setReelLiked(id: string, liked: boolean): void {
   const next = getLikedReels().filter((x) => x !== id);
   if (liked) next.unshift(id);
   try { localStorage.setItem(LIKED, JSON.stringify(next.slice(0, 500))); } catch { /* quota / private mode */ }
+}
+
+// --- Recent searches ---
+// The Search screen used to show three hardcoded phrases from mockData as
+// though they were the viewer's own history. These are the real ones, kept per
+// browser — the same thing the Flutter app stores via Prefs.recentSearches().
+export function getRecentSearches(): string[] {
+  try { return JSON.parse(localStorage.getItem(RECENT_SEARCHES) || '[]'); } catch { return []; }
+}
+
+export function addRecentSearch(term: string): void {
+  const t = term.trim();
+  if (t.length < 2) return;
+  const next = [t, ...getRecentSearches().filter((x) => x.toLowerCase() !== t.toLowerCase())];
+  try { localStorage.setItem(RECENT_SEARCHES, JSON.stringify(next.slice(0, 8))); } catch { /* quota */ }
 }
