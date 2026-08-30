@@ -11,6 +11,7 @@
 import { supabase } from '@/lib/supabase';
 import { formatShortDuration, formatDate } from '@/lib/transforms';
 import { type FeedReel } from '@/data/mockData';
+import { displayViews } from '@/lib/view-ramp';
 
 /**
  * The client, or a diagnosis. A null `supabase` means the VITE_SUPABASE_* vars
@@ -61,6 +62,11 @@ function rowToFeedReel(row: any): FeedReel {
 /**
  * The viewer feed. Published only — the CMS Draft/Published toggle was
  * previously decorative here, since this query returned every row regardless.
+ *
+ * `views` is overlaid with the synthetic floor from lib/view-ramp.ts. That
+ * happens HERE and not in rowToFeedReel() on purpose: the admin path below, and
+ * the dashboards in admin-stats/admin-analytics that read feed_reels.views
+ * directly, must keep seeing the true stored number. Nothing is written back.
  */
 export async function fetchFeedReels(): Promise<FeedReel[]> {
   const { data, error } = await db()
@@ -71,7 +77,18 @@ export async function fetchFeedReels(): Promise<FeedReel[]> {
 
   if (error) throw new Error(`Could not load the feed: ${error.message}`);
 
-  return (data ?? []).map(rowToFeedReel);
+  return (data ?? []).map((row) => ({
+    ...rowToFeedReel(row),
+    views: displayViews({
+      id: row.id,
+      // published_at is what the ramp should measure from; created_at is the
+      // fallback until supabase/feed_view_ramp.sql adds the column, and is the
+      // same value for anything published straight away.
+      publishedAt: row.published_at ?? row.created_at,
+      initialSeedViews: row.initial_seed_views ?? null,
+      realViews: row.views,
+    }),
+  }));
 }
 
 /**
@@ -91,7 +108,7 @@ export async function fetchAdminFeedReels(): Promise<AdminFeedReel[]> {
 
   if (error) throw new Error(`Could not load feed content: ${error.message}`);
 
-  return (data ?? []).map((row: any) => ({
+  return (data ?? []).map((row) => ({
     ...rowToFeedReel(row),
     attachedCampaignId: row.attached_campaign ?? null,
   }));
