@@ -31,6 +31,20 @@ export interface BunnyStatus {
   thumbnailUrl: string | null;
 }
 
+/**
+ * Thrown when the caller aborts an upload (the admin closed the editor, or the
+ * widget unmounted). Distinct from a real failure so the UI can stay silent
+ * instead of toasting an error the admin already knows about.
+ */
+export class UploadAborted extends Error {
+  constructor() {
+    super('Upload cancelled');
+    this.name = 'UploadAborted';
+  }
+}
+
+export const isAborted = (e: unknown): boolean => (e as Error)?.name === 'UploadAborted';
+
 /** Mirrors hasDyneTube() — lets the button disable itself with a useful reason. */
 export const hasBunny = () => hasBackend();
 
@@ -58,8 +72,11 @@ export function uploadFile(
   tusEndpoint: string,
   tusHeaders: Record<string, string>,
   onProgress?: (pct: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new UploadAborted()); return; }
+
     const upload = new Upload(file, {
       endpoint: tusEndpoint,
       headers: tusHeaders,
@@ -68,15 +85,37 @@ export function uploadFile(
       onProgress: (sent, total) => {
         if (onProgress && total > 0) onProgress(Math.round((sent / total) * 100));
       },
-      onSuccess: () => resolve(),
-      onError: (err) => reject(new Error(err.message)),
+      onSuccess: () => { signal?.removeEventListener('abort', onAbort); resolve(); },
+      onError: (err) => {
+        signal?.removeEventListener('abort', onAbort);
+        // tus surfaces its own error for a cancelled request; report the abort.
+        reject(signal?.aborted ? new UploadAborted() : new Error(err.message));
+      },
     });
+
+    function onAbort() {
+      // Stop sending bytes immediately rather than waiting for the current
+      // chunk to finish; the caller is already tearing the editor down.
+      void upload.abort();
+      reject(new UploadAborted());
+    }
+    signal?.addEventListener('abort', onAbort, { once: true });
+
     upload.start();
   });
 }
 
 export async function getStatus(videoGuid: string): Promise<BunnyStatus> {
   return apiGet<BunnyStatus>(`/api/bunny/videos/${videoGuid}/status`);
+}
+
+/** setTimeout that resolves early when the caller aborts, so cancel feels instant. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => { clearTimeout(t); signal?.removeEventListener('abort', done); resolve(); };
+    const t = setTimeout(done, ms);
+    signal?.addEventListener('abort', done, { once: true });
+  });
 }
 
 /**
@@ -90,11 +129,13 @@ export async function getStatus(videoGuid: string): Promise<BunnyStatus> {
 export async function pollStatus(
   videoGuid: string,
   onTick?: (status: string) => void,
+  signal?: AbortSignal,
 ): Promise<{ playbackUrl: string; thumbnailUrl: string | null }> {
   const intervalMs = 5000;
   const attempts = (15 * 60 * 1000) / intervalMs; // 15 minutes
 
   for (let i = 0; i < attempts; i++) {
+    if (signal?.aborted) throw new UploadAborted();
     const s = await getStatus(videoGuid);
     onTick?.(s.status);
 
@@ -111,7 +152,7 @@ export async function pollStatus(
     if (s.status === 'error' || s.status === 'upload_failed') {
       throw new Error(`This video could not be processed (status: ${s.status}).`);
     }
-    await new Promise((r) => setTimeout(r, intervalMs));
+    await sleep(intervalMs, signal);
   }
   throw new Error('Timed out waiting for the video to finish processing (15 min).');
 }

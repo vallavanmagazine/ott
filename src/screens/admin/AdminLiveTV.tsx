@@ -359,6 +359,7 @@ function SlotFormModal({
   const toast = useToast();
   const [form, setForm] = useState<SlotForm>(initial);
   const [saving, setSaving] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [thumbTouched, setThumbTouched] = useState(!!initial.thumb);
 
   const set = <K extends keyof SlotForm>(key: K, value: SlotForm[K]) =>
@@ -395,9 +396,21 @@ function SlotFormModal({
     return format12Hour(`${Math.floor(total / 60).toString().padStart(2, '0')}:${(total % 60).toString().padStart(2, '0')}`);
   }, [form.startTime24, form.durationMin]);
 
+  /**
+   * A Bunny upload only reaches the form when it finishes, so saving or closing
+   * mid-upload silently threw it away — that is how a row ended up with no
+   * video_url and the '20212135' placeholder thumbnail. Both exits are now
+   * blocked while an upload is in flight; the widget's own Cancel is the way
+   * out if the admin no longer wants it.
+   */
+  const uploadInFlight = () =>
+    toast.error('Video is still uploading — wait for it to finish, or hit Cancel under the upload button.');
+  const guardedClose = () => { if (uploadBusy) { uploadInFlight(); return; } onClose(); };
+
   const submit = async () => {
     if (!form.title.trim()) { toast.error('Program title is required'); return; }
     if (!/^\d{2}:\d{2}$/.test(form.startTime24)) { toast.error('Start time must be HH:MM (24h)'); return; }
+    if (uploadBusy) { uploadInFlight(); return; }
     setSaving(true);
     try {
       await onSave(form);
@@ -412,8 +425,8 @@ function SlotFormModal({
     <AdminModal
       title={isNew ? 'Add Program Slot' : 'Edit Program Slot'}
       subtitle={isNew ? undefined : form.title}
-      onClose={onClose}
-      footer={<SaveBar onCancel={onClose} onSave={submit} saving={saving} label={isNew ? 'Add Slot' : 'Save Changes'} />}
+      onClose={guardedClose}
+      footer={<SaveBar onCancel={guardedClose} onSave={submit} saving={saving} label={isNew ? 'Add Slot' : 'Save Changes'} disabled={uploadBusy} />}
     >
       <Field label="Program Title (English)" required>
         <TextInput value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Evening Documentary Hour" />
@@ -432,7 +445,7 @@ function SlotFormModal({
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
-      <BunnyUpload table="live_slots" title={form.title} onComplete={onBunnyComplete} />
+      <BunnyUpload table="live_slots" title={form.title} onComplete={onBunnyComplete} onBusyChange={setUploadBusy} />
 
       <Field label="Thumbnail URL" hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the video URL — edit to override.' : 'Full image URL, or a Pexels photo id.'}>
         <TextInput

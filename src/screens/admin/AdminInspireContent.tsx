@@ -282,6 +282,7 @@ function InspireFormModal({
   const toast = useToast();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [posterTouched, setPosterTouched] = useState(!!initial.poster);
 
   const set = <K extends keyof InspireForm>(k: K, v: InspireForm[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -311,9 +312,21 @@ function InspireFormModal({
     }));
   };
 
+  /**
+   * A Bunny upload only reaches the form when it finishes, so saving or closing
+   * mid-upload silently threw it away — that is how a row ended up with no
+   * video_url and the '20212135' placeholder thumbnail. Both exits are now
+   * blocked while an upload is in flight; the widget's own Cancel is the way
+   * out if the admin no longer wants it.
+   */
+  const uploadInFlight = () =>
+    toast.error('Video is still uploading — wait for it to finish, or hit Cancel under the upload button.');
+  const guardedClose = () => { if (uploadBusy) { uploadInFlight(); return; } onClose(); };
+
   const submit = async () => {
     if (!form.title.trim()) { toast.error('Title (English) is required'); return; }
     if (form.isSponsored && !form.sponsorId) { toast.error('Pick the sponsor, or turn sponsorship off'); return; }
+    if (uploadBusy) { uploadInFlight(); return; }
     setSaving(true);
     try { await onSave(form); } catch (e) { toast.error((e as Error).message); } finally { setSaving(false); }
   };
@@ -322,15 +335,15 @@ function InspireFormModal({
     <AdminModal
       title={isNew ? 'Add Inspire Content' : 'Edit Inspire Content'}
       subtitle={isNew ? undefined : form.title}
-      onClose={onClose}
-      footer={<SaveBar onCancel={onClose} onSave={submit} saving={saving} label={form.status === 'Published' ? 'Save & Publish' : 'Save Draft'} />}
+      onClose={guardedClose}
+      footer={<SaveBar onCancel={guardedClose} onSave={submit} saving={saving} label={form.status === 'Published' ? 'Save & Publish' : 'Save Draft'} disabled={uploadBusy} />}
     >
       <Field label="Video URL" hint="Paste a link, or upload a file">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://..." />
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
-      <BunnyUpload table="inspire_items" title={form.title} onComplete={onBunnyComplete} />
+      <BunnyUpload table="inspire_items" title={form.title} onComplete={onBunnyComplete} onBusyChange={setUploadBusy} />
 
       <Field label="Poster / Thumbnail" hint={autoThumbnail(form.videoUrl) ? 'Auto-filled from the video URL — edit to override.' : 'URL or Pexels photo id.'}>
         <TextInput value={form.poster} onChange={(e) => { setPosterTouched(true); set('poster', e.target.value); }} />

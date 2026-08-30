@@ -400,6 +400,7 @@ function FeedFormModal({
   const toast = useToast();
   const [form, setForm] = useState<FeedForm>(initial);
   const [saving, setSaving] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   /** True once the admin edits the thumbnail by hand — stops the auto-fill. */
   const [thumbTouched, setThumbTouched] = useState(!!initial.thumb);
 
@@ -437,9 +438,21 @@ function FeedFormModal({
 
   const previewThumb = form.thumb || autoThumbnail(form.videoUrl) || '';
 
+  /**
+   * A Bunny upload only reaches the form when it finishes, so saving or closing
+   * mid-upload silently threw it away — that is how a row ended up with no
+   * video_url and the '20212135' placeholder thumbnail. Both exits are now
+   * blocked while an upload is in flight; the widget's own Cancel is the way
+   * out if the admin no longer wants it.
+   */
+  const uploadInFlight = () =>
+    toast.error('Video is still uploading — wait for it to finish, or hit Cancel under the upload button.');
+  const guardedClose = () => { if (uploadBusy) { uploadInFlight(); return; } onClose(); };
+
   const submit = async () => {
     if (!form.title.trim()) { toast.error('Title (English) is required'); return; }
     if (!form.titleTa.trim()) { toast.error('Title (Tamil) is required'); return; }
+    if (uploadBusy) { uploadInFlight(); return; }
     setSaving(true);
     try {
       await onSave(form);
@@ -454,15 +467,15 @@ function FeedFormModal({
     <AdminModal
       title={isNew ? 'Add New Feed Content' : 'Edit Feed Content'}
       subtitle={isNew ? 'Publishes to the viewer Feed tab' : form.title}
-      onClose={onClose}
-      footer={<SaveBar onCancel={onClose} onSave={submit} saving={saving} label={form.status === 'Published' ? 'Save & Publish' : 'Save Draft'} />}
+      onClose={guardedClose}
+      footer={<SaveBar onCancel={guardedClose} onSave={submit} saving={saving} label={form.status === 'Published' ? 'Save & Publish' : 'Save Draft'} disabled={uploadBusy} />}
     >
       <Field label="Video URL" hint="Paste a link, or upload a file">
         <TextInput value={form.videoUrl} onChange={(e) => onVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." />
         <VideoUrlHint url={form.videoUrl} />
       </Field>
 
-      <BunnyUpload table="feed_reels" title={form.title} onComplete={onBunnyComplete} />
+      <BunnyUpload table="feed_reels" title={form.title} onComplete={onBunnyComplete} onBusyChange={setUploadBusy} />
 
       <Field
         label="Thumbnail URL"
