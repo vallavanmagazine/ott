@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local build-time config for --dart-define-from-file. Holds the Supabase anon
+# key and (eventually) other build-time values; dart_defines.example.json is the
+# committed template. Without one of these, SUPABASE_ANON_KEY compiles to an
+# empty string, Env.isConfigured is false and the whole app renders empty.
+dart_defines.json

@@ -1,0 +1,11 @@
+{
+  "_comment": "Copy to dart_defines.json (gitignored) and fill in, then build with: flutter build apk --debug --dart-define-from-file=dart_defines.json",
+
+  "SUPABASE_URL": "https://ipybmgkorxidxuqlptgj.supabase.co",
+  "SUPABASE_ANON_KEY": "<the anon key from Supabase > Project Settings > API>",
+
+  "API_BASE_URL": "",
+  "SITE_URL": "https://vallavan.in/",
+  "RAZORPAY_KEY_ID": "",
+  "FAST2SMS_KEY": ""
+}

@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../config/constants.dart';
+import '../config/env.dart';
 import '../config/theme.dart';
 import '../models/search_hit.dart';
 import '../services/preferences_service.dart';
@@ -153,7 +154,23 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _resultsList() {
     final r = _results;
     if (r.isEmpty) {
-      return const Center(child: Text('No results found', style: TextStyle(color: AppColors.muted)));
+      // Same trap as the Feed: with no Supabase key the search index is empty,
+      // so every query "finds nothing" and looks like a content problem rather
+      // than a build problem. Name the real cause.
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            !Env.isConfigured
+                ? 'This build has no Supabase key, so there is nothing to '
+                    'search. Rebuild with '
+                    '--dart-define-from-file=dart_defines.json.'
+                : 'No results found',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.muted),
+          ),
+        ),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),

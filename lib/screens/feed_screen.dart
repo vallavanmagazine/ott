@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import '../config/constants.dart';
+import '../config/env.dart';
 import '../config/theme.dart';
 import '../models/ad_content.dart';
 import '../models/feed_reel.dart';
@@ -153,9 +154,27 @@ class _FeedScreenState extends State<FeedScreen> {
         if (_loading)
           const Center(child: CircularProgressIndicator(color: AppColors.red))
         else if (items.isEmpty)
+          // An unconfigured build reaches here too: Db.client is null, every
+          // service returns [], and "Nothing here yet" is indistinguishable
+          // from the database genuinely being empty. That is exactly how a
+          // build made without SUPABASE_ANON_KEY looked like a content
+          // problem. Say which it is.
           Center(
-            child: Text(_query.isEmpty ? 'Nothing here yet' : 'No matches',
-                style: const TextStyle(color: AppColors.muted)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                !Env.isConfigured
+                    ? 'This build has no Supabase key, so nothing can load. '
+                        'Rebuild with '
+                        '--dart-define-from-file=dart_defines.json '
+                        '(see dart_defines.example.json).'
+                    : _query.isEmpty
+                        ? 'Nothing here yet'
+                        : 'No matches',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.muted),
+              ),
+            ),
           )
         else
           PageView.builder(

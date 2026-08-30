@@ -31,9 +31,25 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # Unset secrets resolve to an empty string, which the app treats as
-      # "feature not configured" (Env.*Configured) rather than failing the
-      # build: payments and SMS OTP then degrade to their disabled states.
+      # SUPABASE_ANON_KEY is not optional the way the others are. Env.isConfigured
+      # is `supabaseAnonKey.isNotEmpty`, so an empty one makes Db.init() skip
+      # Supabase.initialize() entirely, every service takes its `client == null`
+      # branch and returns [], and the APK installs and runs while showing an
+      # empty Feed, empty Search and empty everything. That failure is invisible
+      # until someone opens the app, so fail here instead of shipping it.
+      - name: Require Supabase config
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::secrets.SUPABASE_ANON_KEY is empty. The APK would build fine and then be completely empty on device. Set it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      # The remaining secrets ARE optional: unset ones resolve to an empty
+      # string, which the app treats as "feature not configured"
+      # (Env.*Configured) rather than failing the build — payments and SMS OTP
+      # degrade to their disabled states.
       - name: Build APK
         run: |
           flutter build apk --release \
