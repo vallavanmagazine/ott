@@ -3,6 +3,7 @@ import '../../config/theme.dart';
 import '../../config/constants.dart';
 import '../../services/freelancer_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/auth_phone_service.dart';
 import '../register_screen.dart';
 
 /// C1 — Freelancer career / apply page. Fields identical to web (FIX 3).
@@ -55,6 +56,18 @@ class _FreelancerCareerScreenState extends State<FreelancerCareerScreen> {
       setState(() => _error = 'Name, phone, email and at least one role are required.'); return;
     }
     if (!_agree) { setState(() => _error = 'Please agree to the Terms to continue.'); return; }
+
+    // OTP gate: a freelancer record must not be created without a verified
+    // account. If there's no phone session yet, send the user through mobile
+    // OTP registration first (RegisterScreen → /api/otp/send + verify).
+    final session = await AuthPhone.currentSession();
+    if (!mounted) return;
+    if (session == null) {
+      setState(() => _error = 'Please verify your mobile first — we\'ll create your account, then you can complete this application.');
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen(role: 'freelancer')));
+      return;
+    }
+
     setState(() => _busy = true);
     final err = await FreelancerService.apply(
       name: _name.text,
