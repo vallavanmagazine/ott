@@ -28,7 +28,8 @@ export class SmsService {
   async sendOtp(phone: string, purpose = 'sponsor_login') {
     const code = this.genCode();
     const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
-    await this.supa.client.from('otp_verifications').insert({ phone, code_hash: this.hash(code), purpose, expires_at: expires });
+    const { error } = await this.supa.client.from('otp_verifications').insert({ phone, code_hash: this.hash(code), purpose, expires_at: expires });
+    if (error) throw new Error(`Could not store OTP: ${error.message}`);
     const channel = await this.sendOtpSms(phone, code);
     // channel: 'sms' when Fast2SMS delivered, 'skipped' when key not configured
     return { sent: true, channel };
@@ -67,19 +68,27 @@ export class SmsService {
   // EMAIL OTP (mirrors phone OTP; stored on the `email` column)
   // ===========================================================================
   async sendEmailOtp(email: string, purpose = 'email_verify') {
+    const norm = email.trim().toLowerCase();
     const code = this.genCode();
     const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
-    await this.supa.client.from('otp_verifications').insert({ email, code_hash: this.hash(code), purpose, expires_at: expires });
-    const res: any = await this.email.verificationCode(email, code);
+    // Store FIRST and surface any failure — previously the insert error was
+    // swallowed, so the code was emailed but never persisted and verify always
+    // failed. (phone is nullable per fix_email_otp.sql so email rows can save.)
+    const { error } = await this.supa.client
+      .from('otp_verifications')
+      .insert({ email: norm, code_hash: this.hash(code), purpose, expires_at: expires });
+    if (error) throw new Error(`Could not store email OTP: ${error.message}`);
+    const res: any = await this.email.verificationCode(norm, code);
     const channel = res?.skipped ? 'skipped' : 'email';
     return { sent: true, channel };
   }
 
   async verifyEmailOtp(email: string, code: string): Promise<boolean> {
+    const norm = email.trim().toLowerCase();
     const { data } = await this.supa.client
       .from('otp_verifications')
       .select('id, code_hash, expires_at, consumed')
-      .eq('email', email).eq('purpose', 'email_verify')
+      .eq('email', norm).eq('purpose', 'email_verify')
       .order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (!data || data.consumed) return false;
     if (new Date(data.expires_at).getTime() < Date.now()) return false;
