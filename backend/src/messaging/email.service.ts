@@ -47,6 +47,16 @@ export class EmailService {
     return res.json();
   }
 
+  // ---- Verification code (email OTP) --------------------------------------
+  /** Returns the Resend result; `{ skipped: true }` when RESEND_API_KEY is unset. */
+  verificationCode(to: string, code: string) {
+    const body = `
+      <p>Use this code to verify your email and finish creating your Vallavan account:</p>
+      <p style="font-size:30px;font-weight:900;letter-spacing:8px;margin:16px 0">${code}</p>
+      <p style="color:#71717a;font-size:13px">This code is valid for 15 minutes. If you didn't request it, you can ignore this email.</p>`;
+    return this.send(to, 'Your Vallavan verification code', shell('Verify your email', body));
+  }
+
   // ---- Transactional ------------------------------------------------------
   welcome(to: string, name: string, role = 'member') {
     const roleLine = role.toLowerCase() === 'sponsor'

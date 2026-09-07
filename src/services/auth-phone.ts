@@ -112,6 +112,69 @@ export async function verifyOTP(phone: string, code: string): Promise<boolean> {
   }
 }
 
+/**
+ * Send an EMAIL OTP. Prefers the backend (Resend via /api/otp/send-email);
+ * falls back to a dev test code (browsers can't send Resend email directly).
+ */
+export async function sendEmailOTP(email: string, purpose = 'email_verify'): Promise<SendOtpResult> {
+  if (!supabase) return { ok: false, testMode: false, error: 'Service not configured.' };
+  const e = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return { ok: false, testMode: false, error: 'Please enter a valid email address.' };
+
+  if (hasBackend()) {
+    try {
+      const res = await apiPost<{ sent?: boolean; channel?: string }>('/api/otp/send-email', { email: e });
+      if (res?.channel === 'skipped') {
+        return { ok: false, testMode: false, error: 'Email service is not configured on the server yet. Add RESEND_API_KEY in Admin → API Settings.' };
+      }
+      return { ok: res?.sent !== false, testMode: false };
+    } catch (err) {
+      return { ok: false, testMode: false, error: (err as Error).message };
+    }
+  }
+
+  // Client-side fallback (dev only): store the code; email can't be sent from
+  // the browser, so we surface a test code.
+  const code = TEST_OTP;
+  try {
+    const code_hash = await sha256Hex(code);
+    await supabase.from('otp_verifications').insert({
+      email: e, code_hash, purpose, expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(), consumed: false,
+    });
+  } catch (err) {
+    return { ok: false, testMode: true, error: (err as Error).message };
+  }
+  return { ok: true, testMode: true, testCode: code };
+}
+
+/** Verify an EMAIL OTP. Backend when configured; else checks the table directly. */
+export async function verifyEmailOTP(email: string, code: string): Promise<boolean> {
+  const e = email.trim().toLowerCase();
+  if (hasBackend()) {
+    try {
+      const res = await apiPost<{ ok: boolean }>('/api/otp/verify-email', { email: e, code: code.trim() });
+      return res.ok === true;
+    } catch {
+      return false;
+    }
+  }
+  if (!supabase) return false;
+  try {
+    const { data } = await supabase
+      .from('otp_verifications')
+      .select('id, code_hash, expires_at, consumed')
+      .eq('email', e).eq('purpose', 'email_verify')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    if (!data || data.consumed) return false;
+    if (new Date(data.expires_at).getTime() < Date.now()) return false;
+    if (data.code_hash !== (await sha256Hex(code.trim()))) return false;
+    await supabase.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export interface AccountInput { name: string; phone: string; email: string; district: string; roles?: string[]; }
 
 export async function createSponsorAccount(input: AccountInput): Promise<PhoneSession> {

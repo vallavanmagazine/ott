@@ -16,4 +16,15 @@ export class MessagingController {
     const ok = await this.sms.verifyOtp(body.phone, body.code);
     return { ok };
   }
+
+  @Post('send-email')
+  sendEmail(@Body() body: { email: string }) {
+    return this.sms.sendEmailOtp(body.email);
+  }
+
+  @Post('verify-email')
+  async verifyEmail(@Body() body: { email: string; code: string }) {
+    const ok = await this.sms.verifyEmailOtp(body.email, body.code);
+    return { ok };
+  }
 }
