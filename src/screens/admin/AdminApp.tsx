@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard, Users, Film, Tv, Building2, CheckSquare,
-  Megaphone, BarChart3, TrendingUp, FileText, Settings, ScrollText, LogOut, Tags,
+  Megaphone, BarChart3, TrendingUp, FileText, Settings, ScrollText, LogOut, Tags, Mail,
   ChevronLeft, Lock, Clapperboard, Radio, KeyRound, Sparkles, Briefcase, Share2,
   Wallet, IndianRupee,
 } from 'lucide-react';
@@ -27,6 +27,7 @@ import { AdminPayments } from './AdminPayments';
 import { AdminPricing } from './AdminPricing';
 import { AdminAnalytics } from './AdminAnalytics';
 import { AdminCategories } from './AdminCategories';
+import { AdminEmail } from './AdminEmail';
 import { ToastProvider } from '@/components/admin/Toast';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
@@ -42,6 +43,7 @@ export type AdminPage =
   | 'documentaries'
   | 'inspire'
   | 'categories'
+  | 'email'
   | 'broadcast'
   | 'social'
   | 'pricing'
@@ -105,6 +107,7 @@ const navGroups: NavGroup[] = [
       { key: 'documentaries', label: 'Documentaries', icon: Film },
       { key: 'inspire', label: 'Inspire Content', icon: Sparkles },
       { key: 'categories', label: 'Categories', icon: Tags },
+  { key: 'email', label: 'Email Broadcast', icon: Mail },
     ],
   },
   {
@@ -163,6 +166,7 @@ export function AdminApp({ onExit }: { onExit: () => void }) {
       case 'documentaries': return <AdminDocumentaries />;
       case 'inspire': return <AdminInspireContent />;
       case 'categories': return <AdminCategories />;
+      case 'email': return <AdminEmail />;
       case 'analytics': return <AdminAnalytics />;
       case 'revenue': return <AdminRevenueReports />;
       case 'cms': return <AdminCMS />;

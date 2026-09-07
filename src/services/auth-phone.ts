@@ -37,15 +37,33 @@ const normPhone = (p: string) => p.replace(/\D/g, '').slice(-10);
 
 export interface SendOtpResult { ok: boolean; testMode: boolean; testCode?: string; error?: string; }
 
-/** Generate + store an OTP and (if configured) send it via Fast2SMS. */
+/**
+ * Send an OTP. When the backend is configured we route through it (NestJS holds
+ * the Fast2SMS key and avoids browser CORS) — this is the path that actually
+ * delivers SMS from the web. Otherwise we fall back to a client-side path: a
+ * direct Fast2SMS call if VITE_FAST2SMS_KEY is set, else a test OTP (123456).
+ */
 export async function sendOTP(phone: string, purpose = 'register'): Promise<SendOtpResult> {
   if (!supabase) return { ok: false, testMode: false, error: 'Service not configured.' };
   const numbers = normPhone(phone);
   if (numbers.length < 10) return { ok: false, testMode: false, error: 'Please enter a valid 10-digit mobile number.' };
 
+  // Preferred: backend delivers the SMS and stores the code (service role).
+  if (hasBackend()) {
+    try {
+      const res = await apiPost<{ sent?: boolean; channel?: string }>('/api/otp/send', { phone: numbers });
+      if (res?.channel === 'skipped') {
+        return { ok: false, testMode: false, error: 'SMS service is not configured on the server yet. Add FAST2SMS_API_KEY in Admin → API Settings.' };
+      }
+      return { ok: res?.sent !== false, testMode: false };
+    } catch (e) {
+      return { ok: false, testMode: false, error: (e as Error).message };
+    }
+  }
+
+  // Client-side fallback (dev only): store the code and try Fast2SMS directly.
   const testMode = !fast2smsConfigured();
   const code = testMode ? TEST_OTP : String(Math.floor(100000 + Math.random() * 900000));
-
   try {
     const code_hash = await sha256Hex(code);
     await supabase.from('otp_verifications').insert({
@@ -54,7 +72,6 @@ export async function sendOTP(phone: string, purpose = 'register'): Promise<Send
   } catch (e) {
     return { ok: false, testMode, error: (e as Error).message };
   }
-
   if (!testMode) {
     try {
       await fetch('https://www.fast2sms.com/dev/bulkV2', {
@@ -62,16 +79,24 @@ export async function sendOTP(phone: string, purpose = 'register'): Promise<Send
         headers: { authorization: FAST2SMS_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ route: 'otp', variables_values: code, numbers }),
       });
-    } catch { /* browser CORS may block reading the response; the OTP is stored regardless */ }
+    } catch { /* browser CORS may block this; prefer the backend path in production */ }
     return { ok: true, testMode: false };
   }
   return { ok: true, testMode: true, testCode: code };
 }
 
-/** Verify an OTP against the latest stored code for this phone. */
+/** Verify an OTP. Uses the backend when configured; else checks the table directly. */
 export async function verifyOTP(phone: string, code: string): Promise<boolean> {
-  if (!supabase) return false;
   const numbers = normPhone(phone);
+  if (hasBackend()) {
+    try {
+      const res = await apiPost<{ ok: boolean }>('/api/otp/verify', { phone: numbers, code: code.trim() });
+      return res.ok === true;
+    } catch {
+      return false;
+    }
+  }
+  if (!supabase) return false;
   try {
     const { data } = await supabase
       .from('otp_verifications')
@@ -101,7 +126,7 @@ export async function createSponsorAccount(input: AccountInput): Promise<PhoneSe
 
   const session: PhoneSession = { userId, name: input.name, phone, email: input.email, role: 'Sponsor', sponsorId };
   saveSession(session);
-  void sendWelcome(input.email, input.name);
+  void sendWelcome(input.email, input.name, 'sponsor');
   return session;
 }
 
@@ -117,7 +142,7 @@ export async function createFreelancerAccount(input: AccountInput): Promise<Phon
 
   const session: PhoneSession = { userId, name: input.name, phone, email: input.email, role: 'Freelancer', freelancerId };
   saveSession(session);
-  void sendWelcome(input.email, input.name);
+  void sendWelcome(input.email, input.name, 'freelancer');
   return session;
 }
 
@@ -145,8 +170,8 @@ function friendlyInsert(m: string): string {
 }
 
 /** Best-effort welcome email via the backend (Resend), or direct if a key is set. */
-async function sendWelcome(email: string, name: string) {
-  if (hasBackend()) { try { await apiPost('/api/notify/welcome', { email, name }); return; } catch { /* fall through */ } }
+async function sendWelcome(email: string, name: string, role = 'member') {
+  if (hasBackend()) { try { await apiPost('/api/notify/welcome', { email, name, role }); return; } catch { /* fall through */ } }
   if (RESEND_KEY) {
     try {
       await fetch('https://api.resend.com/emails', {
