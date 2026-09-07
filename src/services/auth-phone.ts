@@ -183,9 +183,9 @@ export async function createSponsorAccount(input: AccountInput): Promise<PhoneSe
   const sponsorId = uuid();
   const phone = normPhone(input.phone);
   const { error: uErr } = await supabase.from('app_users').insert({ id: userId, email: input.email, name: input.name, phone, role: 'Sponsor', status: 'Active' });
-  if (uErr) throw new Error(friendlyInsert(uErr.message));
+  if (uErr) throw describeInsertError('app_users', uErr);
   const { error: sErr } = await supabase.from('sponsors').insert({ id: sponsorId, name: input.name, owner_name: input.name, email: input.email, phone, district: input.district, owner_id: userId, status: 'Pending' });
-  if (sErr) throw new Error(friendlyInsert(sErr.message));
+  if (sErr) throw describeInsertError('sponsors', sErr);
 
   const session: PhoneSession = { userId, name: input.name, phone, email: input.email, role: 'Sponsor', sponsorId };
   saveSession(session);
@@ -199,9 +199,9 @@ export async function createFreelancerAccount(input: AccountInput): Promise<Phon
   const freelancerId = uuid();
   const phone = normPhone(input.phone);
   const { error: uErr } = await supabase.from('app_users').insert({ id: userId, email: input.email, name: input.name, phone, role: 'Freelancer', status: 'Active' });
-  if (uErr) throw new Error(friendlyInsert(uErr.message));
+  if (uErr) throw describeInsertError('app_users', uErr);
   const { error: fErr } = await supabase.from('freelancers').insert({ id: freelancerId, user_id: userId, name: input.name, email: input.email, phone, district: input.district, roles: input.roles ?? [], status: 'pending' });
-  if (fErr) throw new Error(friendlyInsert(fErr.message));
+  if (fErr) throw describeInsertError('freelancers', fErr);
 
   const session: PhoneSession = { userId, name: input.name, phone, email: input.email, role: 'Freelancer', freelancerId };
   saveSession(session);
@@ -226,10 +226,23 @@ export async function loginLookup(phone: string): Promise<PhoneSession | null> {
   return session;
 }
 
-function friendlyInsert(m: string): string {
-  if (/duplicate|already exists|unique/i.test(m)) return 'An account with this phone or email already exists. Please log in instead.';
-  if (/permission|rls|policy/i.test(m)) return 'Could not create the account (database policy). Apply supabase/fix_phone_auth.sql.';
-  return 'Could not create the account. Please try again.';
+/**
+ * Build an Error from a Supabase insert failure WITHOUT hiding the real cause.
+ * The full PostgrestError (message/details/hint/code) is logged to the console
+ * and its text is appended to the surfaced message, so a partially-applied
+ * migration (missing column), a NOT NULL/FK violation, or an RLS block is
+ * visible instead of a blank "please try again".
+ */
+function describeInsertError(context: string, err: any): Error {
+  // eslint-disable-next-line no-console
+  console.error(`[register] ${context} insert failed:`, err);
+  const raw = [err?.message, err?.details, err?.hint].filter(Boolean).join(' — ') || 'unknown error';
+  if (/duplicate|already exists|unique/i.test(raw)) return new Error('An account with this phone or email already exists. Please log in instead.');
+  if (/row-level security|permission|policy|rls/i.test(raw)) return new Error(`Blocked by database policy — apply supabase/fix_phone_auth.sql. (${raw})`);
+  if (/schema cache|column .* does not exist|could not find the/i.test(raw)) return new Error(`Database is missing a column for ${context} — apply the latest supabase/*.sql. (${raw})`);
+  if (/null value|not-null/i.test(raw)) return new Error(`A required ${context} field was empty. (${raw})`);
+  if (/foreign key/i.test(raw)) return new Error(`Could not link the ${context} record. (${raw})`);
+  return new Error(`Could not create the account (${context}): ${raw}`);
 }
 
 /** Best-effort welcome email via the backend (Resend), or direct if a key is set. */
