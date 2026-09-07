@@ -32,12 +32,34 @@ export async function fetchConfiguredKeys(): Promise<string[]> {
   return data as string[];
 }
 
-/** Upsert a secret value (admin only, enforced by RLS). */
+/**
+ * Save a secret value (admin only). Writes via the SECURITY DEFINER RPC
+ * `set_platform_setting`, which runs is_admin() server-side and upserts as the
+ * table owner — so the write succeeds whenever the admin's session is valid and
+ * never depends on the exact table RLS policy shape (which previously caused
+ * "new row violates row-level security policy" on upsert). See
+ * supabase/fix_platform_settings.sql.
+ */
 export async function saveSetting(key: SettingKey, value: string): Promise<void> {
   if (!supabase) throw new Error('Supabase not configured');
-  const { error } = await supabase
-    .from('platform_settings')
-    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-  if (error) throw error;
+
+  // Guard: make sure the admin session token is actually attached to this
+  // request. Without it the RPC runs as `anon`, is_admin() is false, and the
+  // user would see a confusing RLS error instead of "please sign in again".
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    throw new Error('Your admin session has expired. Please sign in again and retry.');
+  }
+
+  const { error } = await supabase.rpc('set_platform_setting', { p_key: key, p_value: value });
+  if (error) {
+    if (/admin access required/i.test(error.message)) {
+      throw new Error('This account is not an admin (or its session expired). Sign in with an admin account and retry.');
+    }
+    if (/could not find the function|set_platform_setting/i.test(error.message)) {
+      throw new Error('Settings RPC missing — run supabase/fix_platform_settings.sql in Supabase, then retry.');
+    }
+    throw error;
+  }
   await logAudit(`Updated API setting ${key}`);
 }
