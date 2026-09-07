@@ -69,11 +69,26 @@ class AuthPhone {
   }
 
   // --- OTP ---
+  /// Prefer the backend (holds Fast2SMS key, actually delivers SMS). Falls back
+  /// to a client-side path (direct Fast2SMS if FAST2SMS_KEY set, else test OTP).
   static Future<SendOtpResult> sendOtp(String phone, {String purpose = 'register'}) async {
     final c = Db.client;
     if (c == null) return const SendOtpResult(false, error: 'Service not configured.');
     final numbers = _norm(phone);
     if (numbers.length < 10) return const SendOtpResult(false, error: 'Please enter a valid 10-digit mobile number.');
+
+    if (Env.hasBackend) {
+      try {
+        final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/send'),
+          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'phone': numbers}));
+        if (res.statusCode < 200 || res.statusCode >= 300) return SendOtpResult(false, error: 'OTP service error (${res.statusCode}).');
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        if (body['channel'] == 'skipped') return const SendOtpResult(false, error: 'SMS not configured on the server. Add FAST2SMS_API_KEY in Admin → API Settings.');
+        return const SendOtpResult(true);
+      } catch (e) {
+        return SendOtpResult(false, error: e.toString());
+      }
+    }
 
     final testMode = !Env.fast2smsConfigured;
     final code = testMode ? _testOtp : (100000 + Random.secure().nextInt(900000)).toString();
@@ -99,8 +114,18 @@ class AuthPhone {
 
   static Future<bool> verifyOtp(String phone, String code) async {
     final c = Db.client;
-    if (c == null) return false;
     final numbers = _norm(phone);
+    if (Env.hasBackend) {
+      try {
+        final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/verify'),
+          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'phone': numbers, 'code': code.trim()}));
+        if (res.statusCode < 200 || res.statusCode >= 300) return false;
+        return (jsonDecode(res.body) as Map<String, dynamic>)['ok'] == true;
+      } catch (_) {
+        return false;
+      }
+    }
+    if (c == null) return false;
     try {
       final data = await c.from('otp_verifications').select('id, code_hash, expires_at, consumed')
           .eq('phone', numbers).order('created_at', ascending: false).limit(1).maybeSingle();
@@ -122,7 +147,7 @@ class AuthPhone {
     await c.from('app_users').insert({'id': userId, 'email': email, 'name': name, 'phone': p, 'role': 'Sponsor', 'status': 'Active'});
     await c.from('sponsors').insert({'id': sponsorId, 'name': name, 'owner_name': name, 'email': email, 'phone': p, 'district': district, 'owner_id': userId, 'status': 'Pending'});
     final s = PhoneSession(userId: userId, name: name, phone: p, email: email, role: 'Sponsor', sponsorId: sponsorId);
-    await _save(s); _welcome(email, name);
+    await _save(s); _welcome(email, name, 'sponsor');
     return s;
   }
 
@@ -133,7 +158,7 @@ class AuthPhone {
     await c.from('app_users').insert({'id': userId, 'email': email, 'name': name, 'phone': p, 'role': 'Freelancer', 'status': 'Active'});
     await c.from('freelancers').insert({'id': freelancerId, 'user_id': userId, 'name': name, 'email': email, 'phone': p, 'district': district, 'roles': roles, 'status': 'pending'});
     final s = PhoneSession(userId: userId, name: name, phone: p, email: email, role: 'Freelancer', freelancerId: freelancerId);
-    await _save(s); _welcome(email, name);
+    await _save(s); _welcome(email, name, 'freelancer');
     return s;
   }
 
@@ -159,11 +184,11 @@ class AuthPhone {
     }
   }
 
-  static Future<void> _welcome(String email, String name) async {
+  static Future<void> _welcome(String email, String name, [String role = 'member']) async {
     if (!Env.hasBackend && Env.resendKey.isEmpty) return;
     try {
       if (Env.hasBackend) {
-        await http.post(Uri.parse('${Env.apiBaseUrl}/api/notify/welcome'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': email, 'name': name}));
+        await http.post(Uri.parse('${Env.apiBaseUrl}/api/notify/welcome'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': email, 'name': name, 'role': role}));
       } else {
         await http.post(Uri.parse('https://api.resend.com/emails'),
           headers: {'Authorization': 'Bearer ${Env.resendKey}', 'Content-Type': 'application/json'},
