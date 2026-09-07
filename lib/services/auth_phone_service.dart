@@ -139,6 +139,66 @@ class AuthPhone {
     }
   }
 
+  // --- EMAIL OTP (mirrors phone; backend Resend, or dev test code) ---
+  static Future<SendOtpResult> sendEmailOtp(String email, {String purpose = 'email_verify'}) async {
+    final c = Db.client;
+    if (c == null) return const SendOtpResult(false, error: 'Service not configured.');
+    final e = email.trim().toLowerCase();
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(e)) {
+      return const SendOtpResult(false, error: 'Please enter a valid email address.');
+    }
+    if (Env.hasBackend) {
+      try {
+        final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/send-email'),
+          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': e}));
+        if (res.statusCode < 200 || res.statusCode >= 300) return SendOtpResult(false, error: 'Email OTP error (${res.statusCode}).');
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        if (body['channel'] == 'skipped') return const SendOtpResult(false, error: 'Email not configured on the server. Add RESEND_API_KEY in Admin → API Settings.');
+        return const SendOtpResult(true);
+      } catch (err) {
+        return SendOtpResult(false, error: err.toString());
+      }
+    }
+    // Dev fallback: store + surface a test code (email can't be sent client-side).
+    const code = _testOtp;
+    try {
+      await c.from('otp_verifications').insert({
+        'email': e, 'code_hash': _hash(code), 'purpose': purpose,
+        'expires_at': DateTime.now().add(const Duration(minutes: 15)).toIso8601String(), 'consumed': false,
+      });
+    } catch (err) {
+      return SendOtpResult(false, testMode: true, error: err.toString());
+    }
+    return const SendOtpResult(true, testMode: true, testCode: code);
+  }
+
+  static Future<bool> verifyEmailOtp(String email, String code) async {
+    final c = Db.client;
+    final e = email.trim().toLowerCase();
+    if (Env.hasBackend) {
+      try {
+        final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/verify-email'),
+          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': e, 'code': code.trim()}));
+        if (res.statusCode < 200 || res.statusCode >= 300) return false;
+        return (jsonDecode(res.body) as Map<String, dynamic>)['ok'] == true;
+      } catch (_) {
+        return false;
+      }
+    }
+    if (c == null) return false;
+    try {
+      final data = await c.from('otp_verifications').select('id, code_hash, expires_at, consumed')
+          .eq('email', e).eq('purpose', 'email_verify').order('created_at', ascending: false).limit(1).maybeSingle();
+      if (data == null || data['consumed'] == true) return false;
+      if (DateTime.parse(data['expires_at']).isBefore(DateTime.now())) return false;
+      if (data['code_hash'] != _hash(code.trim())) return false;
+      await c.from('otp_verifications').update({'consumed': true}).eq('id', data['id']);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // --- account creation ---
   static Future<PhoneSession> createSponsor({required String name, required String phone, required String email, required String district}) async {
     final c = Db.client;

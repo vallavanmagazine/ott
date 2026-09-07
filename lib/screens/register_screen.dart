@@ -14,7 +14,7 @@ class RegisterScreen extends StatefulWidget {
   State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-enum _Step { form, otp }
+enum _Step { form, otpPhone, otpEmail }
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _name = TextEditingController();
@@ -25,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final Set<String> _roles = {};
   _Step _step = _Step.form;
   bool _busy = false;
+  bool _phoneVerified = false;
   String? _error;
 
   bool get _isSponsor => widget.role == 'sponsor';
@@ -48,23 +49,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!res.ok) { setState(() => _error = res.error ?? 'Could not send OTP.'); return; }
     if (res.testMode && res.testCode != null) {
       _code.text = res.testCode!;
-      if (mounted) {
-        showDialog(context: context, builder: (_) => AlertDialog(
-          backgroundColor: AppColors.dark,
-          title: const Text('SMS not configured', style: TextStyle(color: Colors.white)),
-          content: Text('Using test OTP: ${res.testCode}', style: const TextStyle(color: AppColors.muted)),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
-        ));
-      }
+      _testDialog('SMS not configured', res.testCode!);
     }
-    setState(() => _step = _Step.otp);
+    setState(() { _phoneVerified = false; _step = _Step.otpPhone; });
   }
 
-  Future<void> _verify() async {
+  void _testDialog(String title, String code) {
+    if (!mounted) return;
+    showDialog(context: context, builder: (_) => AlertDialog(
+      backgroundColor: AppColors.dark,
+      title: Text(title, style: const TextStyle(color: Colors.white)),
+      content: Text('Using test code: $code', style: const TextStyle(color: AppColors.muted)),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+    ));
+  }
+
+  // Verify phone → send email OTP.
+  Future<void> _verifyPhone() async {
     setState(() { _error = null; _busy = true; });
     final ok = await AuthPhone.verifyOtp(_phone.text.trim(), _code.text.trim());
     if (!mounted) return;
-    if (!ok) { setState(() { _busy = false; _error = 'That OTP is incorrect or expired.'; }); return; }
+    if (!ok) { setState(() { _busy = false; _error = 'That mobile OTP is incorrect or expired.'; }); return; }
+    _phoneVerified = true;
+    final res = await AuthPhone.sendEmailOtp(_email.text.trim());
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!res.ok) { setState(() => _error = res.error ?? 'Could not send the email code.'); return; }
+    _code.clear();
+    if (res.testMode && res.testCode != null) { _code.text = res.testCode!; _testDialog('Email not configured', res.testCode!); }
+    setState(() => _step = _Step.otpEmail);
+  }
+
+  // Verify email → create account (requires phone already verified).
+  Future<void> _verifyEmailAndCreate() async {
+    setState(() { _error = null; _busy = true; });
+    if (!_phoneVerified) { setState(() { _busy = false; _error = 'Please verify your mobile first.'; _step = _Step.otpPhone; }); return; }
+    final ok = await AuthPhone.verifyEmailOtp(_email.text.trim(), _code.text.trim());
+    if (!mounted) return;
+    if (!ok) { setState(() { _busy = false; _error = 'That email code is incorrect or expired.'; }); return; }
     try {
       if (_isSponsor) {
         await AuthPhone.createSponsor(name: _name.text.trim(), phone: _phone.text.trim(), email: _email.text.trim(), district: _district);
@@ -122,25 +144,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ];
 
-  List<Widget> _otp() => [
-        const Text('Enter the OTP', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 4),
-        Text('Sent to +91 ${_phone.text.replaceAll(RegExp(r'\D'), '')}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _code, keyboardType: TextInputType.number, textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 8),
-          decoration: InputDecoration(hintText: '••••••', hintStyle: const TextStyle(color: AppColors.muted), filled: true, fillColor: AppColors.glass, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
-        ),
-        if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: AppColors.red, fontSize: 12))),
-        const SizedBox(height: 16),
-        FilledButton(
-          onPressed: _busy ? null : _verify,
-          style: FilledButton.styleFrom(backgroundColor: AppColors.red, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
-          child: Text(_busy ? 'Verifying…' : 'Verify & Register', style: const TextStyle(fontWeight: FontWeight.w900)),
-        ),
-        TextButton(onPressed: () => setState(() { _step = _Step.form; _error = null; }), child: const Text('Edit details', style: TextStyle(color: AppColors.muted))),
-      ];
+  List<Widget> _otp() {
+    final isPhone = _step == _Step.otpPhone;
+    return [
+      Row(children: [
+        Text('Mobile ${_phoneVerified ? '✓' : '1'}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _phoneVerified ? const Color(0xFF66BB6A) : AppColors.gold)),
+        const Text('  →  ', style: TextStyle(color: AppColors.muted)),
+        Text('Email 2', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isPhone ? AppColors.muted : AppColors.gold)),
+      ]),
+      const SizedBox(height: 12),
+      Text(isPhone ? 'Verify your mobile' : 'Verify your email', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 4),
+      Text(isPhone ? 'Code sent to +91 ${_phone.text.replaceAll(RegExp(r'\D'), '')}' : 'Code sent to ${_email.text.trim()}', style: const TextStyle(color: AppColors.muted, fontSize: 12)),
+      const SizedBox(height: 16),
+      TextField(
+        controller: _code, keyboardType: TextInputType.number, textAlign: TextAlign.center,
+        style: const TextStyle(color: Colors.white, fontSize: 20, letterSpacing: 8),
+        decoration: InputDecoration(hintText: '••••••', hintStyle: const TextStyle(color: AppColors.muted), filled: true, fillColor: AppColors.glass, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+      ),
+      if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: AppColors.red, fontSize: 12))),
+      const SizedBox(height: 16),
+      FilledButton(
+        onPressed: _busy ? null : (isPhone ? _verifyPhone : _verifyEmailAndCreate),
+        style: FilledButton.styleFrom(backgroundColor: AppColors.red, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))),
+        child: Text(_busy ? 'Verifying…' : (isPhone ? 'Verify Mobile → Email' : 'Verify Email & Register'), style: const TextStyle(fontWeight: FontWeight.w900)),
+      ),
+      TextButton(onPressed: () => setState(() { _step = _Step.form; _error = null; _code.clear(); _phoneVerified = false; }), child: const Text('Edit details', style: TextStyle(color: AppColors.muted))),
+    ];
+  }
 
   Widget _field(TextEditingController c, String hint, {TextInputType? keyboard}) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
