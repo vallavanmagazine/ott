@@ -20,16 +20,40 @@ export class SmsService {
     return { sent: true, channel };
   }
 
-  /** Send an OTP via the Fast2SMS DLT OTP route. Returns 'sms' or 'skipped'. */
+  /**
+   * Send an OTP via the Fast2SMS "otp" route (POST /dev/bulkV2, body
+   * { route: 'otp', variables_values, numbers }). The OTP route is Fast2SMS's
+   * built-in "Your OTP is {code}" sender — it does NOT use a DLT template, but
+   * it must be enabled on the account and requires wallet balance. If your
+   * account is DLT-only you'd instead need route:'dlt' with sender_id +
+   * approved message template id.
+   *
+   * On any non-success we surface the FULL Fast2SMS response body — that body
+   * carries the real reason (invalid key, insufficient balance, route not
+   * enabled, spam/DLT block, bad number), not the bare HTTP status.
+   */
   private async sendOtpSms(phone: string, code: string): Promise<'sms' | 'skipped'> {
     const key = await this.settings.get('FAST2SMS_API_KEY');
     if (!key) { this.log.warn(`[skip] FAST2SMS_API_KEY not set — would OTP ${phone}: ${code}`); return 'skipped'; }
+    const numbers = phone.replace(/\D/g, '').slice(-10);
     const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
       method: 'POST',
       headers: { authorization: key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ route: 'otp', variables_values: code, numbers: phone.replace(/\D/g, '').slice(-10) }),
+      body: JSON.stringify({ route: 'otp', variables_values: code, numbers }),
     });
-    if (!res.ok) throw new Error(`Fast2SMS failed: ${res.status}`);
+
+    const bodyText = await res.text();
+    let parsed: any; try { parsed = JSON.parse(bodyText); } catch { /* non-JSON body */ }
+    const failed = !res.ok || parsed?.return === false;
+    if (failed) {
+      // Full body so the real cause is visible in logs (route=otp helps triage).
+      this.log.error(`Fast2SMS OTP send FAILED (route=otp, http=${res.status}) to …${numbers.slice(-4)}: ${bodyText}`);
+      const reason = parsed?.message
+        ? (Array.isArray(parsed.message) ? parsed.message.join('; ') : String(parsed.message))
+        : bodyText;
+      throw new Error(`Fast2SMS OTP failed (${res.status}): ${reason}`);
+    }
+    this.log.log(`Fast2SMS OTP sent (route=otp) to …${numbers.slice(-4)}`);
     return 'sms';
   }
 
@@ -45,15 +69,26 @@ export class SmsService {
     return true;
   }
 
+  /** Generic transactional SMS via the Fast2SMS "q" (Quick) route. Surfaces the
+   *  full response body on failure, same as the OTP path. */
   async sendSms(phone: string, message: string) {
     const key = await this.settings.get('FAST2SMS_API_KEY');
     if (!key) { this.log.warn(`[skip] FAST2SMS_API_KEY not set — would SMS ${phone}: ${message}`); return { skipped: true }; }
+    const numbers = phone.replace(/\D/g, '').slice(-10);
     const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
       method: 'POST',
       headers: { authorization: key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ route: 'q', message, numbers: phone.replace(/\D/g, '').slice(-10) }),
+      body: JSON.stringify({ route: 'q', message, numbers }),
     });
-    if (!res.ok) throw new Error(`Fast2SMS failed: ${res.status}`);
-    return res.json();
+    const bodyText = await res.text();
+    let parsed: any; try { parsed = JSON.parse(bodyText); } catch { /* non-JSON body */ }
+    if (!res.ok || parsed?.return === false) {
+      this.log.error(`Fast2SMS SMS send FAILED (route=q, http=${res.status}) to …${numbers.slice(-4)}: ${bodyText}`);
+      const reason = parsed?.message
+        ? (Array.isArray(parsed.message) ? parsed.message.join('; ') : String(parsed.message))
+        : bodyText;
+      throw new Error(`Fast2SMS SMS failed (${res.status}): ${reason}`);
+    }
+    return parsed ?? { raw: bodyText };
   }
 }

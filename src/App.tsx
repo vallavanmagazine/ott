@@ -15,7 +15,6 @@ import { AboutScreen } from '@/screens/AboutScreen';
 import { WatchHistoryScreen } from '@/screens/WatchHistoryScreen';
 import { WatchLaterScreen } from '@/screens/WatchLaterScreen';
 import { SponsorPromoScreen } from '@/screens/business/SponsorPromoScreen';
-import { SponsorSignupScreen } from '@/screens/business/SponsorSignupScreen';
 import { RegisterScreen } from '@/screens/business/RegisterScreen';
 import { FreelancerCareerScreen } from '@/screens/business/FreelancerCareerScreen';
 import { DownloadAppScreen } from '@/screens/business/DownloadAppScreen';
@@ -94,8 +93,6 @@ function AppInner() {
         return <RegisterScreen role="sponsor" onBack={back} />;
       case 'freelancer-register':
         return <RegisterScreen role="freelancer" onBack={back} />;
-      case 'sponsor-signup':
-        return <SponsorSignupScreen onBack={back} />;
       case 'freelancer-career':
         return <FreelancerCareerScreen onBack={back} onApply={() => navigate('freelancer-register')} />;
       case 'ai-assistant':
