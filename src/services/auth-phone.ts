@@ -13,6 +13,7 @@
 import { supabase } from '@/lib/supabase';
 import { apiPost, hasBackend } from '@/lib/api';
 import { saveSession, type PhoneSession } from '@/services/session';
+import { normPhone, normEmail } from '@/lib/identity';
 
 const FAST2SMS_KEY = (import.meta.env.VITE_FAST2SMS_KEY as string | undefined)?.trim() || '';
 const RESEND_KEY = (import.meta.env.VITE_RESEND_KEY as string | undefined)?.trim() || '';
@@ -32,8 +33,6 @@ async function sha256Hex(s: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
-
-const normPhone = (p: string) => p.replace(/\D/g, '').slice(-10);
 
 export interface SendOtpResult { ok: boolean; testMode: boolean; testCode?: string; error?: string; }
 
@@ -66,9 +65,13 @@ export async function sendOTP(phone: string, purpose = 'register'): Promise<Send
   const code = testMode ? TEST_OTP : String(Math.floor(100000 + Math.random() * 900000));
   try {
     const code_hash = await sha256Hex(code);
-    await supabase.from('otp_verifications').insert({
+    const { error } = await supabase.from('otp_verifications').insert({
       phone: numbers, code_hash, purpose, expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(), consumed: false,
     });
+    if (error) {
+      console.error('[sendOTP] otp_verifications insert failed:', error);
+      return { ok: false, testMode, error: `Could not start verification: ${error.message}` };
+    }
   } catch (e) {
     return { ok: false, testMode, error: (e as Error).message };
   }
@@ -105,7 +108,10 @@ export async function verifyOTP(phone: string, code: string): Promise<boolean> {
     if (!data || data.consumed) return false;
     if (new Date(data.expires_at).getTime() < Date.now()) return false;
     if (data.code_hash !== (await sha256Hex(code.trim()))) return false;
-    await supabase.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    // The code was valid; if marking it consumed fails, still let the user in
+    // (rejecting a valid code would be worse) but surface the replay risk.
+    const { error } = await supabase.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    if (error) console.warn('[verifyOTP] could not mark OTP consumed (replay risk):', error);
     return true;
   } catch {
     return false;
@@ -118,7 +124,7 @@ export async function verifyOTP(phone: string, code: string): Promise<boolean> {
  */
 export async function sendEmailOTP(email: string, purpose = 'email_verify'): Promise<SendOtpResult> {
   if (!supabase) return { ok: false, testMode: false, error: 'Service not configured.' };
-  const e = email.trim().toLowerCase();
+  const e = normEmail(email);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return { ok: false, testMode: false, error: 'Please enter a valid email address.' };
 
   if (hasBackend()) {
@@ -138,9 +144,13 @@ export async function sendEmailOTP(email: string, purpose = 'email_verify'): Pro
   const code = TEST_OTP;
   try {
     const code_hash = await sha256Hex(code);
-    await supabase.from('otp_verifications').insert({
+    const { error } = await supabase.from('otp_verifications').insert({
       email: e, code_hash, purpose, expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(), consumed: false,
     });
+    if (error) {
+      console.error('[sendEmailOTP] otp_verifications insert failed:', error);
+      return { ok: false, testMode: true, error: `Could not start email verification: ${error.message}` };
+    }
   } catch (err) {
     return { ok: false, testMode: true, error: (err as Error).message };
   }
@@ -149,7 +159,7 @@ export async function sendEmailOTP(email: string, purpose = 'email_verify'): Pro
 
 /** Verify an EMAIL OTP. Backend when configured; else checks the table directly. */
 export async function verifyEmailOTP(email: string, code: string): Promise<boolean> {
-  const e = email.trim().toLowerCase();
+  const e = normEmail(email);
   if (hasBackend()) {
     try {
       const res = await apiPost<{ ok: boolean }>('/api/otp/verify-email', { email: e, code: code.trim() });
@@ -168,7 +178,8 @@ export async function verifyEmailOTP(email: string, code: string): Promise<boole
     if (!data || data.consumed) return false;
     if (new Date(data.expires_at).getTime() < Date.now()) return false;
     if (data.code_hash !== (await sha256Hex(code.trim()))) return false;
-    await supabase.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    const { error } = await supabase.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    if (error) console.warn('[verifyEmailOTP] could not mark OTP consumed (replay risk):', error);
     return true;
   } catch {
     return false;
@@ -182,14 +193,15 @@ export async function createSponsorAccount(input: AccountInput): Promise<PhoneSe
   const userId = uuid();
   const sponsorId = uuid();
   const phone = normPhone(input.phone);
-  const { error: uErr } = await supabase.from('app_users').insert({ id: userId, email: input.email, name: input.name, phone, role: 'Sponsor', status: 'Active' });
+  const email = normEmail(input.email);
+  const { error: uErr } = await supabase.from('app_users').insert({ id: userId, email, name: input.name, phone, role: 'Sponsor', status: 'Active' });
   if (uErr) throw describeInsertError('app_users', uErr);
-  const { error: sErr } = await supabase.from('sponsors').insert({ id: sponsorId, name: input.name, owner_name: input.name, email: input.email, phone, district: input.district, owner_id: userId, status: 'Pending' });
+  const { error: sErr } = await supabase.from('sponsors').insert({ id: sponsorId, name: input.name, owner_name: input.name, email, phone, district: input.district, owner_id: userId, status: 'Pending' });
   if (sErr) throw describeInsertError('sponsors', sErr);
 
-  const session: PhoneSession = { userId, name: input.name, phone, email: input.email, role: 'Sponsor', sponsorId };
+  const session: PhoneSession = { userId, name: input.name, phone, email, role: 'Sponsor', sponsorId };
   saveSession(session);
-  void sendWelcome(input.email, input.name, 'sponsor');
+  void sendWelcome(email, input.name, 'sponsor');
   return session;
 }
 
@@ -198,14 +210,15 @@ export async function createFreelancerAccount(input: AccountInput): Promise<Phon
   const userId = uuid();
   const freelancerId = uuid();
   const phone = normPhone(input.phone);
-  const { error: uErr } = await supabase.from('app_users').insert({ id: userId, email: input.email, name: input.name, phone, role: 'Freelancer', status: 'Active' });
+  const email = normEmail(input.email);
+  const { error: uErr } = await supabase.from('app_users').insert({ id: userId, email, name: input.name, phone, role: 'Freelancer', status: 'Active' });
   if (uErr) throw describeInsertError('app_users', uErr);
-  const { error: fErr } = await supabase.from('freelancers').insert({ id: freelancerId, user_id: userId, name: input.name, email: input.email, phone, district: input.district, roles: input.roles ?? [], status: 'pending' });
+  const { error: fErr } = await supabase.from('freelancers').insert({ id: freelancerId, user_id: userId, name: input.name, email, phone, district: input.district, roles: input.roles ?? [], status: 'pending' });
   if (fErr) throw describeInsertError('freelancers', fErr);
 
-  const session: PhoneSession = { userId, name: input.name, phone, email: input.email, role: 'Freelancer', freelancerId };
+  const session: PhoneSession = { userId, name: input.name, phone, email, role: 'Freelancer', freelancerId };
   saveSession(session);
-  void sendWelcome(input.email, input.name, 'freelancer');
+  void sendWelcome(email, input.name, 'freelancer');
   return session;
 }
 
@@ -214,7 +227,13 @@ export async function loginLookup(phone: string): Promise<PhoneSession | null> {
   if (!supabase) return null;
   const numbers = normPhone(phone);
   const { data, error } = await supabase.rpc('find_user_by_phone', { p: numbers });
-  if (error || !data || (Array.isArray(data) && data.length === 0)) return null;
+  // Distinguish a real RPC failure (missing function, RLS, bad grant) from a
+  // genuine "no account" so a broken lookup isn't silently read as "not found".
+  if (error) {
+    console.error('[loginLookup] find_user_by_phone RPC failed:', error);
+    return null;
+  }
+  if (!data || (Array.isArray(data) && data.length === 0)) return null;
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return null;
   const session: PhoneSession = {

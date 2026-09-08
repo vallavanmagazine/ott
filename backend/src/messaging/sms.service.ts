@@ -21,16 +21,21 @@ export class SmsService {
 
   private hash(code: string) { return crypto.createHash('sha256').update(code).digest('hex'); }
   private genCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
+  /** Canonical phone form (bare 10-digit) used for BOTH storing and verifying. */
+  private normPhone(phone: string) { return (phone ?? '').replace(/\D/g, '').slice(-10); }
 
   // ===========================================================================
   // PHONE OTP
   // ===========================================================================
   async sendOtp(phone: string, purpose = 'sponsor_login') {
+    const norm = this.normPhone(phone);
     const code = this.genCode();
     const expires = new Date(Date.now() + OTP_TTL_MS).toISOString();
-    const { error } = await this.supa.client.from('otp_verifications').insert({ phone, code_hash: this.hash(code), purpose, expires_at: expires });
+    // Store the canonical bare-10 phone so verifyOtp's lookup matches regardless
+    // of how the caller formatted it (+91 / spaces / leading 0).
+    const { error } = await this.supa.client.from('otp_verifications').insert({ phone: norm, code_hash: this.hash(code), purpose, expires_at: expires });
     if (error) throw new Error(`Could not store OTP: ${error.message}`);
-    const channel = await this.sendOtpSms(phone, code);
+    const channel = await this.sendOtpSms(norm, code);
     // channel: 'sms' when Fast2SMS delivered, 'skipped' when key not configured
     return { sent: true, channel };
   }
@@ -53,14 +58,18 @@ export class SmsService {
   }
 
   async verifyOtp(phone: string, code: string): Promise<boolean> {
+    const norm = this.normPhone(phone);
     const { data } = await this.supa.client
       .from('otp_verifications')
       .select('id, code_hash, expires_at, consumed')
-      .eq('phone', phone).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      .eq('phone', norm).order('created_at', { ascending: false }).limit(1).maybeSingle();
     if (!data || data.consumed) return false;
     if (new Date(data.expires_at).getTime() < Date.now()) return false;
     if (data.code_hash !== this.hash(code)) return false;
-    await this.supa.client.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    // Code was valid; still let the user in if marking consumed fails, but log
+    // the replay risk instead of swallowing it.
+    const { error } = await this.supa.client.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    if (error) this.log.warn(`Could not mark phone OTP consumed (replay risk) id=${data.id}: ${error.message}`);
     return true;
   }
 
@@ -93,7 +102,8 @@ export class SmsService {
     if (!data || data.consumed) return false;
     if (new Date(data.expires_at).getTime() < Date.now()) return false;
     if (data.code_hash !== this.hash(code)) return false;
-    await this.supa.client.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    const { error } = await this.supa.client.from('otp_verifications').update({ consumed: true }).eq('id', data.id);
+    if (error) this.log.warn(`Could not mark email OTP consumed (replay risk) id=${data.id}: ${error.message}`);
     return true;
   }
 

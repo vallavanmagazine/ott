@@ -56,12 +56,17 @@ export class WalletService {
       .select('id').eq('kind', kind).eq('reference', reference).maybeSingle();
     if (existing) return;
 
-    await c.from('wallet_transactions').insert({ sponsor_id: sponsorId, amount_paise: amountPaise, kind, reference });
+    // Ledger first. If this fails we must NOT touch the balance — surface it.
+    const { error: txnErr } = await c.from('wallet_transactions').insert({ sponsor_id: sponsorId, amount_paise: amountPaise, kind, reference });
+    if (txnErr) throw new BadRequestException(`Wallet ledger write failed (${kind}): ${txnErr.message}`);
     const current = await this.balancePaise(sponsorId);
-    await c.from('wallets').upsert(
+    // Balance must stay in step with the ledger row just written — a swallowed
+    // failure here would leave the transaction recorded but the balance stale.
+    const { error: balErr } = await c.from('wallets').upsert(
       { sponsor_id: sponsorId, balance_paise: current + amountPaise, updated_at: new Date().toISOString() },
       { onConflict: 'sponsor_id' },
     );
+    if (balErr) throw new BadRequestException(`Wallet balance update failed (${kind}): ${balErr.message}`);
   }
 
   async balancePaise(sponsorId: string): Promise<number> {
@@ -105,7 +110,8 @@ export class WalletService {
 
       const balance = await this.balancePaise(camp.sponsor_id);
       if (balance < cost) {
-        await c.from('campaigns').update({ status: 'Paused' }).eq('id', camp.id);
+        const { error: pauseErr } = await c.from('campaigns').update({ status: 'Paused' }).eq('id', camp.id);
+        if (pauseErr) throw new BadRequestException(`Could not auto-pause campaign ${camp.id}: ${pauseErr.message}`);
         result.paused.push(camp.name ?? camp.id);
         continue;
       }

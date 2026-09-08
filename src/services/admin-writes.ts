@@ -8,6 +8,7 @@
  */
 import { supabase } from '@/lib/supabase';
 import { toEmbedUrl } from '@/lib/video';
+import { normPhone, normEmail } from '@/lib/identity';
 
 function client() {
   if (!supabase) throw new Error('Supabase is not configured (.env missing).');
@@ -499,8 +500,10 @@ export interface SponsorInput {
 function sponsorToRow(input: Partial<SponsorInput>): Record<string, unknown> {
   const row: Record<string, unknown> = {};
   if (input.name !== undefined) row.name = input.name;
-  if (input.email !== undefined) row.email = input.email;
-  if (input.phone !== undefined) row.phone = input.phone;
+  // Normalize identity fields so admin-created/edited sponsors match the same
+  // canonical form used at registration and in phone/email lookups.
+  if (input.email !== undefined) row.email = input.email === null ? null : normEmail(input.email);
+  if (input.phone !== undefined) row.phone = input.phone === null ? null : normPhone(input.phone);
   if (input.ownerName !== undefined) row.owner_name = input.ownerName;
   if (input.businessType !== undefined) row.business_type = input.businessType;
   if (input.gstNumber !== undefined) row.gst_number = input.gstNumber;

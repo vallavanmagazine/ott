@@ -5,6 +5,7 @@
 import { supabase } from '@/lib/supabase';
 import { logAudit } from '@/services/admin-writes';
 import { formatDate } from '@/lib/transforms';
+import { normPhone, normEmail } from '@/lib/identity';
 
 export const FREELANCER_ROLES = ['Reporter', 'Anchor', 'Writer', 'Visual Editor', 'Program Producer', 'Telecaller', 'Field Executive'];
 /** Ad-marketing roles (sell ads, create campaigns + payment links on behalf of sponsors). */
@@ -25,7 +26,7 @@ export async function applyFreelancer(input: FreelancerApplicationInput) {
     userId = u.data?.id ?? null;
   }
   const { error } = await supabase.from('freelancers').insert({
-    user_id: userId, name: input.name, phone: input.phone, email: input.email, district: input.district,
+    user_id: userId, name: input.name, phone: normPhone(input.phone), email: normEmail(input.email), district: input.district,
     roles: input.roles, experience_years: input.experienceYears, portfolio_url: input.portfolioUrl ?? null,
     showreel_url: input.showreelUrl ?? null, resume_url: input.resumeUrl ?? null, status: 'pending',
   });

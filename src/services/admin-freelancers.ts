@@ -213,7 +213,8 @@ export async function assignFreelancer(input: {
     status: 'assigned',
   });
   if (error) throw error;
-  await client().from('freelancer_tasks').update({ status: 'assigned' }).eq('id', input.taskId);
+  const { error: taskErr } = await client().from('freelancer_tasks').update({ status: 'assigned' }).eq('id', input.taskId);
+  if (taskErr) throw taskErr;
   await logAudit(`Assigned ${input.freelancerName ?? input.freelancerId} to "${input.taskTitle ?? input.taskId}" as ${input.role}`);
 }
 
@@ -255,14 +256,17 @@ export async function releasePayment(a: AdminAssignmentRow) {
   if (error) throw error;
 
   // Matched by assignment_id so two equal-value pending payouts can't be confused.
-  await db.from('freelancer_earnings')
+  const { error: earnErr } = await db.from('freelancer_earnings')
     .update({ status: 'paid', paid_at: now })
     .eq('assignment_id', a.id)
     .eq('status', 'pending');
+  if (earnErr) throw earnErr;
 
-  const { data: f } = await db.from('freelancers').select('total_earned_paise').eq('id', a.freelancerId).maybeSingle();
+  const { data: f, error: readErr } = await db.from('freelancers').select('total_earned_paise').eq('id', a.freelancerId).maybeSingle();
+  if (readErr) throw readErr;
   const nextTotal = Number((f as any)?.total_earned_paise || 0) + Math.round(a.payRupees * 100);
-  await db.from('freelancers').update({ total_earned_paise: nextTotal }).eq('id', a.freelancerId);
+  const { error: rosterErr } = await db.from('freelancers').update({ total_earned_paise: nextTotal }).eq('id', a.freelancerId);
+  if (rosterErr) throw rosterErr;
 
   await logAudit(`Released ₹${a.payRupees.toLocaleString('en-IN')} to ${a.freelancerName} for "${a.taskTitle}"`);
 }
@@ -308,9 +312,11 @@ export async function markEarningPaid(row: AdminEarningRow) {
     .eq('id', row.id);
   if (error) throw error;
 
-  const { data: f } = await db.from('freelancers').select('total_earned_paise').eq('id', row.freelancerId).maybeSingle();
+  const { data: f, error: readErr } = await db.from('freelancers').select('total_earned_paise').eq('id', row.freelancerId).maybeSingle();
+  if (readErr) throw readErr;
   const nextTotal = Number((f as any)?.total_earned_paise || 0) + Math.round(row.amountRupees * 100);
-  await db.from('freelancers').update({ total_earned_paise: nextTotal }).eq('id', row.freelancerId);
+  const { error: rosterErr } = await db.from('freelancers').update({ total_earned_paise: nextTotal }).eq('id', row.freelancerId);
+  if (rosterErr) throw rosterErr;
 
   await logAudit(`Paid ₹${row.amountRupees.toLocaleString('en-IN')} to ${row.freelancerName}`);
 }

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { SupabaseService } from '../common/supabase.service';
 import { SettingsService } from '../common/settings.service';
 
@@ -9,6 +9,7 @@ import { SettingsService } from '../common/settings.service';
  */
 @Injectable()
 export class PaymentsService {
+  private log = new Logger('PaymentsService');
   constructor(private readonly supa: SupabaseService, private readonly settings: SettingsService) {}
 
   async createLink(input: { sponsorId?: string; amountRupees: number; purpose?: string; name?: string; email?: string; contact?: string }) {
@@ -33,13 +34,14 @@ export class PaymentsService {
     if (!res.ok) throw new BadRequestException(`Razorpay payment link failed: ${res.status}`);
     const j: any = await res.json();
 
-    try {
-      await this.supa.client.from('payment_links').insert({
-        sponsor_id: input.sponsorId ?? null, amount_paise: amount, razorpay_link_id: j.id,
-        razorpay_short_url: j.short_url, purpose: input.purpose ?? 'wallet_topup', status: 'created',
-        expires_at: new Date(expireBy * 1000).toISOString(),
-      });
-    } catch { /* best-effort persistence */ }
+    // Best-effort persistence (the link is already live at Razorpay), but a
+    // failure here means the webhook can't reconcile it later — log it loudly.
+    const { error: persistErr } = await this.supa.client.from('payment_links').insert({
+      sponsor_id: input.sponsorId ?? null, amount_paise: amount, razorpay_link_id: j.id,
+      razorpay_short_url: j.short_url, purpose: input.purpose ?? 'wallet_topup', status: 'created',
+      expires_at: new Date(expireBy * 1000).toISOString(),
+    });
+    if (persistErr) this.log.error(`payment_links insert failed for ${j.id} (webhook cannot reconcile later): ${persistErr.message}`);
 
     return { id: j.id, shortUrl: j.short_url };
   }
@@ -48,9 +50,11 @@ export class PaymentsService {
   async handleWebhook(body: any) {
     const entity = body?.payload?.payment_link?.entity;
     if (!entity) return { ok: true };
-    try {
-      await this.supa.client.from('payment_links').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('razorpay_link_id', entity.id);
-    } catch { /* ignore */ }
+    // A swallowed failure here silently drops a paid top-up. Surface it in logs
+    // (we still return ok to avoid a Razorpay retry storm — the log is the
+    // reconciliation signal, and status stays 'created' for manual follow-up).
+    const { error } = await this.supa.client.from('payment_links').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('razorpay_link_id', entity.id);
+    if (error) this.log.error(`Webhook: could not mark payment_link ${entity.id} paid — top-up unreconciled: ${error.message}`);
     return { ok: true };
   }
 }

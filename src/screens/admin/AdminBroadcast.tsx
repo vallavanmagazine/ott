@@ -134,7 +134,8 @@ export function AdminBroadcast() {
   const deleteRss = async (feed: RssFeed) => {
     if (!supabase) return;
     try {
-      await supabase.from('rss_feeds').delete().eq('id', feed.id);
+      const { error } = await supabase.from('rss_feeds').delete().eq('id', feed.id);
+      if (error) throw error;
       await logAudit(`Removed RSS feed ${feed.name}`);
       await loadRss();
       toast.success('Feed removed');

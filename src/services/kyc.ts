@@ -6,6 +6,7 @@
 import { apiPost, hasBackend } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { logAudit } from '@/services/admin-writes';
+import { normPhone, normEmail } from '@/lib/identity';
 
 export interface KycInput {
   businessName: string;
@@ -39,13 +40,14 @@ export async function registerSponsorKyc(input: KycInput) {
   const { data: userRes } = await supabase.auth.getUser();
   const ownerId = userRes.user?.id ?? null;
 
-  const existing = await supabase.from('sponsors').select('id').ilike('email', input.email).maybeSingle();
+  const email = normEmail(input.email);
+  const existing = await supabase.from('sponsors').select('id').ilike('email', email).maybeSingle();
 
   const payload = {
     name: input.businessName,
     owner_name: input.ownerName,
-    email: input.email,
-    phone: input.phone,
+    email,
+    phone: normPhone(input.phone),
     business_type: input.businessType ?? null,
     district: input.district ?? null,
     gst_number: input.gstNumber ?? null,
