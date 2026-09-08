@@ -13,9 +13,15 @@ class Env {
 
   static const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-  /// Optional NestJS backend (payment verification, OTP relay, AI proxy).
-  /// Empty → the app falls back to the client-side paths below.
-  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+  /// NestJS backend origin (OTP, payments, AI, notifications). Paths add the
+  /// `/api/...` prefix, so this is the ORIGIN only (no trailing `/api`). All
+  /// OTP operations MUST go through here — the backend uses the service-role
+  /// key and is the only writer allowed on otp_verifications by RLS. Override
+  /// per-build with `--dart-define=API_BASE_URL=https://staging.example.com`.
+  static const apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'https://vallavan.in',
+  );
 
   /// Public site URL. Not a secret and not an API endpoint — it is sent as the
   /// `Referer` when fetching Bunny-hosted video (see utils/video.dart

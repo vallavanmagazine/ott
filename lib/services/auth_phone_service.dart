@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/env.dart';
@@ -25,15 +24,14 @@ class SendOtpResult {
   const SendOtpResult(this.ok, {this.testMode = false, this.testCode, this.error});
 }
 
-/// Phone + OTP auth (NO Supabase Auth). Fast2SMS from the client (DEV — key via
-/// --dart-define=FAST2SMS_KEY). No key → test OTP 123456. Supabase Auth stays
-/// for admin only.
+/// Phone + email OTP auth (NO Supabase Auth). ALL OTP operations route through
+/// the NestJS backend (`Env.apiBaseUrl` + `/api/otp/*`), which uses the
+/// service-role key server-side. The client never writes otp_verifications
+/// directly — RLS correctly blocks the anon key from that table. Supabase Auth
+/// stays for admin login only.
 class AuthPhone {
   static const _key = 'vallavan_session';
-  static const _testOtp = '123456';
   static PhoneSession? _cached;
-
-  static bool get fast2smsConfigured => Env.fast2smsConfigured;
 
   // --- session ---
   static Future<PhoneSession?> currentSession() async {
@@ -61,139 +59,65 @@ class AuthPhone {
 
   // --- helpers ---
   static String _norm(String p) { final d = p.replaceAll(RegExp(r'\D'), ''); return d.length > 10 ? d.substring(d.length - 10) : d; }
-  static String _hash(String s) => sha256.convert(utf8.encode(s)).toString();
   static String _uuid() {
     final r = Random.secure();
     String h(int n) => List.generate(n, (_) => r.nextInt(16).toRadixString(16)).join();
     return '${h(8)}-${h(4)}-4${h(3)}-${(8 + r.nextInt(4)).toRadixString(16)}${h(3)}-${h(12)}';
   }
 
-  // --- OTP ---
-  /// Prefer the backend (holds Fast2SMS key, actually delivers SMS). Falls back
-  /// to a client-side path (direct Fast2SMS if FAST2SMS_KEY set, else test OTP).
+  // --- OTP (backend-only; never writes otp_verifications with the anon key) ---
   static Future<SendOtpResult> sendOtp(String phone, {String purpose = 'register'}) async {
-    final c = Db.client;
-    if (c == null) return const SendOtpResult(false, error: 'Service not configured.');
     final numbers = _norm(phone);
     if (numbers.length < 10) return const SendOtpResult(false, error: 'Please enter a valid 10-digit mobile number.');
-
-    if (Env.hasBackend) {
-      try {
-        final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/send'),
-          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'phone': numbers}));
-        if (res.statusCode < 200 || res.statusCode >= 300) return SendOtpResult(false, error: 'OTP service error (${res.statusCode}).');
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-        if (body['channel'] == 'skipped') return const SendOtpResult(false, error: 'SMS not configured on the server. Add FAST2SMS_API_KEY in Admin → API Settings.');
-        return const SendOtpResult(true);
-      } catch (e) {
-        return SendOtpResult(false, error: e.toString());
-      }
-    }
-
-    final testMode = !Env.fast2smsConfigured;
-    final code = testMode ? _testOtp : (100000 + Random.secure().nextInt(900000)).toString();
     try {
-      await c.from('otp_verifications').insert({
-        'phone': numbers, 'code_hash': _hash(code), 'purpose': purpose,
-        'expires_at': DateTime.now().add(const Duration(minutes: 5)).toIso8601String(), 'consumed': false,
-      });
-    } catch (e) {
-      return SendOtpResult(false, testMode: testMode, error: e.toString());
-    }
-
-    if (!testMode) {
-      try {
-        await http.post(Uri.parse('https://www.fast2sms.com/dev/bulkV2'),
-          headers: {'authorization': Env.fast2smsKey, 'Content-Type': 'application/json'},
-          body: jsonEncode({'route': 'otp', 'variables_values': code, 'numbers': numbers}));
-      } catch (_) { /* OTP stored regardless */ }
+      final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/send'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode({'phone': numbers}));
+      if (res.statusCode < 200 || res.statusCode >= 300) return SendOtpResult(false, error: 'OTP service error (${res.statusCode}).');
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (body['channel'] == 'skipped') return const SendOtpResult(false, error: 'SMS not configured on the server. Add FAST2SMS_API_KEY in Admin → API Settings.');
       return const SendOtpResult(true);
+    } catch (e) {
+      return SendOtpResult(false, error: 'Could not reach the OTP service. $e');
     }
-    return SendOtpResult(true, testMode: true, testCode: code);
   }
 
   static Future<bool> verifyOtp(String phone, String code) async {
-    final c = Db.client;
     final numbers = _norm(phone);
-    if (Env.hasBackend) {
-      try {
-        final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/verify'),
-          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'phone': numbers, 'code': code.trim()}));
-        if (res.statusCode < 200 || res.statusCode >= 300) return false;
-        return (jsonDecode(res.body) as Map<String, dynamic>)['ok'] == true;
-      } catch (_) {
-        return false;
-      }
-    }
-    if (c == null) return false;
     try {
-      final data = await c.from('otp_verifications').select('id, code_hash, expires_at, consumed')
-          .eq('phone', numbers).order('created_at', ascending: false).limit(1).maybeSingle();
-      if (data == null || data['consumed'] == true) return false;
-      if (DateTime.parse(data['expires_at']).isBefore(DateTime.now())) return false;
-      if (data['code_hash'] != _hash(code.trim())) return false;
-      await c.from('otp_verifications').update({'consumed': true}).eq('id', data['id']);
-      return true;
+      final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/verify'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode({'phone': numbers, 'code': code.trim()}));
+      if (res.statusCode < 200 || res.statusCode >= 300) return false;
+      return (jsonDecode(res.body) as Map<String, dynamic>)['ok'] == true;
     } catch (_) {
       return false;
     }
   }
 
-  // --- EMAIL OTP (mirrors phone; backend Resend, or dev test code) ---
+  // --- EMAIL OTP (backend-only, via Resend) ---
   static Future<SendOtpResult> sendEmailOtp(String email, {String purpose = 'email_verify'}) async {
-    final c = Db.client;
-    if (c == null) return const SendOtpResult(false, error: 'Service not configured.');
     final e = email.trim().toLowerCase();
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(e)) {
       return const SendOtpResult(false, error: 'Please enter a valid email address.');
     }
-    if (Env.hasBackend) {
-      try {
-        final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/send-email'),
-          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': e}));
-        if (res.statusCode < 200 || res.statusCode >= 300) return SendOtpResult(false, error: 'Email OTP error (${res.statusCode}).');
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-        if (body['channel'] == 'skipped') return const SendOtpResult(false, error: 'Email not configured on the server. Add RESEND_API_KEY in Admin → API Settings.');
-        return const SendOtpResult(true);
-      } catch (err) {
-        return SendOtpResult(false, error: err.toString());
-      }
-    }
-    // Dev fallback: store + surface a test code (email can't be sent client-side).
-    const code = _testOtp;
     try {
-      await c.from('otp_verifications').insert({
-        'email': e, 'code_hash': _hash(code), 'purpose': purpose,
-        'expires_at': DateTime.now().add(const Duration(minutes: 15)).toIso8601String(), 'consumed': false,
-      });
+      final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/send-email'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': e}));
+      if (res.statusCode < 200 || res.statusCode >= 300) return SendOtpResult(false, error: 'Email OTP error (${res.statusCode}).');
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (body['channel'] == 'skipped') return const SendOtpResult(false, error: 'Email not configured on the server. Add RESEND_API_KEY in Admin → API Settings.');
+      return const SendOtpResult(true);
     } catch (err) {
-      return SendOtpResult(false, testMode: true, error: err.toString());
+      return SendOtpResult(false, error: 'Could not reach the email OTP service. $err');
     }
-    return const SendOtpResult(true, testMode: true, testCode: code);
   }
 
   static Future<bool> verifyEmailOtp(String email, String code) async {
-    final c = Db.client;
     final e = email.trim().toLowerCase();
-    if (Env.hasBackend) {
-      try {
-        final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/verify-email'),
-          headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': e, 'code': code.trim()}));
-        if (res.statusCode < 200 || res.statusCode >= 300) return false;
-        return (jsonDecode(res.body) as Map<String, dynamic>)['ok'] == true;
-      } catch (_) {
-        return false;
-      }
-    }
-    if (c == null) return false;
     try {
-      final data = await c.from('otp_verifications').select('id, code_hash, expires_at, consumed')
-          .eq('email', e).eq('purpose', 'email_verify').order('created_at', ascending: false).limit(1).maybeSingle();
-      if (data == null || data['consumed'] == true) return false;
-      if (DateTime.parse(data['expires_at']).isBefore(DateTime.now())) return false;
-      if (data['code_hash'] != _hash(code.trim())) return false;
-      await c.from('otp_verifications').update({'consumed': true}).eq('id', data['id']);
-      return true;
+      final res = await http.post(Uri.parse('${Env.apiBaseUrl}/api/otp/verify-email'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': e, 'code': code.trim()}));
+      if (res.statusCode < 200 || res.statusCode >= 300) return false;
+      return (jsonDecode(res.body) as Map<String, dynamic>)['ok'] == true;
     } catch (_) {
       return false;
     }
@@ -244,16 +168,11 @@ class AuthPhone {
     }
   }
 
+  /// Best-effort welcome email via the backend (Resend server-side). Never throws.
   static Future<void> _welcome(String email, String name, [String role = 'member']) async {
-    if (!Env.hasBackend && Env.resendKey.isEmpty) return;
     try {
-      if (Env.hasBackend) {
-        await http.post(Uri.parse('${Env.apiBaseUrl}/api/notify/welcome'), headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': email, 'name': name, 'role': role}));
-      } else {
-        await http.post(Uri.parse('https://api.resend.com/emails'),
-          headers: {'Authorization': 'Bearer ${Env.resendKey}', 'Content-Type': 'application/json'},
-          body: jsonEncode({'from': 'Vallavan <noreply@vallavan.in>', 'to': email, 'subject': 'Welcome to Vallavan', 'html': '<p>Vanakkam $name,</p><p>Welcome to Vallavan.</p>'}));
-      }
+      await http.post(Uri.parse('${Env.apiBaseUrl}/api/notify/welcome'),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode({'email': email, 'name': name, 'role': role}));
     } catch (_) { /* ignore */ }
   }
 }

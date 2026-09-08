@@ -50,7 +50,6 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   List<FeedReel> _reels = [];
   List<AdContent> _ads = [];
-  String _query = '';
   int _active = 0;
   bool _muted = true;
   bool _loading = true;
@@ -115,12 +114,9 @@ class _FeedScreenState extends State<FeedScreen> {
   /// The strip overlay is now only where an admin asked for one — it used to
   /// also fire every third reel, which is what made ads look pinned to the top.
   List<_Item> _buildItems() {
-    final q = _query.trim().toLowerCase();
-    final reels = q.isEmpty
-        ? _reels
-        : _reels
-            .where((r) => r.title.toLowerCase().contains(q) || r.titleTa.toLowerCase().contains(q))
-            .toList();
+    // No search here — text search lives in the dedicated Search tab, matching
+    // the web Feed (which has no search bar). Feed is latest-first reels.
+    final reels = _reels;
 
     final items = <_Item>[];
     var adCursor = 0;
@@ -135,14 +131,6 @@ class _FeedScreenState extends State<FeedScreen> {
       }
     }
     return items;
-  }
-
-  void _onSearch(String v) {
-    setState(() {
-      _query = v;
-      _active = 0;
-    });
-    if (_controller.hasClients) _controller.jumpToPage(0);
   }
 
   @override
@@ -168,9 +156,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         'Rebuild with '
                         '--dart-define-from-file=dart_defines.json '
                         '(see dart_defines.example.json).'
-                    : _query.isEmpty
-                        ? 'Nothing here yet'
-                        : 'No matches',
+                    : 'Nothing here yet',
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: AppColors.muted),
               ),
@@ -198,39 +184,6 @@ class _FeedScreenState extends State<FeedScreen> {
               );
             },
           ),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-            child: Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: Row(children: [
-                const Icon(Icons.search, size: 16, color: Colors.white60),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    onChanged: _onSearch,
-                    style: const TextStyle(color: Colors.white, fontSize: 13),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: 'Search reels...',
-                      hintStyle: TextStyle(color: Colors.white54),
-                    ),
-                  ),
-                ),
-              ]),
-            ),
-          ),
-        ),
       ]),
     );
   }
