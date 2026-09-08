@@ -87,9 +87,61 @@ class SponsorService {
     try {
       final data =
           await c.from('campaigns').select().eq('sponsor_id', id).order('created_at', ascending: false);
-      return (data as List).map((r) => Campaign.fromMap(r as Map<String, dynamic>)).toList();
+      final rows = (data as List).cast<Map<String, dynamic>>();
+
+      // Impressions/clicks are computed LIVE from ad_events — the single source
+      // of truth. campaigns.impressions/clicks is never populated by anything,
+      // so reading it renders 0. We overlay the real counts onto each row
+      // before mapping (Campaign.fromMap reads r['impressions']/r['clicks']),
+      // which fixes both the dashboard overview tiles and the "By Campaign"
+      // bars with no widget changes. Same approach as fetchGeoBreakdown, keyed
+      // by campaign instead of district. If a campaign has no events (or the
+      // events read fails), its stored column value is left untouched.
+      final metrics = await _campaignMetrics(rows.map((r) => r['id'].toString()).toList());
+      for (final r in rows) {
+        final m = metrics[r['id'].toString()];
+        if (m != null) {
+          r['impressions'] = m.impressions;
+          r['clicks'] = m.clicks;
+        }
+      }
+      return rows.map(Campaign.fromMap).toList();
     } catch (_) {
       return const [];
+    }
+  }
+
+  /// Per-campaign impression/click tallies computed live from ad_events.
+  ///
+  /// PostgREST has no GROUP BY, so we group client-side over the sponsor's
+  /// events — the same technique used by [fetchGeoBreakdown] and the web admin
+  /// analytics. Impressions are every non-'click' event (kind='impression').
+  /// Returns an empty map (never throws) so callers degrade to stored values.
+  static Future<Map<String, ({int impressions, int clicks})>> _campaignMetrics(
+      List<String> campaignIds) async {
+    final c = Db.client;
+    if (c == null || campaignIds.isEmpty) return const {};
+    try {
+      final events =
+          await c.from('ad_events').select('campaign_id, kind').inFilter('campaign_id', campaignIds);
+      final imp = <String, int>{};
+      final clk = <String, int>{};
+      for (final e in events as List) {
+        final cid = e['campaign_id']?.toString();
+        if (cid == null) continue;
+        if (e['kind'] == 'click') {
+          clk[cid] = (clk[cid] ?? 0) + 1;
+        } else {
+          imp[cid] = (imp[cid] ?? 0) + 1;
+        }
+      }
+      final out = <String, ({int impressions, int clicks})>{};
+      for (final cid in {...imp.keys, ...clk.keys}) {
+        out[cid] = (impressions: imp[cid] ?? 0, clicks: clk[cid] ?? 0);
+      }
+      return out;
+    } catch (_) {
+      return const {};
     }
   }
 
