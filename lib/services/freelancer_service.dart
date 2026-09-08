@@ -1,4 +1,5 @@
 import '../utils/video.dart';
+import '../utils/identity.dart';
 import 'supabase_client.dart';
 import 'auth_phone_service.dart';
 
@@ -56,8 +57,8 @@ class FreelancerService {
     try {
       await c.from('freelancers').insert({
         'name': name.trim(),
-        'email': email.trim(),
-        'phone': phone.trim(),
+        'email': normEmail(email),
+        'phone': normPhone(phone),
         'roles': selectedRoles,
         'district': district,
         'experience_years': experienceYears,
@@ -235,7 +236,7 @@ class FreelancerService {
     try {
       await c.from('freelancers').update({
         'name': name.trim(),
-        'email': email.trim(),
+        'email': normEmail(email),
         'district': district,
         'roles': roles,
         'portfolio_url': portfolioUrl,

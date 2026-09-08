@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/env.dart';
+import '../utils/identity.dart' as identity;
 import 'supabase_client.dart';
 
 /// Phone-OTP session (sponsor/freelancer). Stored in SharedPreferences.
@@ -58,7 +60,7 @@ class AuthPhone {
   }
 
   // --- helpers ---
-  static String _norm(String p) { final d = p.replaceAll(RegExp(r'\D'), ''); return d.length > 10 ? d.substring(d.length - 10) : d; }
+  static String _norm(String p) => identity.normPhone(p);
   static String _uuid() {
     final r = Random.secure();
     String h(int n) => List.generate(n, (_) => r.nextInt(16).toRadixString(16)).join();
@@ -127,22 +129,22 @@ class AuthPhone {
   static Future<PhoneSession> createSponsor({required String name, required String phone, required String email, required String district}) async {
     final c = Db.client;
     if (c == null) throw Exception('Service not configured.');
-    final userId = _uuid(); final sponsorId = _uuid(); final p = _norm(phone);
-    await c.from('app_users').insert({'id': userId, 'email': email, 'name': name, 'phone': p, 'role': 'Sponsor', 'status': 'Active'});
-    await c.from('sponsors').insert({'id': sponsorId, 'name': name, 'owner_name': name, 'email': email, 'phone': p, 'district': district, 'owner_id': userId, 'status': 'Pending'});
-    final s = PhoneSession(userId: userId, name: name, phone: p, email: email, role: 'Sponsor', sponsorId: sponsorId);
-    await _save(s); _welcome(email, name, 'sponsor');
+    final userId = _uuid(); final sponsorId = _uuid(); final p = _norm(phone); final em = identity.normEmail(email);
+    await c.from('app_users').insert({'id': userId, 'email': em, 'name': name, 'phone': p, 'role': 'Sponsor', 'status': 'Active'});
+    await c.from('sponsors').insert({'id': sponsorId, 'name': name, 'owner_name': name, 'email': em, 'phone': p, 'district': district, 'owner_id': userId, 'status': 'Pending'});
+    final s = PhoneSession(userId: userId, name: name, phone: p, email: em, role: 'Sponsor', sponsorId: sponsorId);
+    await _save(s); _welcome(em, name, 'sponsor');
     return s;
   }
 
   static Future<PhoneSession> createFreelancer({required String name, required String phone, required String email, required String district, List<String> roles = const []}) async {
     final c = Db.client;
     if (c == null) throw Exception('Service not configured.');
-    final userId = _uuid(); final freelancerId = _uuid(); final p = _norm(phone);
-    await c.from('app_users').insert({'id': userId, 'email': email, 'name': name, 'phone': p, 'role': 'Freelancer', 'status': 'Active'});
-    await c.from('freelancers').insert({'id': freelancerId, 'user_id': userId, 'name': name, 'email': email, 'phone': p, 'district': district, 'roles': roles, 'status': 'pending'});
-    final s = PhoneSession(userId: userId, name: name, phone: p, email: email, role: 'Freelancer', freelancerId: freelancerId);
-    await _save(s); _welcome(email, name, 'freelancer');
+    final userId = _uuid(); final freelancerId = _uuid(); final p = _norm(phone); final em = identity.normEmail(email);
+    await c.from('app_users').insert({'id': userId, 'email': em, 'name': name, 'phone': p, 'role': 'Freelancer', 'status': 'Active'});
+    await c.from('freelancers').insert({'id': freelancerId, 'user_id': userId, 'name': name, 'email': em, 'phone': p, 'district': district, 'roles': roles, 'status': 'pending'});
+    final s = PhoneSession(userId: userId, name: name, phone: p, email: em, role: 'Freelancer', freelancerId: freelancerId);
+    await _save(s); _welcome(em, name, 'freelancer');
     return s;
   }
 
@@ -163,7 +165,10 @@ class AuthPhone {
       );
       await _save(s);
       return s;
-    } catch (_) {
+    } catch (e) {
+      // Distinguish a real RPC failure (missing function, RLS, bad grant) from a
+      // genuine "no account" — a broken lookup was previously silent.
+      debugPrint('[loginLookup] find_user_by_phone RPC failed: $e');
       return null;
     }
   }

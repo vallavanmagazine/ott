@@ -1,5 +1,6 @@
 import '../models/ad_content.dart';
 import '../models/campaign.dart';
+import '../utils/identity.dart';
 import 'auth_phone_service.dart';
 import 'supabase_client.dart';
 
@@ -53,18 +54,19 @@ class SponsorService {
         email.trim().isEmpty) {
       return 'Business name, owner, a valid phone, and email are required';
     }
+    final em = normEmail(email);
     final payload = {
       'name': businessName.trim(),
       'owner_name': ownerName.trim(),
-      'phone': phone.trim(),
-      'email': email.trim(),
+      'phone': normPhone(phone),
+      'email': em,
       'business_type': businessType,
       'district': district,
       'gst_number': (gstNumber != null && gstNumber.trim().isNotEmpty) ? gstNumber.trim() : null,
       'owner_id': c.auth.currentUser?.id,
     };
     try {
-      final existing = await c.from('sponsors').select('id').ilike('email', email.trim()).maybeSingle();
+      final existing = await c.from('sponsors').select('id').ilike('email', em).maybeSingle();
       if (existing != null && existing['id'] != null) {
         await c.from('sponsors').update(payload).eq('id', existing['id']);
       } else {
