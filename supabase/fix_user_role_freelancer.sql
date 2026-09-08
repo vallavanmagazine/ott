@@ -1,0 +1,24 @@
+-- ============================================================================
+-- VALLAVAN — add the missing 'Freelancer' label to the user_role enum.
+--
+-- Root cause of "invalid input value for enum user_role: freelancer":
+-- user_role was defined as ('Viewer','Sponsor','Creator','Admin') and never
+-- extended. The phone-auth freelancer signup writes app_users.role = 'Freelancer'
+-- (both web and Flutter, capitalized to match 'Sponsor'/'Admin'), but the label
+-- does not exist in the enum, so every freelancer insert is rejected. Sponsor
+-- and Admin work only because their labels happen to be present.
+--
+-- Fix: add the label. Capitalized 'Freelancer' to match the app and the other
+-- labels. find_user_by_phone already lower()s both sides, so its
+-- `in ('sponsor','freelancer')` comparison keeps matching.
+--
+-- Idempotent (ADD VALUE IF NOT EXISTS = no-op if the label already exists).
+--
+-- Run this as its OWN statement in the Supabase SQL Editor — NOT inside a
+-- BEGIN/COMMIT with anything that then uses the value. (ALTER TYPE ... ADD VALUE
+-- adds the label fine, but Postgres will not let the SAME transaction use a
+-- newly added enum value. On its own, as below, there is no issue.) It is
+-- deliberately NOT folded into apply_all_missing.sql for that reason.
+-- ============================================================================
+
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'Freelancer';

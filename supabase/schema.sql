@@ -21,7 +21,7 @@ create type content_status as enum ('Published','Draft');           -- documenta
 create type feed_status    as enum ('Published','Draft','Scheduled'); -- feed reels
 create type feed_content_type as enum ('News','Teaser','Short Story','Other');
 create type campaign_status as enum ('Draft','Pending Approval','Active','Paused','Ended');
-create type user_role      as enum ('Viewer','Sponsor','Creator','Admin');
+create type user_role      as enum ('Viewer','Sponsor','Creator','Admin','Freelancer');
 create type user_status    as enum ('Active','Suspended','Pending');
 create type sponsor_status as enum ('Active','Pending','Suspended');
 create type notification_type as enum ('episode','live','sponsor','system');
