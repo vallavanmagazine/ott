@@ -39,13 +39,13 @@ CREATE POLICY anon_create_freelancer ON freelancers FOR INSERT WITH CHECK (true)
 CREATE OR REPLACE FUNCTION find_user_by_phone(p text)
 RETURNS TABLE(id uuid, name text, email text, role text, phone text, sponsor_id uuid, freelancer_id uuid)
 LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
-  SELECT u.id, u.name, u.email, u.role, u.phone,
+  SELECT u.id, u.name, u.email, u.role::text, u.phone,
     (SELECT s.id FROM sponsors s WHERE s.owner_id = u.id OR lower(s.email) = lower(u.email) LIMIT 1),
     (SELECT f.id FROM freelancers f WHERE f.user_id = u.id OR lower(f.email) = lower(u.email) LIMIT 1)
   FROM app_users u
   WHERE right(regexp_replace(coalesce(u.phone, ''), '[^0-9]', '', 'g'), 10)
       = right(regexp_replace(coalesce(p, ''),        '[^0-9]', '', 'g'), 10)
-    AND lower(coalesce(u.role, '')) IN ('sponsor', 'freelancer')
+    AND lower(coalesce(u.role::text, '')) IN ('sponsor', 'freelancer')
   ORDER BY u.created_at DESC NULLS LAST
   LIMIT 1;
 $$;

@@ -35,13 +35,13 @@ update freelancers
 create or replace function find_user_by_phone(p text)
 returns table(id uuid, name text, email text, role text, phone text, sponsor_id uuid, freelancer_id uuid)
 language sql security definer set search_path = public as $$
-  select u.id, u.name, u.email, u.role, u.phone,
+  select u.id, u.name, u.email, u.role::text, u.phone,
     (select s.id from sponsors s where s.owner_id = u.id or lower(s.email) = lower(u.email) limit 1),
     (select f.id from freelancers f where f.user_id = u.id or lower(f.email) = lower(u.email) limit 1)
   from app_users u
   where right(regexp_replace(coalesce(u.phone, ''), '[^0-9]', '', 'g'), 10)
       = right(regexp_replace(coalesce(p, ''),        '[^0-9]', '', 'g'), 10)
-    and lower(coalesce(u.role, '')) in ('sponsor', 'freelancer')
+    and lower(coalesce(u.role::text, '')) in ('sponsor', 'freelancer')
   order by u.created_at desc nulls last
   limit 1;
 $$;
